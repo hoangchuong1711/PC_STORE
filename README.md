@@ -47,3 +47,64 @@ mvn -f backend/pom.xml clean verify -Pintegration-tests
 ```
 
 Lệnh này cần JDK 21 và Maven trên máy nếu chạy ngoài container. Test dùng PostgreSQL riêng, không thay đổi database của Compose.
+
+# Quy định đóng góp
+
+## 1. Nhánh
+
+- Không commit trực tiếp lên main hoặc master.
+- Trước khi bắt đầu, cập nhật nhánh gốc và tạo nhánh riêng.
+- Đặt tên nhánh theo định dạng:
+  <type>/<mo-ta-ngan>
+- Type hợp lệ: feat, fix, refactor, docs, test, chore.
+- Mô tả dùng tiếng Anh, chữ thường, phân cách bằng dấu gạch ngang.
+- Ví dụ:
+  feat/product-management
+  fix/login-session
+- Nếu có issue, thêm mã issue:
+  feat/123-product-management
+- Không ghi đè hoặc hoàn tác thay đổi của thành viên khác.
+
+## 2. Commit
+
+- Dùng định dạng:
+  <type>(<scope>): <description>
+- Type hợp lệ: feat, fix, refactor, docs, test, chore,
+  build, ci, perf, revert.
+- Scope có thể bỏ qua nếu không cần thiết.
+- Description dùng tiếng Anh, ngắn gọn, diễn đạt hành động,
+  không có dấu chấm cuối.
+- Ví dụ:
+  feat(product): add product search
+  fix(auth): handle expired sessions
+- Mỗi commit tập trung vào một mục đích.
+- Kiểm tra diff và các file đã stage trước khi commit.
+- Chạy build và các kiểm tra liên quan trước khi mở PR để review.
+- Không commit secrets, cấu hình thật trong .env, log,
+  file IDE cá nhân hoặc kết quả build.
+- Chỉ đưa giá trị mẫu vào .env.example.
+
+## 3. Pull request
+
+- Đưa thay đổi vào nhánh chính thông qua pull request.
+- Mỗi PR tập trung vào một tính năng hoặc vấn đề.
+- Mô tả PR phải có:
+  - Mục đích thay đổi.
+  - Nội dung chính.
+  - Cách kiểm thử và kết quả.
+  - Issue liên quan, nếu có.
+- Thêm ảnh trước/sau nếu thay đổi giao diện.
+- Có thể mở Draft PR khi công việc chưa hoàn tất.
+- Yêu cầu ít nhất một thành viên khác review trước khi merge.
+
+## 4. Merge và bảo vệ lịch sử
+
+- Chỉ merge khi đã được approve, các thảo luận đã giải quyết
+  và các kiểm tra CI bắt buộc đều đạt.
+- Dùng squash merge để gộp mỗi PR thành một commit rõ ràng.
+- Tiêu đề squash commit phải theo quy định commit.
+- Không force push lên main, master hoặc nhánh dùng chung.
+- Nếu cần viết lại lịch sử nhánh cá nhân đã push:
+  thông báo cho người đang phối hợp và dùng --force-with-lease.
+- Xóa nhánh tính năng sau khi PR đã merge và không còn ai sử dụng.
+- Không bỏ qua Git hooks hoặc CI để né lỗi.

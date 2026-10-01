@@ -10,3 +10,47 @@
 - Không commit `.env`, mật khẩu, session secret hoặc API key. Chỉ commit file ví dụ không có giá trị thật.
 
 Trong `frontend/` còn `AGENTS.md` do Next.js sinh ra. Khi sửa frontend, tuân theo cả hướng dẫn ở đó về việc tra tài liệu Next.js theo phiên bản đang cài.
+
+
+## Quy tắc Git
+
+### Nhánh
+
+- Kiểm tra nhánh hiện tại và trạng thái working tree trước khi sửa code.
+- Không sửa code trực tiếp trên main hoặc master.
+- Khi bắt đầu công việc mới, tạo nhánh theo định dạng:
+  codex/<type>/<mo-ta-ngan>
+- Các type hợp lệ: feat, fix, refactor, docs, test, chore.
+- Mô tả dùng tiếng Anh, chữ thường, phân cách bằng dấu gạch ngang.
+- Ví dụ: codex/feat/product-management, codex/fix/login-session.
+- Tiếp tục dùng nhánh hiện tại nếu nhánh đó dành cho công việc đang làm.
+- Không ghi đè, xóa hoặc hoàn tác thay đổi có sẵn của người dùng.
+
+### Commit
+
+- Chỉ tạo commit khi người dùng yêu cầu.
+- Dùng định dạng Conventional Commits:
+  <type>(<scope>): <description>
+- Các type hợp lệ: feat, fix, refactor, docs, test, chore,
+  build, ci, perf, revert.
+- Scope có thể bỏ qua nếu thay đổi không thuộc một phạm vi cụ thể.
+- Description dùng tiếng Anh, ngắn gọn, diễn đạt hành động,
+  không có dấu chấm cuối.
+- Ví dụ:
+  feat(product): add product search
+  fix(auth): handle expired sessions
+  refactor(dao): simplify database access
+- Mỗi commit chỉ chứa các thay đổi liên quan đến một mục đích.
+- Kiểm tra diff và stage từng file hoặc từng phần liên quan.
+- Chạy build và các kiểm tra phù hợp trước khi commit.
+- Nếu kiểm tra thất bại hoặc không chạy được, báo rõ trước khi commit.
+- Không commit secrets, mật khẩu, token, file .env chứa cấu hình thật,
+  log, file IDE cá nhân hoặc kết quả build.
+- Có thể commit .env.example nếu chỉ chứa giá trị mẫu.
+
+### Push và merge
+
+- Chỉ push, tạo PR hoặc merge khi người dùng yêu cầu.
+- Không force push, amend commit đã push, reset --hard hoặc xóa nhánh
+  khi chưa được người dùng cho phép rõ ràng.
+- Không tự ý bỏ qua Git hooks hoặc kiểm tra CI.
