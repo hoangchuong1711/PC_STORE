@@ -10,9 +10,9 @@
 - Page **SystemDesign** là tài liệu tham khảo kiến trúc trước Page 4/BE; nếu khác về nghiệp vụ thì theo Page 4, nếu khác về triển khai backend thì theo BE.
 - Quyết định nhóm: **CORE + PC Builder/Compatibility** là mục tiêu 2 tuần; Review, Setup Community rồi ADVANCED làm sau khi phần trước chạy chắc.
 
-**Mức kiểm chứng:** file draw.io và các tài liệu đã có trong repo được đọc lại trực tiếp khi soạn bản này. Công cụ đọc Plane không mở lại được các page trong lượt làm việc hiện tại, nên phần Page 4/BE/SystemDesign dựa trên nội dung đã đọc ở lượt trước và bản tóm lược `docs/architecture.md`, `docs/scope.md`. Vì vậy tên endpoint, schema vật lý và chi tiết chưa thể kiểm tra trực tiếp được đánh dấu là đề xuất/chưa chốt, không gán nhầm là nội dung nguyên văn từ Plane.
+**Mức kiểm chứng:** file draw.io và các tài liệu đã có trong repo được đọc lại trực tiếp khi soạn bản này. Công cụ đọc Plane không mở lại được các page trong lượt làm việc hiện tại, nên phần Page 4/BE/SystemDesign dựa trên nội dung đã đọc ở lượt trước và bản tóm lược `README.md`, `docs/scope.md`. Vì vậy tên endpoint, schema vật lý và chi tiết chưa thể kiểm tra trực tiếp được đánh dấu là đề xuất/chưa chốt, không gán nhầm là nội dung nguyên văn từ Plane.
 
-**Trạng thái repo hiện tại:** đã có Maven WAR, Servlet `GET /api/health`, kết nối JPA/Hibernate và Flyway. T03 mới triển khai bảng `brands`, entity `Brand` và test tích hợp PostgreSQL riêng. ERD toàn CORE nằm trong [data-model.md](../docs/data-model.md); các bảng còn lại và API nghiệp vụ ở dưới vẫn là **thiết kế đề xuất**, chưa hoàn thành. Hợp đồng health thực tế nằm trong [api.md](../docs/api.md).
+**Trạng thái repo khi soạn hướng dẫn:** đã có Servlet `GET /api/health`, kết nối JPA/Hibernate và Flyway. T03 mới triển khai bảng `brands`, entity `Brand` và test tích hợp PostgreSQL riêng. ERD toàn CORE nằm trong [data-model.md](../docs/data-model.md); các bảng còn lại và API nghiệp vụ ở dưới vẫn là **thiết kế đề xuất**, chưa hoàn thành. Cách gọi health nằm trong [README](../README.md).
 
 ## 2. Kiến trúc và quy ước code
 
@@ -24,7 +24,7 @@ Next.js (HTTP JSON + session cookie)
     → Hibernate → PostgreSQL
 ```
 
-Java 21, Maven WAR, `jakarta.servlet.*`, `jakarta.persistence.*`. Frontend không truy cập PostgreSQL. Servlet nhận request, validate hình dạng dữ liệu, gọi Service và chuyển DTO thành JSON. Service kiểm tra quy tắc và điều phối transaction. DAO chỉ truy vấn/lưu bằng JPA; các DAO trong cùng thao tác checkout dùng **cùng EntityManager/transaction**. Không đưa nghiệp vụ vào JSP/Next.js hoặc cho Servlet thao tác SQL/JPA trực tiếp.
+Java 21, Maven, `jakarta.servlet.*`, `jakarta.persistence.*`. Frontend không truy cập PostgreSQL. Servlet nhận request, validate hình dạng dữ liệu, gọi Service và chuyển DTO thành JSON. Service kiểm tra quy tắc và điều phối transaction. DAO chỉ truy vấn/lưu bằng JPA; các DAO trong cùng thao tác checkout dùng **cùng EntityManager/transaction**. Không đưa nghiệp vụ vào JSP/Next.js hoặc cho Servlet thao tác SQL/JPA trực tiếp.
 
 | Package | Trách nhiệm |
 | --- | --- |
@@ -106,7 +106,7 @@ Tiền dùng `BigDecimal` ở Java và `NUMERIC/DECIMAL` ở PostgreSQL; không 
 1. Đăng ký: chuẩn hóa email, kiểm tra trùng, hash password, mặc định `CUSTOMER/ACTIVE`.
 2. Đăng nhập: kiểm tra hash và trạng thái, tạo `HttpSession`; cookie phiên do Tomcat quản lý. Logout hủy session.
 3. Filter chặn route cần đăng nhập/ADMIN. Service tiếp tục kiểm tra `order.user.id`, `cart.user.id`, `build.user.id` trước mọi thao tác theo ID. Không tin `userId`, `role`, `price` do client gửi.
-4. Chốt cấu hình cookie, CORS và CSRF theo origin thực tế trước khi nối frontend; không ghi `Access-Control-Allow-Origin: *` cùng cookie.
+4. Chốt cấu hình cookie, CORS và CSRF theo origin thực tế trước khi nối frontend; không ghi `Access-Control-Allow-Origin: *` cùng cookie. Trong Compose, trình duyệt dùng `/api/*` nhưng Tomcat chạy dưới `/pc-store-backend`; cần đặt `Path` của session cookie cho đường dẫn công khai trước khi triển khai đăng nhập.
 
 ### Catalog → giỏ → checkout → đơn
 
@@ -137,7 +137,7 @@ Admin thêm/sửa/ẩn sản phẩm, điều chỉnh kho theo quy tắc một ng
 
 ## 6. Hợp đồng API đề xuất
 
-**Đây là danh sách endpoint đề xuất để frontend/backend code thống nhất, không phải endpoint đã tồn tại trong Plane hay repo.** Khi tạo Servlet đầu tiên, cập nhật path, JSON mẫu và mã lỗi trong file này hoặc `docs/api.md`, rồi cả hai phía dùng một hợp đồng. Response dùng DTO; lỗi có dạng thống nhất như `{ "code": "OUT_OF_STOCK", "message": "..." }`.
+**Đây là danh sách endpoint đề xuất để frontend/backend code thống nhất, không phải endpoint đã tồn tại trong Plane hay repo.** Khi triển khai endpoint nghiệp vụ, cập nhật path, JSON mẫu và mã lỗi trong hướng dẫn này để cả hai phía dùng một hợp đồng. Response dùng DTO; lỗi có dạng thống nhất như `{ "code": "OUT_OF_STOCK", "message": "..." }`.
 
 | Method/path | Quyền | Request chính | Response chính |
 | --- | --- | --- | --- |
@@ -169,7 +169,7 @@ Mã lỗi tối thiểu: `400` input sai; `401` chưa đăng nhập; `403` thi�
 
 **Đã triển khai:** Flyway đọc `src/main/resources/db/migration/V1__create_brands.sql` trước khi JPA khởi tạo; Hibernate dùng `validate`. Bảng `brands` có khóa tự sinh, tên bắt buộc và `CHECK` trạng thái `ACTIVE/INACTIVE`. Không sửa migration đã áp dụng; thêm phiên bản mới cho thay đổi tiếp theo.
 
-`BrandDatabaseIT` dùng PostgreSQL 17 trong container riêng để kiểm tra migration, mapping, lưu/đọc dữ liệu và chạy lại migration. Lệnh: `mvn -f backend/pom.xml clean verify -Pintegration-tests` từ thư mục gốc. Docker Desktop phải hoạt động; test không dùng `DB_*` của database phát triển. Xem [README](../README.md) để chạy Smart Tomcat và xem bảng bằng DBeaver. Những ràng buộc và ca kiểm thử dưới đây là công việc tiếp theo, chưa được test một bảng này bao phủ.
+`BrandDatabaseIT` dùng PostgreSQL 17 trong container riêng để kiểm tra migration, mapping, lưu/đọc dữ liệu và chạy lại migration. Lệnh: `mvn -f backend/pom.xml clean verify -Pintegration-tests` từ thư mục gốc. Docker Desktop phải hoạt động; test không dùng `DB_*` của database phát triển. Xem [README](../README.md) để chạy ứng dụng bằng Docker Compose. Những ràng buộc và ca kiểm thử dưới đây là công việc tiếp theo, chưa được test một bảng này bao phủ.
 
 Trước migration đầu tiên, chốt PK/FK, `NOT NULL`, `UNIQUE`, `CHECK`, cascade/delete và index theo query. Ràng buộc tối thiểu: email unique; một Cart/User; một Inventory/Product; một CartItem/(Cart,Product); số lượng không âm ở Inventory và dương ở CartItem/OrderItem; giá không âm; Spec dùng shared Product PK/FK; bảng nối có PK ghép. Không cascade xóa User/Product sang Order lịch sử.
 
@@ -194,4 +194,4 @@ Sơ đồ draw.io có `RecommendationResult.attempt: RecommendationAttempt` như
 
 Khi một quyết định đổi, sửa **file này, migration/entity và API liên quan trong cùng PR**. `README` dự án chỉ cần liên kết đến file này; tránh sao chép các bảng field/API sang nhiều tài liệu dễ lệch.
 
-**Đồng bộ tài liệu cũ:** `docs/plane.md` trong repo hiện còn ghi bản demo chỉ COD và T01 là buổi chốt lại toàn bộ. Sau quyết định ở trên, T01 nên trở thành việc *đọc/đối chiếu hướng dẫn BE, thống nhất tên endpoint/DTO chưa có trong nguồn rồi bắt đầu code*; các task checkout/UI/Admin/test cần ghi thêm chuyển khoản thủ công. `docs/architecture.md` hiện còn liệt kê phương thức thanh toán là quyết định mở; bỏ dòng đó khi cập nhật repo. Giữ hướng dẫn BE này làm nguồn hiện hành cho chi tiết backend, còn kế hoạch Plane chỉ theo dõi thời gian và người nhận task.
+**Đồng bộ tài liệu cũ:** `docs/plane.md` trong repo hiện còn ghi bản demo chỉ COD và T01 là buổi chốt lại toàn bộ. Sau quyết định ở trên, T01 nên trở thành việc *đọc/đối chiếu hướng dẫn BE, thống nhất tên endpoint/DTO chưa có trong nguồn rồi bắt đầu code*; các task checkout/UI/Admin/test cần ghi thêm chuyển khoản thủ công. Giữ hướng dẫn BE này làm nguồn hiện hành cho chi tiết backend, còn kế hoạch Plane chỉ theo dõi thời gian và người nhận task.

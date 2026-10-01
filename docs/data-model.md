@@ -125,4 +125,4 @@ Entity: `com.pcstore.entity.Brand`; enum `ActiveStatus` lưu bằng chuỗi. Tê
 
 V1 nằm ở `backend/src/main/resources/db/migration/V1__create_brands.sql`. `JpaConfig` chạy Flyway trước Hibernate `validate`; Hibernate không tự sửa schema. Flyway ghi lịch sử trong `flyway_schema_history`.
 
-Chạy `mvn -f backend/pom.xml clean verify -Pintegration-tests` với Docker Desktop đang bật để kiểm tra migration, mapping và ghi/đọc bảng `brands` trên PostgreSQL 17 riêng. Xem hướng dẫn và báo cáo tại [README](../README.md).
+Chạy `mvn -f backend/pom.xml clean verify -Pintegration-tests` với Docker Desktop đang bật để kiểm tra migration, mapping và ghi/đọc bảng `brands` trên PostgreSQL 17 riêng. Cách chạy dự án nằm trong [README](../README.md).

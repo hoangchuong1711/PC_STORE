@@ -3,7 +3,7 @@
 
 Nhóm 5 thành viên | 14 ngày | 4–5 giờ mỗi người mỗi ngày
 
-**Cập nhật T03 (01/10/2026):** đã có [ERD CORE](data-model.md), Flyway và migration/JPA cho một bảng `brands`. Test tích hợp đã chạy thành công trên PostgreSQL riêng: 1 test, không lỗi, không bỏ qua. Các bảng CORE còn lại chưa triển khai; T03 chưa hoàn tất. Xem [README](../README.md) để chạy lại test và kết nối database phát triển.
+**Cập nhật T03 (01/10/2026):** đã có [ERD CORE](data-model.md), Flyway và migration/JPA cho một bảng `brands`. Test tích hợp đã chạy thành công trên PostgreSQL riêng: 1 test, không lỗi, không bỏ qua. Các bảng CORE còn lại chưa triển khai; T03 chưa hoàn tất. Xem [README](../README.md) để chạy dự án và test.
 
 Kế hoạch tập trung hoàn thiện luồng mua hàng CORE và PC Builder với kiểm tra tương thích cơ bản để báo cáo kết thúc môn Lập trình Web. Các thành viên tự nhận task phù hợp năng lực; cuối đợt cần có bản chạy được, kết quả kiểm thử và bộ tài liệu báo cáo thống nhất.
 
@@ -60,7 +60,7 @@ Mục tiêu là đưa dữ liệu thật từ PostgreSQL qua Servlet/JPA lên Ne
 | Task và công sức                                           | Thời gian       | Đầu ra và điều kiện hoàn thành                                                                                                                                           | Nhận việc |
 | ---------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
 | T01 Chốt phạm vi và hợp đồng chung Nhóm / Vừa / 5 giờ      | 30/09 đến 30/09 | Chốt COD cho bản demo, lọc tên/danh mục/brand/giá, trạng thái đơn, quy tắc tồn kho và API JSON. Có danh sách endpoint/DTO cho từng người làm song song. Cần trước: Không | —         |
-| T02 Dựng backend và môi trường chạy BE / Khó / 10 giờ      | 30/09 đến 01/10 | Maven WAR chạy trên Tomcat 10.1; Servlet trả JSON, JPA kết nối PostgreSQL. README ghi cách chạy; một máy khác thử được. Cần trước: T01                                   | —         |
+| T02 Dựng backend và môi trường chạy BE / Khó / 10 giờ      | 30/09 đến 01/10 | Backend chạy trên Tomcat 10.1 qua Docker Compose; Servlet trả JSON, JPA kết nối PostgreSQL. README ghi cách chạy; một máy khác thử được. Cần trước: T01                                   | —         |
 | T03 ERD CORE và migration đầu tiên DB BE / Khó / 10 giờ    | 30/09 đến 01/10 | Chốt User, Product, Category, Brand, Inventory, Cart/Item, Order/Item và Payment tối thiểu. Có khóa/ràng buộc, script tạo schema và mapping JPA. Cần trước: T01          | —         |
 | T04 API catalog và tìm kiếm BE / Vừa / 8 giờ               | 02/10 đến 03/10 | API danh sách có phân trang, chi tiết, tìm tên và lọc cơ bản; DTO không lộ dữ liệu riêng. Kiểm tra sản phẩm không tồn tại. Cần trước: T02, T03                           | —         |
 | T05 Đăng ký đăng nhập và phân quyền BE / Khó / 8 giờ       | 02/10 đến 03/10 | Hash mật khẩu; HttpSession, logout và Filter quyền. Frontend nhận/gửi cookie đúng; chặn Customer gọi API Admin, kiểm tra email trùng. Cần trước: T02, T03                | —         |

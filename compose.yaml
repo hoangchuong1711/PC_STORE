@@ -9,6 +9,30 @@ services:
       - "5432:5432"
     volumes:
       - pcstore_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pc_store_app -d pc_store"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/pc_store
+      DB_USER: pc_store_app
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Create a local .env file}
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
 
 volumes:
   pcstore_pgdata:
