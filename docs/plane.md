@@ -1,7 +1,9 @@
-#KẾ HOẠCH TRIỂN KHAI DỰ ÁN WEBSITE PC STORE
+# KẾ HOẠCH TRIỂN KHAI DỰ ÁN WEBSITE PC STORE
 **Thời gian 30/09/2026 đến hết 13/10/2026**
 
 Nhóm 5 thành viên | 14 ngày | 4–5 giờ mỗi người mỗi ngày
+
+**Cập nhật T03 (01/10/2026):** đã có [ERD CORE](data-model.md), Flyway và migration/JPA cho một bảng `brands`. Test tích hợp đã chạy thành công trên PostgreSQL riêng: 1 test, không lỗi, không bỏ qua. Các bảng CORE còn lại chưa triển khai; T03 chưa hoàn tất. Xem [README](../README.md) để chạy lại test và kết nối database phát triển.
 
 Kế hoạch tập trung hoàn thiện luồng mua hàng CORE và PC Builder với kiểm tra tương thích cơ bản để báo cáo kết thúc môn Lập trình Web. Các thành viên tự nhận task phù hợp năng lực; cuối đợt cần có bản chạy được, kết quả kiểm thử và bộ tài liệu báo cáo thống nhất.
 

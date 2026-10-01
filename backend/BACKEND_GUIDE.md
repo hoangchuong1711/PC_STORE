@@ -12,7 +12,7 @@
 
 **Mức kiểm chứng:** file draw.io và các tài liệu đã có trong repo được đọc lại trực tiếp khi soạn bản này. Công cụ đọc Plane không mở lại được các page trong lượt làm việc hiện tại, nên phần Page 4/BE/SystemDesign dựa trên nội dung đã đọc ở lượt trước và bản tóm lược `docs/architecture.md`, `docs/scope.md`. Vì vậy tên endpoint, schema vật lý và chi tiết chưa thể kiểm tra trực tiếp được đánh dấu là đề xuất/chưa chốt, không gán nhầm là nội dung nguyên văn từ Plane.
 
-**Trạng thái repo khi viết:** `backend/pom.xml` mới có Java 21; `com.example.Main` là scaffold; các package `com.pcstore.controller/service/dao/entity/dto/filter/config/util/exception` đang trống. Chưa có Servlet, JPA mapping, migration hay API hoạt động. Mọi tên endpoint và ràng buộc triển khai ở dưới là **hợp đồng đề xuất** để lập trình, cần cập nhật cùng code nếu nhóm chọn tên khác.
+**Trạng thái repo hiện tại:** đã có Maven WAR, Servlet `GET /api/health`, kết nối JPA/Hibernate và Flyway. T03 mới triển khai bảng `brands`, entity `Brand` và test tích hợp PostgreSQL riêng. ERD toàn CORE nằm trong [data-model.md](../docs/data-model.md); các bảng còn lại và API nghiệp vụ ở dưới vẫn là **thiết kế đề xuất**, chưa hoàn thành. Hợp đồng health thực tế nằm trong [api.md](../docs/api.md).
 
 ## 2. Kiến trúc và quy ước code
 
@@ -167,6 +167,10 @@ Mã lỗi tối thiểu: `400` input sai; `401` chưa đăng nhập; `403` thi�
 
 ## 7. Schema, migration và kiểm thử cần có
 
+**Đã triển khai:** Flyway đọc `src/main/resources/db/migration/V1__create_brands.sql` trước khi JPA khởi tạo; Hibernate dùng `validate`. Bảng `brands` có khóa tự sinh, tên bắt buộc và `CHECK` trạng thái `ACTIVE/INACTIVE`. Không sửa migration đã áp dụng; thêm phiên bản mới cho thay đổi tiếp theo.
+
+`BrandDatabaseIT` dùng PostgreSQL 17 trong container riêng để kiểm tra migration, mapping, lưu/đọc dữ liệu và chạy lại migration. Lệnh: `mvn -f backend/pom.xml clean verify -Pintegration-tests` từ thư mục gốc. Docker Desktop phải hoạt động; test không dùng `DB_*` của database phát triển. Xem [README](../README.md) để chạy Smart Tomcat và xem bảng bằng DBeaver. Những ràng buộc và ca kiểm thử dưới đây là công việc tiếp theo, chưa được test một bảng này bao phủ.
+
 Trước migration đầu tiên, chốt PK/FK, `NOT NULL`, `UNIQUE`, `CHECK`, cascade/delete và index theo query. Ràng buộc tối thiểu: email unique; một Cart/User; một Inventory/Product; một CartItem/(Cart,Product); số lượng không âm ở Inventory và dương ở CartItem/OrderItem; giá không âm; Spec dùng shared Product PK/FK; bảng nối có PK ghép. Không cascade xóa User/Product sang Order lịch sử.
 
 Kiểm thử có giá trị cao: Customer truy cập đơn/build khác; Customer gọi Admin; thay đổi giá sau khi đặt không đổi OrderItem; checkout giỏ rỗng/hết hàng rollback; hai checkout tranh món cuối; hủy đơn hoàn kho đúng một lần; gửi checkout lặp không tạo hai đơn; compatibility PASS/FAIL/UNKNOWN cho từng rule. Kiểm tra clone repo, dựng DB từ migration/seed và chạy trên máy khác trước báo cáo.
@@ -185,7 +189,8 @@ Sơ đồ draw.io có `RecommendationResult.attempt: RecommendationAttempt` như
 - **Đã chốt:** Admin đối chiếu rồi đánh dấu Payment chuyển khoản `PAID`; chỉ khi đó đơn chuyển khoản mới sang `SHIPPING`.
 - **Đã chốt:** `ProductStatus` gồm `ACTIVE`, `INACTIVE`, `DRAFT`, `OUT_OF_STOCK`, `DISCONTINUED`, `HIDDEN`; bỏ `ACTIVE` lặp trong draw.io.
 - **Đề xuất triển khai sprint:** chưa tự hủy đơn chuyển khoản quá hạn; Admin xem các đơn `PENDING` để xác nhận hoặc hủy thủ công.
-- **Cần chốt khi code:** công thức/nguồn dữ liệu chính xác cho rule PSU; cách đồng bộ `ACTIVE/OUT_OF_STOCK` với Inventory; cookie/CORS/CSRF theo địa chỉ chạy thật; định dạng migration và mã lỗi/JSON mẫu. Các mục này là chi tiết triển khai, không làm thay đổi nguồn ưu tiên ở §1.
+- **Đã chốt:** dùng Flyway với migration SQL có phiên bản; Hibernate không tự tạo/cập nhật schema. ERD CORE và phạm vi migration hiện tại được ghi trong `docs/data-model.md`.
+- **Cần chốt khi code:** công thức/nguồn dữ liệu chính xác cho rule PSU; cách đồng bộ `ACTIVE/OUT_OF_STOCK` với Inventory; cookie/CORS/CSRF theo địa chỉ chạy thật; mã lỗi/JSON mẫu cho API nghiệp vụ. Các mục này là chi tiết triển khai, không làm thay đổi nguồn ưu tiên ở §1.
 
 Khi một quyết định đổi, sửa **file này, migration/entity và API liên quan trong cùng PR**. `README` dự án chỉ cần liên kết đến file này; tránh sao chép các bảng field/API sang nhiều tài liệu dễ lệch.
 
