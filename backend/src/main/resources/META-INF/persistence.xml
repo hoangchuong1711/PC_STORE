@@ -1,12 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <persistence xmlns="https://jakarta.ee/xml/ns/persistence"
-             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-             xsi:schemaLocation="https://jakarta.ee/xml/ns/persistence https://jakarta.ee/xml/ns/persistence/persistence_3_0.xsd"
-             version="3.0">
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="https://jakarta.ee/xml/ns/persistence https://jakarta.ee/xml/ns/persistence/persistence_3_0.xsd"
+            version="3.0">
     <persistence-unit name="pcstore-persistence-unit" transaction-type="RESOURCE_LOCAL">
         <provider>org.hibernate.jpa.HibernatePersistenceProvider</provider>
-        <properties>
-            <property name="hibernate.dialect" value="org.hibernate.dialect.PostgreSQLDialect"/>
-        </properties>
+        <class>com.pcstore.entity.Brand</class>
+        <class>com.pcstore.entity.User</class>
+        <class>com.pcstore.entity.Address</class>
+        <class>com.pcstore.entity.Category</class>
+        <class>com.pcstore.entity.Product</class>
+        <class>com.pcstore.entity.ProductImage</class>
+        <class>com.pcstore.entity.Inventory</class>
+        <class>com.pcstore.entity.Cart</class>
+        <class>com.pcstore.entity.CartItem</class>
+        <class>com.pcstore.entity.Order</class>
+        <class>com.pcstore.entity.OrderItem</class>
+        <class>com.pcstore.entity.Payment</class>
+        <exclude-unlisted-classes>true</exclude-unlisted-classes>
     </persistence-unit>
 </persistence>

@@ -23,6 +23,7 @@ Copy-Item .env.example .env
 # Đổi POSTGRES_PASSWORD trong .env thành mật khẩu local
 docker compose up --build -d
 ```
+nếu đã được build sẵn chạy lệnh:"docker compose up -d"
 
 - Giao diện: http://localhost:3000
 - Kiểm tra API và kết nối database: http://localhost:3000/api/health
@@ -31,22 +32,14 @@ docker compose up --build -d
 
 ## Cấu trúc repo
 
+T03 đã có schema và mapping JPA cho 12 bảng CORE bằng Flyway V1 + V2. Chạy kiểm thử PostgreSQL bằng `mvn -B -Pdb-test verify` trong `backend/` sau khi cấu hình database test riêng; xem [hướng dẫn backend](backend/BACKEND_GUIDE.md#7-schema-migration-và-kiểm-thử-cần-có). Các API nghiệp vụ vẫn được triển khai theo task tiếp theo.
+
 | Đường dẫn | Nội dung |
 | --- | --- |
 | `frontend/` | Ứng dụng Next.js |
 | `backend/` | API Java Servlet, JPA và Flyway migrations |
 | `docs/` | Phạm vi và thiết kế dữ liệu |
 | `compose.yaml` | Chạy frontend, backend và PostgreSQL |
-
-## Kiểm tra
-
-Test tích hợp backend dùng Testcontainers và cần Docker đang chạy:
-
-```powershell
-mvn -f backend/pom.xml clean verify -Pintegration-tests
-```
-
-Lệnh này cần JDK 21 và Maven trên máy nếu chạy ngoài container. Test dùng PostgreSQL riêng, không thay đổi database của Compose.
 
 # Quy định đóng góp
 

@@ -5,7 +5,7 @@ import com.pcstore.config.JpaConfig;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.PersistenceException;
-import jakarta.servlet.ServletException;
+import org.flywaydb.core.api.FlywayException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,14 +34,14 @@ public class HealthServlet extends HttpServlet {
                     "status", "ok",
                     "application", "pc-store-backend",
                     "database", "connected"));
-        } catch (IllegalStateException | PersistenceException exception) {
-            getServletContext().log("Backend health check failed", exception);
+        } catch (IllegalStateException | PersistenceException | FlywayException exception) {
+            getServletContext().log("Kiểm tra database thất bại", exception);
             response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
             objectMapper.writeValue(response.getWriter(), Map.of(
                     "status", "unavailable",
                     "application", "pc-store-backend",
                     "database", "unavailable",
-                    "message", "Check the server database configuration and PostgreSQL availability."));
+                    "message", "Không thể khởi tạo database. Kiểm tra cấu hình kết nối và log Tomcat."));
         }
     }
 

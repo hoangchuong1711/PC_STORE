@@ -14,9 +14,16 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <hibernate.version>6.6.5.Final</hibernate.version>
         <jackson.version>2.18.2</jackson.version>
+        <flyway.version>13.8.0</flyway.version>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.11.4</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>jakarta.servlet</groupId>
             <artifactId>jakarta.servlet-api</artifactId>
@@ -39,11 +46,26 @@
             <artifactId>jackson-databind</artifactId>
             <version>${jackson.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+            <version>${flyway.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+            <version>${flyway.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
         <finalName>pc-store-backend</finalName>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.2</version>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -62,4 +84,17 @@
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <id>db-test</id>
+            <build><plugins><plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>3.5.2</version>
+                <executions><execution><goals>
+                    <goal>integration-test</goal><goal>verify</goal>
+                </goals></execution></executions>
+            </plugin></plugins></build>
+        </profile>
+    </profiles>
 </project>

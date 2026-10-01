@@ -2,6 +2,8 @@
 
 > Đọc trước khi sửa `backend/`. Tài liệu này gom quy tắc nghiệp vụ, mô hình dữ liệu và hợp đồng API cho bản CORE + PC Builder/Compatibility. Đây là **thiết kế triển khai**, không phải mô tả những gì đã code xong.
 
+**Nguồn hiện hành cho T03 (01/10/2026):** theo yêu cầu triển khai, [data-model.md](../docs/data-model.md) là chuẩn schema và quy tắc dữ liệu đã hiệu chỉnh. Khi bản tóm lược cũ trong tài liệu này khác data-model, dùng data-model. T03 chỉ cung cấp schema/mapping; các quy tắc Service chưa phải chức năng đã triển khai.
+
 ## 1. Nguồn và phạm vi
 
 - [Plane — 4. Thiết kế hệ thống, ClassDiagram, ERD](https://app.plane.so/ltrweb/projects/bfbe5013-9824-4809-a220-fb196fcd1f7c/pages/a1cc795d-126f-4258-8cab-5814e173364b/) là nguồn ưu tiên cho **nghiệp vụ và mô hình**. Ưu tiên phần chốt mới nhất trong chính page này khi đoạn cũ mâu thuẫn.
@@ -12,7 +14,7 @@
 
 **Mức kiểm chứng:** file draw.io và các tài liệu đã có trong repo được đọc lại trực tiếp khi soạn bản này. Công cụ đọc Plane không mở lại được các page trong lượt làm việc hiện tại, nên phần Page 4/BE/SystemDesign dựa trên nội dung đã đọc ở lượt trước và bản tóm lược `README.md`, `docs/scope.md`. Vì vậy tên endpoint, schema vật lý và chi tiết chưa thể kiểm tra trực tiếp được đánh dấu là đề xuất/chưa chốt, không gán nhầm là nội dung nguyên văn từ Plane.
 
-**Trạng thái repo khi soạn hướng dẫn:** đã có Servlet `GET /api/health`, kết nối JPA/Hibernate và Flyway. T03 mới triển khai bảng `brands`, entity `Brand` và test tích hợp PostgreSQL riêng. ERD toàn CORE nằm trong [data-model.md](../docs/data-model.md); các bảng còn lại và API nghiệp vụ ở dưới vẫn là **thiết kế đề xuất**, chưa hoàn thành. Cách gọi health nằm trong [README](../README.md).
+**Trạng thái repo:** đã có Servlet `GET /api/health`, JPA/Hibernate và Flyway V1 + V2 cho 12 bảng CORE, cùng entity và kiểm thử PostgreSQL. ERD CORE nằm trong [data-model.md](../docs/data-model.md). Các API nghiệp vụ và bảng FEATURE/ADVANCED ở dưới vẫn là **thiết kế**, chưa hoàn thành. Cách gọi health nằm trong [README](../README.md).
 
 ## 2. Kiến trúc và quy ước code
 
@@ -43,11 +45,11 @@ Tiền dùng `BigDecimal` ở Java và `NUMERIC/DECIMAL` ở PostgreSQL; không 
 
 | Đợt | Nhóm dữ liệu |
 | --- | --- |
-| CORE | User, Category, Brand, Product, ProductImage nếu UI cần, Inventory, Cart, CartItem, Order, OrderItem, Payment tối thiểu nếu ghi thanh toán. |
+| CORE | User, Address, Category, Brand, Product, ProductImage, Inventory, Cart, CartItem, Order, OrderItem, Payment. |
 | Builder/Compatibility | PcBuild, PcBuildItem, các bảng Spec và danh mục Socket/FormFactor thật sự dùng cho rule. |
 | Sau sprint | ProductReview, SetupPost/SetupImage, AI Recommendation, Promotion, Warranty, Media nâng cao. Không tạo trước chỉ vì class có trong sơ đồ. |
 
-`Address` và `AdministrativeArea` không cần cho CORE hiện tại. `Order` tự lưu **shippingName, shippingPhone, shippingAddressText** tại lúc đặt. `CartItem` không chốt giá; `OrderItem` chốt `unitPrice` lúc đặt. `Inventory` là nguồn tồn kho, không thêm một số tồn độc lập vào `Product`.
+`Address` thuộc CORE theo data-model đã hiệu chỉnh; chưa có AdministrativeArea. `Order` tự lưu **shippingName, shippingPhone, shippingAddressText** tại lúc đặt. `CartItem` không chốt giá; `OrderItem` chốt `baseUnitPrice` và `unitPrice` lúc đặt (CORE chưa giảm giá nên hai giá bằng nhau). `Inventory` là nguồn tồn kho, không thêm một số tồn độc lập vào `Product`.
 
 ## 4. Class/field và JPA mapping
 
@@ -55,12 +57,12 @@ Tiền dùng `BigDecimal` ở Java và `NUMERIC/DECIMAL` ở PostgreSQL; không 
 
 | Class | Field từ sơ đồ | Quan hệ / ràng buộc triển khai |
 | --- | --- | --- |
-| `User` | `userId:int`, `fullName:String`, `email:String`, `passwordHash:String`, `address:String`, `phone:String`, `role:UserRole`, `status:UserStatus` | `email` unique; role `CUSTOMER/ADMIN`; status `ACTIVE/INACTIVE`. Địa chỉ/điện thoại hồ sơ không thay snapshot trong đơn. |
+| `User` | `userId:int`, `fullName:String`, `email:String`, `passwordHash:String`, `phone:String`, `role:UserRole`, `status:UserStatus` | `email` chuẩn hóa chữ thường và unique; role `CUSTOMER/ADMIN`; status `ACTIVE/INACTIVE`. Địa chỉ lưu trong Address có FK tới User, không thay snapshot trong đơn. |
 | `Category` | `categoryId:int`, `name`, `description`, `componentType:ComponentType?`, `status:ActiveStatus` | 1 category → nhiều product. `componentType` chỉ có giá trị cho nhóm linh kiện dùng Builder. |
 | `Brand` | `brandId:int`, `name`, `description`, `logoUrl`, `status:ActiveStatus` | 1 brand → nhiều product. |
 | `Product` | `productId:int`, `name`, `description`, `price:BigDecimal`, `status:ProductStatus`, `category:Category`, `brand:Brand` | `@ManyToOne` tới Category/Brand; `price >= 0`; sản phẩm trong đơn cũ không xóa cứng. |
 | `ProductImage` | `imageId:int`, `product:Product`, `imageUrl`, `isPrimary:boolean`, `sortOrder:int` | `@ManyToOne Product`; mỗi product có tối đa một ảnh primary (ràng buộc DB hoặc service). |
-| `Inventory` | `inventoryId`, `quantityOnHand:int`, `reservedQuantity:int` trong sơ đồ; phương thức `getAvailableQuantity`, `reserve`, `release` | Gắn 1–1 với Product. **Quyết định mới của nhóm:** đặt đơn thành công thì trừ tồn ngay; hủy hợp lệ thì hoàn lại. `reservedQuantity` chưa cần tham gia luồng CORE này, xem §5. |
+| `Inventory` | `inventoryId`, `quantityOnHand:int`, `reservedQuantity:int` | Gắn 1–1 với Product. Theo data-model: giữ chỗ khi checkout, giảm cả on-hand/reserved khi xuất hàng; hủy trước xuất giải phóng reserved. Các thao tác nghiệp vụ triển khai ở Service sau T03. |
 
 **ProductStatus đã chốt:** `ACTIVE`, `INACTIVE`, `DRAFT`, `OUT_OF_STOCK`, `DISCONTINUED`, `HIDDEN`. Xóa `ACTIVE` bị lặp trong sơ đồ; lưu enum bằng chuỗi. `Inventory.quantityOnHand` vẫn là nguồn số lượng thực. Service phải kiểm tra **cả trạng thái được phép bán và tồn > 0**; không suy số dư tồn từ enum. Quy tắc tự chuyển `ACTIVE ↔ OUT_OF_STOCK` cần thống nhất với thao tác chỉnh tồn của Admin trước khi code, để không vô tình mở bán một Product đang `DRAFT/HIDDEN`.
 
@@ -71,7 +73,7 @@ Tiền dùng `BigDecimal` ở Java và `NUMERIC/DECIMAL` ở PostgreSQL; không 
 | `Cart` | `cartId:int`, `items:List`, `createdAt`, `updatedAt` | Sơ đồ nối User 1 ↔ Cart 0..1; triển khai `@OneToOne User`, unique `user_id`. Cart có nhiều CartItem. |
 | `CartItem` | `cartItemId:int`, `product:Product`, `quantity:int` | `@ManyToOne Cart/Product`; unique `(cart_id,product_id)`; `quantity > 0`. `getUnitPrice()` lấy giá Product hiện hành. |
 | `Order` | `orderId:int`, `user:User`, `orderDate`, `status:OrderStatus`, `totalAmount:BigDecimal`, `shippingName`, `shippingPhone`, `shippingAddressText`, `deliveredAt?`, `items:List` | `@ManyToOne User`, `@OneToMany OrderItem`; `totalAmount` tính từ các dòng snapshot. |
-| `OrderItem` | `orderItemId:int`, `order:Order`, `product:Product`, `quantity:int`, `baseUnitPrice:BigDecimal`, `unitPrice:BigDecimal`, `appliedPromotionRule?` | `@ManyToOne Order/Product`; `quantity > 0`; `unitPrice` là giá chốt. Hai field liên quan Promotion chỉ dùng khi triển khai Promotion; chưa cần logic giảm giá trong CORE. |
+| `OrderItem` | `orderItemId:int`, `order:Order`, `product:Product`, `quantity:int`, `baseUnitPrice:BigDecimal`, `unitPrice:BigDecimal` | `@ManyToOne Order/Product`; `quantity > 0`; cả hai giá được chốt trong CORE. Cột/FK `appliedPromotionRule` chỉ thêm ở migration Promotion. |
 | `Payment` | `paymentId:int`, `order:Order`, `method:PaymentMethod`, `amount:BigDecimal`, `status:PaymentStatus`, `transactionId?`, `paidAt?` | Bản 2 tuần: một Payment/Order (`@OneToOne`, unique `order_id`), `COD` hoặc `BANK_TRANSFER` thủ công; trạng thái `PENDING/PAID/FAILED`. Không đánh dấu `PAID` chỉ vì tạo đơn. |
 
 `OrderStatus` trên sơ đồ: `PENDING`, `CONFIRMED`, `SHIPPING`, `DELIVERED`, `CANCELLED`. Page 4 mô tả tiến tới DELIVERED; hủy từ PENDING/CONFIRMED. Service chỉ cho chuyển trạng thái hợp lệ và ghi nhận một lần. Điều kiện giao thành công còn được dùng cho Review/Setup Community sau này.
@@ -113,11 +115,11 @@ Tiền dùng `BigDecimal` ở Java và `NUMERIC/DECIMAL` ở PostgreSQL; không 
 1. Catalog chỉ trả sản phẩm được phép bán/hiển thị, giá hiện hành và lượng có thể mua. Search/filter và phân trang chạy ở DAO, không lấy toàn bộ DB rồi lọc ở Java.
 2. Giỏ lưu Product + số lượng; thêm cùng sản phẩm thì gộp dòng. Tổng giỏ được tính lại bằng giá hiện hành trên server.
 3. Checkout đọc giỏ của user, kiểm tra giỏ không rỗng, sản phẩm hợp lệ, số lượng dương, thông tin nhận hàng và tồn kho. Backend đọc lại giá, tuyệt đối không nhận `totalAmount` do client tính.
-4. Trong **một transaction**: khóa/cập nhật tồn an toàn; tạo Order, OrderItem snapshot giá và địa chỉ; ghi Payment `COD` hoặc `BANK_TRANSFER` theo lựa chọn; trừ tồn; làm rỗng giỏ; commit. Nếu một bước lỗi thì rollback toàn bộ. Hai người mua món cuối không được cùng thành công.
-5. Với quyết định của nhóm, `quantityOnHand` giảm ngay khi đặt đơn thành công cho **cả COD lẫn chuyển khoản thủ công**, dù chuyển khoản còn `PENDING`. Hủy từ trạng thái được phép thì tăng lại đúng số lượng **một lần** trong cùng transaction cập nhật trạng thái. Đơn chuyển khoản chưa trả do Admin hủy cũng hoàn kho. Không hoàn kho lần nữa nếu đơn đã `CANCELLED`; không cho sửa số lượng đơn sau khi đặt.
+4. Trong **một transaction**: khóa/cập nhật tồn an toàn; tạo Order, OrderItem snapshot giá và địa chỉ; ghi Payment `COD` hoặc `BANK_TRANSFER`; tăng giữ chỗ; làm rỗng giỏ; commit. Nếu một bước lỗi thì rollback toàn bộ. Hai người mua món cuối không được cùng thành công.
+5. Theo data-model §6.2, checkout tăng `reservedQuantity`, chưa giảm `quantityOnHand`; xuất hàng giảm cả hai. Hủy PENDING/CONFIRMED chưa PAID giải phóng giữ chỗ đúng một lần, không tăng on-hand. Service khóa Order/Inventory và kiểm tra trạng thái; không cho sửa số lượng đơn sau khi đặt.
 6. Request checkout gửi lặp cần cơ chế chống tạo hai đơn (ví dụ idempotency key theo user + request); đây là chi tiết triển khai cần chốt khi code endpoint, không chỉ khóa nút trên UI.
 
-Giữ bất biến `quantityOnHand >= 0`. Vì sprint dùng trừ tồn ngay, `reservedQuantity` trong sơ đồ chưa phục vụ luồng này; không dùng lẫn công thức `available = onHand - reserved` với quy tắc trừ tồn ngay. Nếu vẫn giữ cột cho tương lai, mặc định bằng 0 và không tăng trong checkout CORE.
+Giữ bất biến `0 <= reservedQuantity <= quantityOnHand`; tồn khả dụng = on-hand − reserved. Không giữ chỗ khi thêm giỏ. Quy tắc khóa, đối soát và chuyển trạng thái theo data-model §6.2; T03 mới ràng buộc được bất biến trên một hàng.
 
 Với `BANK_TRANSFER`, backend tạo đơn và Payment `PENDING`, trả thông tin để frontend hiển thị hướng dẫn chuyển khoản; **không tự xác nhận đã thanh toán**. Admin đối chiếu tiền đã nhận rồi chuyển Payment sang `PAID`, ghi `paidAt` (và mã tham chiếu nếu có). Chỉ được chuyển đơn chuyển khoản sang `SHIPPING` khi Payment đã `PAID`; backend kiểm tra điều này trong Service, không chỉ khóa nút trên UI. Thông tin tài khoản nhận tiền là cấu hình ngoài mã nguồn, không lưu thông tin nhạy cảm trong Git.
 
@@ -167,9 +169,29 @@ Mã lỗi tối thiểu: `400` input sai; `401` chưa đăng nhập; `403` thi�
 
 ## 7. Schema, migration và kiểm thử cần có
 
-**Đã triển khai:** Flyway đọc `src/main/resources/db/migration/V1__create_brands.sql` trước khi JPA khởi tạo; Hibernate dùng `validate`. Bảng `brands` có khóa tự sinh, tên bắt buộc và `CHECK` trạng thái `ACTIVE/INACTIVE`. Không sửa migration đã áp dụng; thêm phiên bản mới cho thay đổi tiếp theo.
+**Đã triển khai T03:** Flyway chạy V1 rồi `V2__create_core_schema.sql` trước khi Hibernate `validate`. V2 nâng Brand lên thiết kế hiện hành và thêm 11 bảng CORE. Có PK identity ALWAYS, FK theo chính sách RESTRICT/CASCADE của data-model, UNIQUE, CHECK, partial unique index cho địa chỉ mặc định/ảnh chính và index FK. Không sửa V1 đã áp dụng. Không tạo bảng FEATURE/ADVANCED hoặc cột promotion thiếu FK.
 
-`BrandDatabaseIT` dùng PostgreSQL 17 trong container riêng để kiểm tra migration, mapping, lưu/đọc dữ liệu và chạy lại migration. Lệnh: `mvn -f backend/pom.xml clean verify -Pintegration-tests` từ thư mục gốc. Docker Desktop phải hoạt động; test không dùng `DB_*` của database phát triển. Xem [README](../README.md) để chạy ứng dụng bằng Docker Compose. Những ràng buộc và ca kiểm thử dưới đây là công việc tiếp theo, chưa được test một bảng này bao phủ.
+JPA dùng Integer ID, BigDecimal NUMERIC(19,0), LocalDateTime, enum STRING và quan hệ LAZY. `Order` có tên JPQL `PurchaseOrder`; SQL vẫn là `orders`. Collection dùng `mappedBy`; không cascade REMOVE từ entity sang lịch sử đơn. Entity chỉ dùng trong persistence, API phải có DTO riêng. Service cung cấp thời gian theo Asia/Bangkok, chuẩn hóa chuỗi/email và kiểm tra VND nguyên đồng trước khi lưu (PostgreSQL NUMERIC(19,0) tự làm tròn số lẻ).
+
+V2 không tự sửa dữ liệu Brand cũ: nếu tên/description/logo đang rỗng hoặc có khoảng trắng đầu/cuối, migration sẽ thất bại và rollback. Cần kiểm tra, chuẩn hóa dữ liệu có chủ đích trước khi nâng cấp; không dùng Flyway repair để bỏ qua lỗi dữ liệu/checksum.
+
+### Chạy kiểm thử database
+
+Trong thư mục gốc, tạo PostgreSQL riêng (không dùng DB ứng dụng):
+
+```powershell
+docker run --name pcstore-t03-test -e POSTGRES_DB=pcstore_test -e POSTGRES_USER=pcstore_test -e POSTGRES_PASSWORD=local-test-only -p 127.0.0.1:55433:5432 -d postgres:17
+docker exec pcstore-t03-test pg_isready -U pcstore_test -d pcstore_test
+cd backend
+$env:TEST_DB_URL='jdbc:postgresql://localhost:55433/pcstore_test'
+$env:TEST_DB_USER='pcstore_test'
+$env:TEST_DB_PASSWORD='local-test-only'
+mvn -B -Pdb-test verify
+```
+
+`local-test-only` chỉ là mật khẩu mẫu cho container test. Profile `db-test` bắt buộc đủ ba biến trên, không tự bỏ qua khi thiếu database. Mỗi test tạo schema ngẫu nhiên `t03_*` và chỉ xóa schema của chính nó. Chạy `mvn test` thông thường không chạy integration test PostgreSQL; dùng lệnh `verify` ở trên để nghiệm thu T03. Sau khi kiểm thử có thể dừng container bằng `docker stop pcstore-t03-test`.
+
+Ngày 01/10/2026: `mvn -B -Pdb-test verify` build WAR thành công, **6 test, 0 failure/error/skip** trên PostgreSQL 17. Bao gồm schema mới/chạy lại, nâng V1 có dữ liệu, ràng buộc/partial unique/cascade, Hibernate validate và lưu/đọc toàn bộ quan hệ CORE. Chưa kiểm chứng API checkout, phân quyền, cạnh tranh tồn kho hoặc UI; những phần đó thuộc task nghiệp vụ tiếp theo. Xem [README](../README.md) để chạy ứng dụng bằng Docker Compose.
 
 Trước migration đầu tiên, chốt PK/FK, `NOT NULL`, `UNIQUE`, `CHECK`, cascade/delete và index theo query. Ràng buộc tối thiểu: email unique; một Cart/User; một Inventory/Product; một CartItem/(Cart,Product); số lượng không âm ở Inventory và dương ở CartItem/OrderItem; giá không âm; Spec dùng shared Product PK/FK; bảng nối có PK ghép. Không cascade xóa User/Product sang Order lịch sử.
 
@@ -183,7 +205,7 @@ Sơ đồ draw.io có `RecommendationResult.attempt: RecommendationAttempt` như
 
 ## 9. Quyết định backend hiện hành
 
-- **Đã chốt:** COD và chuyển khoản thủ công đều trừ `quantityOnHand` ngay khi đặt; hủy hợp lệ hoàn lại đúng một lần, gồm đơn chuyển khoản chưa trả do Admin hủy.
+- **Theo data-model hiện hành:** COD và chuyển khoản thủ công giữ chỗ khi checkout, trừ on-hand/reserved khi xuất hàng, hủy trước xuất giải phóng reserved đúng một lần. Quyết định này thay mô tả trừ on-hand ngay trong hướng dẫn cũ.
 - **Đã chốt:** sprint hỗ trợ cả COD và chuyển khoản thủ công (`BANK_TRANSFER`).
 - **Đã chốt:** đồ khách đã sở hữu/`PcBuildItem.ownedQuantity` giữ trong thiết kế mở rộng, chưa làm ở sprint 2 tuần.
 - **Đã chốt:** Admin đối chiếu rồi đánh dấu Payment chuyển khoản `PAID`; chỉ khi đó đơn chuyển khoản mới sang `SHIPPING`.

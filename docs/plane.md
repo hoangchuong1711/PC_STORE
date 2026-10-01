@@ -3,166 +3,426 @@
 
 Nhóm 5 thành viên | 14 ngày | 4–5 giờ mỗi người mỗi ngày
 
-**Cập nhật T03 (01/10/2026):** đã có [ERD CORE](data-model.md), Flyway và migration/JPA cho một bảng `brands`. Test tích hợp đã chạy thành công trên PostgreSQL riêng: 1 test, không lỗi, không bỏ qua. Các bảng CORE còn lại chưa triển khai; T03 chưa hoàn tất. Xem [README](../README.md) để chạy dự án và test.
+**Cập nhật T03 (01/10/2026):** đã triển khai 12 bảng CORE theo [data-model](data-model.md), Flyway V2 tiếp nối V1, entity JPA, PK/FK/UNIQUE/CHECK và index. Maven WAR build và 6 integration test PostgreSQL 17 đã qua, gồm nâng V1 có dữ liệu và lưu/đọc JPA. Đây là hoàn tất phần schema/mapping T03 trong repo; API nghiệp vụ và các bảng FEATURE/ADVANCED thuộc task sau. Chưa cập nhật trạng thái Work Item trên Plane trực tiếp.
 
-Kế hoạch tập trung hoàn thiện luồng mua hàng CORE và PC Builder với kiểm tra tương thích cơ bản để báo cáo kết thúc môn Lập trình Web. Các thành viên tự nhận task phù hợp năng lực; cuối đợt cần có bản chạy được, kết quả kiểm thử và bộ tài liệu báo cáo thống nhất.
+**Kế hoạch theo điều kiện hoàn thành, không ấn định thời hạn hai tuần.** T01–T03 đã khởi động được giữ nguyên nội dung và mốc gốc; các task từ T05 trở đi không gắn ngày cứng. Giữ mã T05–T38 để không làm lệch task đang theo dõi trên Plane. Nhóm 5 người nhận task theo owner, ghi người phụ trách trên Plane và mở issue lỗi riêng khi kiểm thử.
 
-## I TỔNG QUAN CÔNG NGHỆ VÀ PHẠM VI
+Mục tiêu: hoàn thiện CORE mua hàng, PC Builder với compatibility cơ bản, Product Review và Setup Community; có bản chạy lại được, kiểm thử và báo cáo khớp chức năng thực tế.
 
-| Thành phần    | Công nghệ                                            | Vai trò                                                             |
-| ------------- | ---------------------------------------------------- | ------------------------------------------------------------------- |
-| Frontend      | Next.js, TypeScript, Tailwind CSS, shadcn/ui         | Giao diện khách hàng, Admin và PC Builder; gọi API Java.            |
-| Backend       | Java 21, Servlet, Tomcat 10.1, Maven                 | Servlet → Service → DAO; nghiệp vụ, quyền và transaction ở backend. |
-| Dữ liệu       | JPA, Hibernate, PostgreSQL                           | Entity/DAO, ràng buộc DB, migration và dữ liệu mẫu dùng chung.      |
-| Đăng nhập     | HttpSession, Cookie, Servlet Filter                  | Xác thực Customer/Admin; kiểm tra quyền ở server.                   |
-| Làm việc nhóm | Git/GitHub, Plane; Docker Compose cho DB nếu phù hợp | Task tự nhận, review PR, môi trường chạy lại được theo README.      |
-| Kiểm thử      | Test nghiệp vụ Java, thử API và kiểm thử giao diện   | Ưu tiên giá, tồn kho, quyền và luồng mua hàng/Builder.              |
+## I. Công nghệ và phạm vi
 
-Yêu cầu môn học giữ nguyên Servlet + JPA + DAO. Repo hiện mới khởi tạo; kế hoạch có task dựng backend web và kết nối frontend. Các Page thiết kế mô tả chức năng dự kiến, không được tính là đã có code.
+**Frontend:** Next.js, TypeScript, Tailwind CSS, shadcn/ui; giao diện khách, Admin, Builder, Review và Community.
 
-### Phạm vi demo trong hai tuần
+**Backend:** Java 21, Servlet, Tomcat 10.1, Maven; Service/DAO xử lý nghiệp vụ, quyền và transaction.
 
-CORE gồm đăng ký/đăng nhập, catalog và chi tiết sản phẩm, search/filter cơ bản, giỏ hàng, checkout, lịch sử/chi tiết đơn, Admin quản lý sản phẩm và đơn. Bản demo đề xuất dùng COD và địa chỉ nhập dạng văn bản, được chốt ở T01; chưa cần cổng thanh toán thật hay gợi ý Google Maps.
+**Dữ liệu:** JPA/Hibernate và PostgreSQL; migration/seed dùng chung.
 
-Builder gồm chọn CPU, mainboard, RAM, GPU, SSD, PSU, case, cooler; tính tổng, lưu/sửa/xóa build và thêm vào giỏ. Đề xuất bản đầu tập trung cấu hình mua mới (ownedQuantity = 0), đưa luồng đồ đã sở hữu sang đợt mở rộng. Nhóm cần chốt giới hạn này ở T01; đây chưa phải thay đổi được xác nhận đối với thiết kế tổng thể.
+**Đăng nhập:** HttpSession, Cookie, Servlet Filter cho CUSTOMER/ADMIN.
 
-Compatibility kiểm tra socket CPU/main/cooler; RAM type, số thanh và dung lượng; mainboard/case form factor; kích thước GPU/cooler với case; công suất nguồn theo bộ rule được chốt và dữ liệu có nguồn. Hiển thị từng rule đã kiểm tra; thiếu spec trả UNKNOWN. Chưa xác nhận BIOS, đầu cắm, radiator hay độ tương thích ngoài dữ liệu được kiểm thử.
+**Làm việc nhóm:** Git/GitHub, Plane; review PR và README chạy lại được.
 
-Review và Setup Community được đưa sang đợt sau. AI Recommendation, Promotion, Warranty và Media nâng cao tiếp tục là ADVANCED. Ảnh catalog cho demo dùng tài sản mẫu/URL đã chuẩn bị; chưa xây hệ thống upload media riêng. Dành thời gian dự phòng để hoàn thiện mục tiêu chính trước khi bổ sung chức năng.
+**Kiểm thử:** nghiệp vụ Java, API, UI; ưu tiên tiền, kho, quyền, media và bốn luồng chính.
 
-### Nguồn lực và cách tự nhận task
+Giữ Servlet + JPA + DAO, PostgreSQL và Next.js theo kế hoạch hiện tại. [Mô hình dữ liệu](data-model.md) đã thiết kế Review và Setup Community; các task triển khai dùng thiết kế này làm đầu vào. Endpoint/DTO và mã lỗi được xác định trong task API tương ứng, thống nhất với FE và QA trước khi tích hợp.
 
-Nguồn lực danh nghĩa là 5 × 14 × 4–5 = 280–350 giờ công. Danh mục bên dưới ước tính 224 giờ công, để lại 56–126 giờ cho trao đổi, review, học phần chưa quen và phát sinh. Giờ công là tổng thời gian của người tham gia; task 10 giờ làm bởi hai người vẫn được tính 10 giờ, không phải 10 giờ mỗi người.
+### Phạm vi chính
 
-Để đạt mốc này, cần ít nhất 3 người thực hiện phần code hoặc ghép cặp thường xuyên; 1–2 người còn lại nhận dữ liệu, ca kiểm thử, tài liệu và hỗ trợ ghép giao diện. Đây là điều kiện lập kế hoạch, chưa phải đánh giá năng lực cụ thể của từng thành viên. Nếu cuối ngày 2 chưa có người đáp ứng các task BE/Builder khó, nhóm phải điều chỉnh mức hoàn thiện hoặc thời hạn.
+**CORE:** tài khoản và quyền, catalog/tìm lọc, giỏ, checkout COD, đơn, Admin sản phẩm/tồn/đơn. Đơn DELIVERED là điều kiện đầu vào cho Review và Setup. Địa chỉ demo nhập văn bản; không cần thanh toán online thật.
 
-Mỗi task có một người chịu trách nhiệm, tự điền vào cột Nhận việc hoặc chọn Assignee trên Plane. Task khó có người phối hợp và một người review. Mỗi người giữ tối đa một task code chính đang làm; ưu tiên việc chặn task khác. T01, T16 và T28 cần nhiều thành viên cùng tham gia; chi phí đã tính theo giờ công.
+**Builder:** chọn 8 nhóm linh kiện, tính tổng, lưu/sửa/xóa, kiểm tra tương thích cơ bản và mua qua giỏ. Bản đầu ưu tiên cấu hình mua mới (ownedQuantity=0); giới hạn này vẫn cần nhóm chốt theo T01, không tự thay đổi thiết kế tổng thể. Thiếu spec trả UNKNOWN; không tuyên bố kiểm tra BIOS, đầu cắm hoặc radiator.
 
-Task phù hợp để bắt đầu khi ít kinh nghiệm code: T08, T09, T18, T22, T27 và T29. Người nhận dữ liệu/QA có thể chạy script dưới hướng dẫn, tự ghi lỗi có bước tái hiện và kết quả mong đợi. Nhóm rà soát task trống, việc bị chặn và tiến độ 10–15 phút mỗi ngày trên Plane.
+**Review:** khách đánh giá đúng dòng hàng của đơn DELIVERED; sao, nội dung, ảnh/video theo giới hạn server, sửa/xóa mềm, tim, thống kê sao, lọc/sắp xếp và Admin ẩn/khôi phục. Một bài cho mỗi OrderItem, kể cả mua số lượng nhiều. Chưa có bình luận hoặc phản hồi shop.
 
-## II LỘ TRÌNH TRIỂN KHAI
+**Setup Community:** khách có ít nhất một đơn DELIVERED đăng setup có ảnh và sản phẩm liên quan; feed/chi tiết công khai, like, ranking, liên kết sản phẩm về catalog/giỏ và Admin kiểm duyệt. Không triển khai chat/follow/friend/livestream.
 
-| Mốc         | Thời gian   | Điều kiện đạt                                                     |
-| ----------- | ----------- | ----------------------------------------------------------------- |
-| M1 Nền tảng | 30/09–03/10 | Môi trường chạy, catalog từ DB lên UI, đăng nhập và quyền.        |
-| M2 CORE     | 04/10–06/10 | Mua hàng đến tạo đơn; Admin xử lý; kiểm tra giá/kho/quyền.        |
-| M3 Builder  | 07/10–10/10 | Chọn/lưu build, các rule compatibility, thêm giỏ và mua được.     |
-| M4 Báo cáo  | 11/10–13/10 | Sửa lỗi, chạy lại trên máy khác, hoàn thiện tài liệu và diễn tập. |
+AI Recommendation, Promotion và Warranty nằm ngoài phạm vi triển khai này. Media dùng chung chỉ phục vụ ảnh setup và ảnh/video review theo yêu cầu của hai module; chưa làm hệ quản trị media độc lập.
 
-Tất cả ngày trong bảng thuộc năm 2026. Thời gian gồm cả cuối tuần. Cột điều kiện nêu phụ thuộc; task frontend có thể bắt đầu bằng DTO mẫu đã chốt nhưng chỉ hoàn thành khi nối API thật. Task chung hoặc ước tính trên 5 giờ trong một ngày cần người phối hợp.
+## II. Cách chia giai đoạn và bàn giao
 
-### GIAI ĐOẠN 1 NỀN TẢNG CATALOG VÀ TÀI KHOẢN
+Giai đoạn là cổng phụ thuộc, không phải lịch ngày. Các task cùng giai đoạn có ranh giới mã và người sở hữu riêng; frontend có thể dùng fixture trước, còn kết nối thật và nghiệm thu đặt ở giai đoạn tích hợp. Một owner duy nhất quản lý migration (T10) và dịch vụ media (T21) để tránh sửa trùng.
 
-**30/09 đến 03/10**
+### Giai đoạn 0 — Công việc đã bắt đầu, giữ nguyên
 
-Mục tiêu là đưa dữ liệu thật từ PostgreSQL qua Servlet/JPA lên Next.js, đồng thời hoàn thành đăng nhập và phân quyền. T02/T03 phối hợp; frontend dùng DTO mẫu trong lúc backend triển khai.
+Ba task dưới đây được chép nguyên nội dung, thời gian gốc và điều kiện hoàn thành từ kế hoạch trước.
 
-| Task và công sức                                           | Thời gian       | Đầu ra và điều kiện hoàn thành                                                                                                                                           | Nhận việc |
-| ---------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| T01 Chốt phạm vi và hợp đồng chung Nhóm / Vừa / 5 giờ      | 30/09 đến 30/09 | Chốt COD cho bản demo, lọc tên/danh mục/brand/giá, trạng thái đơn, quy tắc tồn kho và API JSON. Có danh sách endpoint/DTO cho từng người làm song song. Cần trước: Không | —         |
-| T02 Dựng backend và môi trường chạy BE / Khó / 10 giờ      | 30/09 đến 01/10 | Backend chạy trên Tomcat 10.1 qua Docker Compose; Servlet trả JSON, JPA kết nối PostgreSQL. README ghi cách chạy; một máy khác thử được. Cần trước: T01                                   | —         |
-| T03 ERD CORE và migration đầu tiên DB BE / Khó / 10 giờ    | 30/09 đến 01/10 | Chốt User, Product, Category, Brand, Inventory, Cart/Item, Order/Item và Payment tối thiểu. Có khóa/ràng buộc, script tạo schema và mapping JPA. Cần trước: T01          | —         |
-| T04 API catalog và tìm kiếm BE / Vừa / 8 giờ               | 02/10 đến 03/10 | API danh sách có phân trang, chi tiết, tìm tên và lọc cơ bản; DTO không lộ dữ liệu riêng. Kiểm tra sản phẩm không tồn tại. Cần trước: T02, T03                           | —         |
-| T05 Đăng ký đăng nhập và phân quyền BE / Khó / 8 giờ       | 02/10 đến 03/10 | Hash mật khẩu; HttpSession, logout và Filter quyền. Frontend nhận/gửi cookie đúng; chặn Customer gọi API Admin, kiểm tra email trùng. Cần trước: T02, T03                | —         |
-| T06 Giao diện catalog và chi tiết FE / Vừa / 8 giờ         | 01/10 đến 03/10 | Dựng layout, danh sách, bộ lọc, chi tiết và trạng thái tải/rỗng/lỗi. Dùng DTO mẫu trước, nối API T04 trước khi hoàn thành. Cần trước: T01                                | —         |
-| T07 Giao diện đăng ký đăng nhập FE / Vừa / 6 giờ           | 02/10 đến 03/10 | Form báo lỗi rõ, giữ trạng thái đăng nhập, logout. Nối T05; ẩn điều hướng Admin cho Customer, backend vẫn kiểm tra quyền. Cần trước: T01                                 | —         |
-| T08 Chuẩn bị dữ liệu catalog Dữ liệu / Dễ / 8 giờ          | 30/09 đến 03/10 | Thu thập 30–40 sản phẩm, tên/model/giá/danh mục/brand/ảnh và nguồn. Giá demo được ghi rõ; người code kiểm tra rồi nạp seed theo T03. Cần trước: T01                      | —         |
-| T09 Viết ca kiểm thử và checklist QA tài liệu / Dễ / 4 giờ | 01/10 đến 03/10 | Checklist tài khoản, catalog, giỏ, đơn và quyền; mỗi ca có đầu vào, kết quả mong đợi. Gắn mã task để dùng khi kiểm thử tích hợp. Cần trước: T01                          | —         |
+| Task và công sức                                        | Thời gian gốc   | Đầu ra và điều kiện hoàn thành                                                                                                                                           | Nhận việc |
+| ------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| T01 Chốt phạm vi và hợp đồng chung Nhóm / Vừa / 5 giờ   | 30/09 đến 30/09 | Chốt COD cho bản demo, lọc tên/danh mục/brand/giá, trạng thái đơn, quy tắc tồn kho và API JSON. Có danh sách endpoint/DTO cho từng người làm song song. Cần trước: Không | —         |
+| T02 Dựng backend và môi trường chạy BE / Khó / 10 giờ   | 30/09 đến 01/10 | Maven WAR chạy trên Tomcat 10.1; Servlet trả JSON, JPA kết nối PostgreSQL. README ghi cách chạy; một máy khác thử được. Cần trước: T01                                   | —         |
+| T03 ERD CORE và migration đầu tiên DB BE / Khó / 10 giờ | 30/09 đến 01/10 | Chốt User, Product, Category, Brand, Inventory, Cart/Item, Order/Item và Payment tối thiểu. Có khóa/ràng buộc, script tạo schema và mapping JPA. Cần trước: T01          | —         |
 
-Tổng công sức nhóm task giai đoạn 1: 67 giờ công. Người nhận ghi tên trên Plane; cộng tác viên được ghi trong mô tả task.
+### Giai đoạn 1 — Nền tảng song song
 
-Chốt M1 cuối 03/10: máy khác chạy được theo README; catalog và auth dùng API thật. Nếu chưa đạt, dồn người sửa nền tảng trước khi mở nhiều task mới.
+Mỗi task sở hữu một khu vực rõ ràng: catalog, auth, giao diện tương ứng, dữ liệu và migration mở rộng. FE dùng DTO đã chốt và chỉ đánh dấu hoàn thành sau tích hợp.
 
-### GIAI ĐOẠN 2 HOÀN THIỆN LUỒNG MUA HÀNG
+#### T05 API catalog và tìm kiếm
 
-**04/10 đến 06/10**
+**Owner / phạm vi mã:** BE catalog
 
-Mục tiêu là giỏ hàng, checkout, đơn hàng và Admin hoạt động cùng nhau. T12 có thể dựng service theo hợp đồng trước khi T11 xong; kiểm thử cuối phải dùng giỏ và API thật.
+**Việc cần làm:** Làm danh sách phân trang, chi tiết, lọc tên/danh mục/brand/giá; chỉ trả sản phẩm được phép bán và DTO công khai.
 
-| Task và công sức                               | Thời gian       | Đầu ra và điều kiện hoàn thành                                                                                                                                                                                                                       | Nhận việc |
-| ---------------------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| T10 API quản trị sản phẩm BE / Vừa / 6 giờ     | 04/10 đến 05/10 | Admin thêm/sửa/ẩn sản phẩm và chỉnh tồn theo quy tắc chung. Kiểm tra giá/số lượng; không xóa cứng sản phẩm đã nằm trong đơn. Cần trước: T04, T05                                                                                                     | —         |
-| T11 API giỏ hàng BE / Vừa / 5 giờ              | 04/10 đến 05/10 | Thêm/gộp dòng, đổi số lượng, xóa và xem giỏ riêng của user. Từ chối lượng không hợp lệ; giá do backend tính. Cần trước: T04, T05                                                                                                                     | —         |
-| T12 Checkout và xử lý đơn BE / Khó / 10 giờ    | 04/10 đến 06/10 | Tạo đơn COD từ giỏ, snapshot giá/địa chỉ; kiểm tra kho trong transaction, rollback lỗi và xử lý request lặp để không tạo đơn/trừ kho hai lần. Có API xem đơn riêng và Admin chuyển trạng thái; tích hợp T11 trước kiểm thử cuối. Cần trước: T03, T05 | —         |
-| T13 Giao diện giỏ và checkout FE / Vừa / 8 giờ | 04/10 đến 06/10 | Thêm hàng, cập nhật giỏ, nhập địa chỉ, xác nhận COD và hiển thị kết quả. Nối T11/T12; chặn gửi lặp trên UI và hiển thị lỗi kho/giá. Cần trước: T06, T07                                                                                              | —         |
-| T14 Giao diện quản trị FE / Vừa / 6 giờ        | 04/10 đến 06/10 | Admin quản lý sản phẩm/tồn và danh sách/chi tiết/trạng thái đơn. Nối T10/T12, kiểm tra lỗi và quyền truy cập. Cần trước: T06, T07                                                                                                                    | —         |
-| T15 Lịch sử và chi tiết đơn FE / Vừa / 4 giờ   | 05/10 đến 06/10 | Khách xem đúng đơn của mình và trạng thái. Dùng mẫu API trước; hoàn thành khi đã nối T12 và thử truy cập đơn người khác. Cần trước: T07                                                                                                              | —         |
-| T16 Nghiệm thu CORE QA nhóm / Vừa / 6 giờ      | 06/10 đến 06/10 | Thử trọn luồng mua hàng và Admin xử lý; kiểm tra kho không âm, giá đơn cũ không đổi, quyền sở hữu đơn. Ghi lỗi và quyết định qua mốc CORE. Cần trước: T10, T11, T12, T13, T14, T15                                                                   | —         |
+**Điều kiện hoàn thành:** Có ca sản phẩm không tồn tại, bộ lọc kết hợp và phân trang ổn định.
 
-Tổng công sức nhóm task giai đoạn 2: 45 giờ công. Người nhận ghi tên trên Plane; cộng tác viên được ghi trong mô tả task.
+**Cần trước:** T02, T03, T01
 
-Chốt M2 cuối 06/10: trọn luồng CORE qua T16. Nếu chưa đạt, chưa tuyên bố đủ điều kiện mở Builder; dùng dự phòng để sửa và đánh giá lại mốc M3. Không bỏ kiểm thử hoặc ngày tập báo cáo để bù tính năng.
+#### T06 API đăng ký, đăng nhập và quyền
 
-### GIAI ĐOẠN 3 PC BUILDER VÀ COMPATIBILITY
+**Owner / phạm vi mã:** BE auth
 
-**07/10 đến 10/10**
+**Việc cần làm:** Hash mật khẩu, HttpSession, logout, Filter CUSTOMER/ADMIN; kiểm tra email trùng và cookie giữa Next.js–Tomcat.
 
-Mục tiêu là build có thể lưu, kiểm tra và mua. T18 chuẩn bị spec từ 02/10 để giảm áp lực tuần hai. T21 dựng UI sau M2, dùng hợp đồng từ T17 và nối API trước nghiệm thu.
+**Điều kiện hoàn thành:** Request chưa đăng nhập hoặc sai quyền bị chặn tại server.
 
-| Task và công sức                                             | Thời gian       | Đầu ra và điều kiện hoàn thành                                                                                                                                         | Nhận việc |
-| ------------------------------------------------------------ | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| T17 Chốt dữ liệu Builder và các rule DB BE / Khó / 6 giờ     | 07/10 đến 07/10 | Chốt PcBuild/Item, Spec và API kiểm tra. Quy định PASS/FAIL/UNKNOWN cho từng rule, số lượng và cấu hình đủ bộ; đồng bộ migration/JPA. Cần trước: T16, T03              | —         |
-| T18 Chuẩn bị bộ linh kiện kiểm thử Dữ liệu QA / Vừa / 10 giờ | 02/10 đến 07/10 | Thu thập spec có nguồn cho CPU/main/RAM/GPU/SSD/PSU/case/cooler. Có ít nhất 2 bộ hợp lệ và ca sai từng rule; người BE duyệt theo T17. Cần trước: T01                   | —         |
-| T19 API lưu build và thêm vào giỏ BE / Khó / 10 giờ          | 08/10 đến 09/10 | Tạo/xem/sửa/xóa build của chủ sở hữu; tính tổng từ catalog. Thêm các món cần mua vào giỏ, kiểm tra giá/kho; tích hợp T20 trước khi hoàn tất. Cần trước: T17, T11, T18  | —         |
-| T20 CompatibilityService BE / Khó / 10 giờ                   | 08/10 đến 09/10 | Kiểm tra socket, RAM, form factor, GPU/cooler với case và nguồn theo rule đã chốt. Trả lỗi cụ thể từng linh kiện; thiếu spec là UNKNOWN, kèm test. Cần trước: T17, T18 | —         |
-| T21 Giao diện PC Builder FE / Khó / 12 giờ                   | 07/10 đến 10/10 | Chọn 8 nhóm linh kiện, thấy giá/tổng và kết quả rule. Lưu/sửa/xóa/thêm giỏ, xử lý build thiếu món; nối T19/T20 trước khi hoàn thành. Cần trước: T16                    | —         |
-| T22 Kiểm thử Builder QA / Vừa / 8 giờ                        | 09/10 đến 10/10 | Chuẩn bị ca từ bộ spec; chạy trên T19/T20/T21 khi có bản tích hợp. Thử build đúng/sai/thiếu dữ liệu, quyền sở hữu và giá/kho thay đổi. Cần trước: T18                  | —         |
-| T23 Ghép Builder vào luồng mua hàng Tích hợp / Khó / 6 giờ   | 10/10 đến 10/10 | Build hợp lệ → giỏ → checkout → đơn; giỏ khớp số lượng/tổng. Chạy lại CORE sau khi thêm Builder và chốt ngừng nhận tính năng mới. Cần trước: T19, T20, T21, T22        | —         |
+**Cần trước:** T02, T03
 
-Tổng công sức nhóm task giai đoạn 3: 62 giờ công. Người nhận ghi tên trên Plane; cộng tác viên được ghi trong mô tả task.
+#### T07 Giao diện catalog và chi tiết
 
-Chốt M3 cuối 10/10: Builder qua T23 và CORE không bị hỏng. Chỉ demo những rule đã có test; nếu còn thiếu, ghi rõ giới hạn trong báo cáo. Từ 11/10 tập trung sửa lỗi và kiểm tra lại.
+**Owner / phạm vi mã:** FE catalog
 
-### GIAI ĐOẠN 4 KIỂM THỬ VÀ CHUẨN BỊ BÁO CÁO
+**Việc cần làm:** Dựng danh sách, tìm/lọc, chi tiết, trạng thái tải/rỗng/lỗi và bố cục điện thoại theo DTO mẫu; giữ mã ở khu vực catalog FE.
 
-**11/10 đến 13/10**
+**Điều kiện hoàn thành:** Các trạng thái và điều hướng chạy với fixture; nối API thật ở T20.
 
-Ngừng nhận chức năng mới sau M3. T27 viết báo cáo từ 08/10, hoàn thiện bằng ảnh và sơ đồ của bản tích hợp. T25 dành cho sửa lỗi đã phát hiện; phát sinh lớn dùng quỹ dự phòng.
+**Cần trước:** T01
 
-| Task và công sức                                             | Thời gian       | Đầu ra và điều kiện hoàn thành                                                                                                                                                  | Nhận việc |
-| ------------------------------------------------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| T24 Kiểm thử tổng thể và quyền QA BE / Khó / 8 giờ           | 11/10 đến 11/10 | Thử request trái quyền, đơn người khác, 2 người mua tồn cuối, gửi checkout lặp, input sai. Thử màn hình nhỏ và lỗi API; lập danh sách lỗi theo mức độ. Cần trước: T23           | —         |
-| T25 Sửa lỗi và kiểm thử lại FE BE QA / Khó / 12 giờ          | 11/10 đến 12/10 | Ưu tiên lỗi chặn demo, sai tiền/kho/quyền. Mỗi lỗi có bước tái hiện và người kiểm tra lại; không thêm feature ngoài kế hoạch. Cần trước: T24                                    | —         |
-| T26 Chuẩn bị môi trường demo Môi trường QA / Vừa / 6 giờ     | 11/10 đến 12/10 | Clone mới theo README, dựng DB/seed và chạy frontend/backend. Lưu script phục hồi dữ liệu demo; chuẩn bị máy dự phòng, không đưa secret vào báo cáo. Cần trước: T23             | —         |
-| T27 Hoàn thiện báo cáo và slide Tài liệu / Vừa / 10 giờ      | 08/10 đến 12/10 | Viết phần mục tiêu, stack, ERD, luồng và đóng góp; bổ sung Builder sau T23. Ảnh minh chứng từ bản chạy thật; tài liệu khớp chức năng thực hiện. Cần trước: T16                  | —         |
-| T28 Diễn tập báo cáo cả nhóm Nhóm / Vừa / 10 giờ             | 13/10 đến 13/10 | Cả 5 người tập 2 giờ/người: demo hai luồng, giải thích Servlet/Service/DAO/JPA, transaction và rule; kiểm tra tài khoản, dữ liệu và kịch bản dự phòng. Cần trước: T25, T26, T27 | —         |
-| T29 Chốt bản nộp và bàn giao nội bộ Tài liệu QA / Dễ / 4 giờ | 13/10 đến 13/10 | Chốt mã nguồn và hướng dẫn chạy, schema/seed, báo cáo, slide, kết quả test và danh sách giới hạn. Đối chiếu mục nộp với yêu cầu môn, lưu bản dự phòng. Cần trước: T28           | —         |
+#### T08 Giao diện tài khoản và phiên đăng nhập
 
-Tổng công sức nhóm task giai đoạn 4: 50 giờ công. Người nhận ghi tên trên Plane; cộng tác viên được ghi trong mô tả task.
+**Owner / phạm vi mã:** FE auth
 
-## III TIÊU CHÍ NGHIỆM THU VÀ BÁO CÁO
+**Việc cần làm:** Dựng form đăng ký/đăng nhập, logout, giữ phiên và phản hồi lỗi theo DTO mẫu; giữ mã ở khu vực auth FE.
 
-| Hạng mục              | Bằng chứng hoàn thành                                                                                                                                                             |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tài khoản và quyền    | Đăng ký/login/logout; thử email trùng, request chưa login, Customer gọi API Admin và truy cập đơn/build của người khác. Kết quả server đúng quyền.                                |
-| Catalog và giỏ        | Danh sách/chi tiết lấy từ DB; filter đúng; thêm/đổi/xóa số lượng; giỏ mỗi user độc lập và tổng tiền khớp dữ liệu backend.                                                         |
-| Checkout và đơn       | Tạo đơn COD thành công; lỗi kho làm rollback; giá/địa chỉ đơn cũ giữ nguyên khi catalog thay đổi. Hai người mua tồn cuối không làm âm kho; request lặp không tạo/trừ kho hai lần. |
-| Admin                 | Quản lý sản phẩm và chuyển trạng thái đơn theo quy tắc T01. Chỉ ADMIN được thao tác; thay đổi có thể thấy ở tài khoản khách tương ứng.                                            |
-| Builder               | Chọn đủ linh kiện, lưu/sửa/xóa đúng chủ sở hữu, tính giá hiện hành; thêm giỏ đúng sản phẩm/số lượng rồi checkout được.                                                            |
-| Compatibility         | Ít nhất 2 cấu hình hợp lệ và ca sai từng nhóm rule; thiếu dữ liệu không trả PASS. Nêu rõ rule nào được kiểm tra và giới hạn nào chưa hỗ trợ.                                      |
-| Chạy lại và giao diện | Thành viên khác clone/dựng DB/seed/chạy theo README; các màn hình chính không vỡ ở desktop và điện thoại; có báo tải/lỗi/rỗng.                                                    |
-| Điều kiện chốt        | Không còn lỗi chặn hai luồng demo hoặc lỗi sai tiền, âm kho, trái quyền đã phát hiện. Lỗi nhỏ còn lại có danh sách và ảnh hưởng; không cam kết tải lớn hay SLA vận hành.          |
+**Điều kiện hoàn thành:** Luồng UI/fixture và thông báo lỗi đầy đủ; nối API thật ở T20.
 
-### Kịch bản báo cáo
+**Cần trước:** T01
 
-Luồng 1: đăng nhập Customer → tìm/lọc sản phẩm → xem chi tiết → giỏ → checkout COD → xem đơn; chuyển sang Admin xử lý trạng thái rồi kiểm tra lại phía khách.
+#### T09 Dữ liệu mẫu catalog có nguồn
 
-Luồng 2: chọn linh kiện trong Builder → cố ý tạo một trường hợp không tương thích → đọc lý do → sửa đúng → lưu build → thêm giỏ → đặt hàng. Giải thích rằng backend xác nhận giá, tồn kho và compatibility.
+**Owner / phạm vi mã:** Dữ liệu
 
-Mỗi thành viên trình bày phần mình thực hiện và một bằng chứng cụ thể: PR, ca kiểm thử, dữ liệu đã kiểm chứng hoặc phần tài liệu. Người ít code vẫn cần hiểu luồng chính và giải thích được đóng góp của mình.
+**Việc cần làm:** Chuẩn bị tối thiểu 30–40 SKU, ảnh/URL, giá demo, danh mục, brand và thông số linh kiện có nguồn; bàn giao file seed nhất quán với T03.
 
-### Bộ tài liệu và bản nộp
+**Điều kiện hoàn thành:** Seed chạy lại được, có sản phẩm đủ cho mua hàng và Builder.
 
-Chuẩn bị mã nguồn bản ổn định; README chạy dự án; tài liệu scope/architecture/data-model/API; ERD và class diagram khớp phiên bản thực hiện; migration và seed; báo cáo môn học; slide; checklist test, danh sách lỗi còn lại và kịch bản demo. Đây là bộ chuẩn bị nội bộ, cần đối chiếu hình thức nộp cuối cùng khi giảng viên thông báo.
+**Cần trước:** T01, T03
 
-### Cách kiểm soát trễ tiến độ
+#### T10 Migration mở rộng Builder, Review và Setup
 
-| Tình huống                     | Xử lý                                                                                                                                                      |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Task chưa có người nhận        | Rà soát mỗi ngày, nhận việc chặn luồng trước. Task khó ghép cặp; người phụ trách bảo đảm phần được ghép vào hệ thống.                                      |
-| Môi trường hoặc API lệch nhau  | Ưu tiên T01–T03 và README dùng chung. Chốt DTO trước; ghép frontend/backend hằng ngày, không chờ cuối đợt.                                                 |
-| Thiếu spec hoặc rule chưa chắc | Giới hạn catalog demo ở sản phẩm có thông số xác thực; thiếu dữ liệu trả UNKNOWN. Không dùng thông số tự đoán để qua test.                                 |
-| CORE hoặc Builder trễ          | Dùng quỹ dự phòng, dừng việc trang trí và mọi chức năng ngoài mục tiêu. Nếu vẫn không đạt, nhóm xác nhận lại phạm vi báo cáo; ghi rõ phần chưa hoàn thành. |
-| Lỗi gần ngày báo cáo           | Ưu tiên tiền/kho/quyền và hai luồng demo. Giữ bản đã chạy ổn cùng seed phục hồi và máy dự phòng; dành ngày 13/10 để diễn tập.                              |
+**Owner / phạm vi mã:** DB owner
 
-Cơ sở lập kế hoạch: quyết định của nhóm ngày 30/09/2026 về CORE + PC Builder/Compatibility; Page 4 Thiết kế hệ thống ClassDiagram ERD cho nghiệp vụ; Page BE cho Servlet, JPA, DAO và công nghệ backend. Các ngày là mục tiêu nội bộ trong 14 ngày, chưa phải hạn nộp chính thức do giảng viên xác nhận.
+**Việc cần làm:** Từ migration T03, bổ sung PcBuild/Item/Spec, ProductReview/ReviewMedia/ReviewLike, SetupPost/Image/Product/Like; FK, UNIQUE, CHECK, index và trạng thái. Mỗi thay đổi schema của ba module đi qua task này để tránh hai người sửa cùng migration.
+
+**Điều kiện hoàn thành:** Migration lên/xuống trên DB mới; UNIQUE review theo OrderItem, like theo user+bài và quan hệ chủ sở hữu được kiểm thử.
+
+**Cần trước:** T03
+
+#### T11 Bộ fixture và ca kiểm thử liên module
+
+**Owner / phạm vi mã:** QA / dữ liệu
+
+**Việc cần làm:** Viết fixture user, admin, sản phẩm, đơn PENDING/DELIVERED/CANCELLED, build đúng/sai, bài review/setup công khai/ẩn; checklist cho từng quyền.
+
+**Điều kiện hoàn thành:** Các module có dữ liệu dùng chung và ca âm để kiểm thử mà không tự tạo dữ liệu mâu thuẫn.
+
+**Cần trước:** T09, T10
+
+### Giai đoạn 2 — Luồng mua hàng CORE
+
+BE tách Product/Cart/Order; FE tách Admin/Cart/Order. Mỗi nhánh làm theo hợp đồng và mock trước; việc nối các nhánh đặt ở T20.
+
+#### T12 API Admin quản lý sản phẩm và tồn
+
+**Owner / phạm vi mã:** BE product admin
+
+**Việc cần làm:** Thêm/sửa/ẩn sản phẩm, chỉnh tồn có kiểm tra giá/số lượng và quyền ADMIN; không xóa cứng SKU đã có trong đơn.
+
+**Điều kiện hoàn thành:** Thay đổi từ Admin hiện ở catalog; request CUSTOMER bị từ chối.
+
+**Cần trước:** T05, T06
+
+#### T13 API giỏ hàng
+
+**Owner / phạm vi mã:** BE cart
+
+**Việc cần làm:** Xem giỏ riêng, thêm/gộp dòng, đổi/xóa số lượng; backend tính giá và từ chối số lượng không hợp lệ.
+
+**Điều kiện hoàn thành:** Giỏ hai user độc lập; không tin giá client gửi.
+
+**Cần trước:** T05, T06
+
+#### T14 API checkout, đơn và trạng thái giao
+
+**Owner / phạm vi mã:** BE order
+
+**Việc cần làm:** Tạo đơn COD từ giỏ theo hợp đồng, snapshot giá/địa chỉ, kiểm tra kho trong transaction, chống request lặp; API đơn theo chủ sở hữu và Admin chuyển trạng thái đến DELIVERED. Ghi deliveredAt một lần; trạng thái hủy không đủ điều kiện Review/Setup.
+
+**Điều kiện hoàn thành:** Không âm kho/đơn trùng; đơn người khác bị chặn; trạng thái DELIVERED dùng được cho module sau.
+
+**Cần trước:** T03, T06, T01
+
+#### T15 Giao diện Admin sản phẩm và tồn
+
+**Owner / phạm vi mã:** FE admin catalog
+
+**Việc cần làm:** Form và danh sách thêm/sửa/ẩn sản phẩm, chỉnh tồn, báo lỗi hợp lệ; chỉ hiển thị với Admin.
+
+**Điều kiện hoàn thành:** Dùng fixture; nối API thật ở T20; và thử API sai quyền.
+
+**Cần trước:** T07, T08
+
+#### T16 Giao diện giỏ và checkout COD
+
+**Owner / phạm vi mã:** FE cart/checkout
+
+**Việc cần làm:** Xem/đổi/xóa giỏ, nhập địa chỉ văn bản, xác nhận giá COD, chặn gửi lặp và hiển thị lỗi kho/giá.
+
+**Điều kiện hoàn thành:** Dùng fixture; nối API thật ở T20; sau đặt hàng có mã đơn và giỏ được cập nhật.
+
+**Cần trước:** T07, T08
+
+#### T17 Giao diện đơn của khách
+
+**Owner / phạm vi mã:** FE customer order
+
+**Việc cần làm:** Danh sách/chi tiết đơn và trạng thái; có vị trí để mở Review cho sản phẩm thuộc đơn DELIVERED ở giai đoạn sau.
+
+**Điều kiện hoàn thành:** Dùng fixture; nối API thật ở T20; khách không xem được đơn của người khác.
+
+**Cần trước:** T08
+
+#### T18 Giao diện Admin xử lý đơn
+
+**Owner / phạm vi mã:** FE admin order
+
+**Việc cần làm:** Danh sách/chi tiết đơn, chuyển trạng thái theo quy tắc đã chốt, hiển thị lỗi chuyển sai và trạng thái giao.
+
+**Điều kiện hoàn thành:** Dùng fixture; nối API thật ở T20; DELIVERED phản ánh trên đơn khách.
+
+**Cần trước:** T08
+
+#### T19 Kiểm thử nghiệp vụ CORE theo contract
+
+**Owner / phạm vi mã:** QA core
+
+**Việc cần làm:** Chuẩn bị test giá/kho/quyền, hai người mua tồn cuối, checkout lặp và vòng đời PENDING→DELIVERED/CANCELLED trên API và UI.
+
+**Điều kiện hoàn thành:** Lập danh sách lỗi có bước tái hiện; làm dữ liệu đầu vào cho T20.
+
+**Cần trước:** T11
+
+### Giai đoạn 3 — Tích hợp CORE và hạ tầng dùng chung
+
+Ba task độc lập: T20 nối mua hàng, T21 sở hữu hạ tầng media, T22 sở hữu dữ liệu/rule Builder. Đây là cổng trước khi ba module chức năng chạy song song.
+
+#### T20 Ghép và nghiệm thu CORE
+
+**Owner / phạm vi mã:** Tích hợp / QA
+
+**Việc cần làm:** Nối T12–T18 trên API thật, chạy các ca T19; sửa lỗi chặn, xác nhận trạng thái DELIVERED, snapshot giá/kho/quyền và dữ liệu đơn cho Review/Setup.
+
+**Điều kiện hoàn thành:** Mua hàng từ catalog đến DELIVERED hoạt động; lỗi chặn được đóng hoặc ghi rõ.
+
+**Cần trước:** T12–T19
+
+#### T21 Dịch vụ media dùng chung
+
+**Owner / phạm vi mã:** BE media
+
+**Việc cần làm:** Tạo hợp đồng upload xác thực cho ảnh setup và ảnh/video review; kiểm tra định dạng thực, khả năng giải mã, kích thước/số lượng/thời lượng; lưu tạm rồi xác nhận, dọn tệp mồ côi. Tách namespace/quyền theo module.
+
+**Điều kiện hoàn thành:** Không công khai file của bài chưa hợp lệ/đã ẩn; tệp lỗi bị từ chối và dọn được.
+
+**Cần trước:** T10
+
+#### T22 Spec và bộ linh kiện kiểm thử Builder
+
+**Owner / phạm vi mã:** Dữ liệu / QA Builder
+
+**Việc cần làm:** Chuẩn bị CPU/main/RAM/GPU/SSD/PSU/case/cooler có nguồn, ít nhất hai build hợp lệ và ca sai từng rule; xác định PASS/FAIL/UNKNOWN.
+
+**Điều kiện hoàn thành:** Seed và expected result để T23/T24 cùng dùng; thiếu spec không thành PASS.
+
+**Cần trước:** T09, T10
+
+### Giai đoạn 4 — Ba nhánh chức năng song song
+
+Builder, Review và Community có owner/module riêng. FE dùng fixture và DTO thống nhất với API từng module; chỉ nối thật ở giai đoạn 5. Không sửa schema chung hay media service trong nhánh riêng nếu chưa thống nhất với owner T10/T21.
+
+#### T23 CompatibilityService
+
+**Owner / phạm vi mã:** BE Builder rules
+
+**Việc cần làm:** Kiểm tra socket CPU/main/cooler, RAM type/số thanh/dung lượng, form factor, kích thước GPU/cooler và công suất nguồn; trả PASS/FAIL/UNKNOWN kèm lý do từng rule.
+
+**Điều kiện hoàn thành:** Test đủ bộ đúng/sai/thiếu spec T22; không tuyên bố kiểm tra BIOS/đầu cắm/radiator.
+
+**Cần trước:** T10, T22
+
+#### T24 API lưu build và thêm vào giỏ
+
+**Owner / phạm vi mã:** BE Builder API
+
+**Việc cần làm:** Tạo/xem/sửa/xóa build theo chủ sở hữu; tính giá từ catalog, thêm linh kiện cần mua vào giỏ, kiểm tra tồn và số lượng. Dùng contract T23, nối rule ở T32.
+
+**Điều kiện hoàn thành:** Không đọc/sửa build người khác; giỏ chứa đúng SKU/số lượng/giá.
+
+**Cần trước:** T10, T13, T22
+
+#### T25 Giao diện PC Builder
+
+**Owner / phạm vi mã:** FE Builder
+
+**Việc cần làm:** Chọn 8 nhóm linh kiện, xem tổng giá và từng kết quả rule, lưu/sửa/xóa/thêm giỏ; xử lý build thiếu món và trạng thái tải/lỗi.
+
+**Điều kiện hoàn thành:** Dùng DTO mẫu; nối T23/T24 tại T30.
+
+**Cần trước:** T07, T08
+
+#### T26 API Review: tạo, sửa, xóa và thống kê
+
+**Owner / phạm vi mã:** BE Review core (ReviewService/DAO)
+
+**Việc cần làm:** Dựa trên data-model.md, xác định DTO/endpoint, mã lỗi và quyền cho Review cùng T27, bàn giao cho FE/QA. Chỉ chủ OrderItem thuộc đơn DELIVERED được tạo một review/dòng; sao 1–5, nội dung hợp lệ, media qua T21, sửa và xóa mềm. Trả danh sách phân trang/lọc/sắp xếp, trung bình sao/phân bố chỉ từ bài PUBLISHED.
+
+**Điều kiện hoàn thành:** Chặn chưa mua/sai SKU/sai chủ/chưa giao/gửi trùng; sửa/xóa cập nhật thống kê.
+
+**Cần trước:** T10, T14, T21
+
+#### T27 API Review: like và kiểm duyệt
+
+**Owner / phạm vi mã:** BE Review social (Like/Moderation)
+
+**Việc cần làm:** Tách endpoint/service cho like/unlike lặp an toàn, một user một tim, cấm tự tim; Admin ẩn bài kèm lý do và khôi phục. Dùng thiết kế Review trong data-model.md và migration T10, thống nhất DTO/endpoint với T26; không sửa ReviewService của T26.
+
+**Điều kiện hoàn thành:** Sai quyền bị chặn; khôi phục cập nhật danh sách/thống kê đúng.
+
+**Cần trước:** T10, T21
+
+#### T28 Giao diện Review trên sản phẩm và đơn
+
+**Owner / phạm vi mã:** FE Review
+
+**Việc cần làm:** Trang sản phẩm hiển thị rating, phân bố sao, list phân trang/lọc sao/có media; trong đơn DELIVERED có form tạo/sửa/xóa review của đúng dòng, upload ảnh/video và trạng thái lỗi.
+
+**Điều kiện hoàn thành:** Dùng DTO/endpoint thống nhất với T26/T27; nối API thật tại T33, không có bình luận/reply.
+
+**Cần trước:** T07, T17
+
+#### T29 API Setup: bài đăng, ảnh và sản phẩm
+
+**Owner / phạm vi mã:** BE Community post (SetupService/DAO)
+
+**Việc cần làm:** Dựa trên data-model.md, xác định DTO/endpoint, mã lỗi và quyền cho Setup cùng T30, bàn giao cho FE/QA. Chỉ user có ít nhất một đơn DELIVERED được đăng setup; bài có ít nhất một ảnh, nội dung và Product từ catalog; chủ bài sửa/xóa, guest xem bài PUBLISHED. Media dùng T21.
+
+**Điều kiện hoàn thành:** Chặn chưa mua, bài thiếu ảnh, SKU không hợp lệ, sửa bài người khác; bài ẩn không công khai.
+
+**Cần trước:** T10, T14, T21
+
+#### T30 API Setup: like, ranking và kiểm duyệt
+
+**Owner / phạm vi mã:** BE Community social (Like/Ranking/Moderation)
+
+**Việc cần làm:** Tách endpoint/service like/unlike idempotent, ranking chỉ tính bài PUBLISHED và Admin ẩn/khôi phục kèm lý do; liên kết sản phẩm về catalog/cart. Dùng thiết kế SetupPost trong data-model.md và migration T10, thống nhất DTO/endpoint với T29; không sửa SetupService của T29.
+
+**Điều kiện hoàn thành:** Không đếm trùng like, bài ẩn rời ranking, sai quyền bị từ chối.
+
+**Cần trước:** T10, T21
+
+#### T31 Giao diện Setup Community
+
+**Owner / phạm vi mã:** FE Community
+
+**Việc cần làm:** Feed/chi tiết setup, form đăng/sửa bài với ảnh và sản phẩm liên quan, like/ranking, liên kết từ sản phẩm tới giỏ; màn hình kiểm duyệt Admin.
+
+**Điều kiện hoàn thành:** Dùng DTO/endpoint thống nhất với T29/T30; nối API thật tại T34; guest chỉ xem, user chưa đủ điều kiện thấy lý do không đăng được.
+
+**Cần trước:** T07, T08
+
+### Giai đoạn 5 — Tích hợp và nghiệm thu từng nhánh
+
+Ba luồng được tích hợp và kiểm thử độc lập trên dữ liệu chung; mỗi task có người QA khác người code xác nhận.
+
+#### T32 Ghép và nghiệm thu Builder
+
+**Owner / phạm vi mã:** Tích hợp Builder / QA
+
+**Việc cần làm:** Nối T23/T24/T25, chạy build đúng/sai/thiếu spec → giỏ → checkout → đơn, kiểm tra chủ sở hữu và giá/kho đổi giữa các bước.
+
+**Điều kiện hoàn thành:** Builder mua được mà không làm hỏng CORE; giới hạn rule ghi rõ.
+
+**Cần trước:** T20, T23–T25
+
+#### T33 Ghép và nghiệm thu Review
+
+**Owner / phạm vi mã:** Tích hợp Review / QA
+
+**Việc cần làm:** Nối T26–T28; thử đơn chưa giao, sai chủ/SKU, review trùng, media lỗi, like lặp, ẩn/khôi phục và thống kê sau sửa/xóa.
+
+**Điều kiện hoàn thành:** UI/API cùng trạng thái; không lộ bài/media ẩn và không sai rating.
+
+**Cần trước:** T20, T26–T28
+
+#### T34 Ghép và nghiệm thu Setup Community
+
+**Owner / phạm vi mã:** Tích hợp Community / QA
+
+**Việc cần làm:** Nối T29–T31; thử điều kiện đã mua DELIVERED, ảnh bắt buộc, bài có SKU, feed/ranking/like, quyền chủ bài và kiểm duyệt.
+
+**Điều kiện hoàn thành:** Guest xem công khai; bài ẩn rời feed/ranking, đường dẫn Product→Cart hoạt động.
+
+**Cần trước:** T20, T29–T31
+
+### Giai đoạn 6 — Kiểm thử tổng thể và bàn giao
+
+Chỉ chốt sau khi ba nhánh đạt nghiệm thu; không gắn mốc ngày cố định. Lỗi phát hiện được tạo issue riêng có người nhận và bằng chứng kiểm thử lại.
+
+#### T35 Regression xuyên module và xử lý lỗi
+
+**Owner / phạm vi mã:** QA lead + owner liên quan
+
+**Việc cần làm:** Chạy lại auth, catalog, cart, order, Builder, Review, Community; thử API trái quyền, media riêng tư, hai người mua tồn cuối, checkout lặp, desktop/mobile. Phân lỗi theo mức độ, giao đúng owner và retest.
+
+**Điều kiện hoàn thành:** Không còn lỗi chặn luồng chính hoặc sai tiền/kho/quyền; lỗi nhỏ có danh sách ảnh hưởng.
+
+**Cần trước:** T32–T34
+
+#### T36 README, seed và môi trường demo
+
+**Owner / phạm vi mã:** Môi trường / QA
+
+**Việc cần làm:** Clone mới theo README, dựng DB/migration/seed, cấu hình frontend/backend/media và tài khoản mẫu; lưu kịch bản reset dữ liệu, không đưa secret vào tài liệu.
+
+**Điều kiện hoàn thành:** Một thành viên khác chạy được cả bốn luồng: mua hàng, Builder, Review, Community.
+
+**Cần trước:** T35
+
+#### T37 Báo cáo và slide theo bản chạy thật
+
+**Owner / phạm vi mã:** Tài liệu
+
+**Việc cần làm:** Cập nhật mục tiêu, stack Servlet/JPA/DAO, ERD mở rộng, API/quyền, bốn luồng, test và giới hạn; ảnh minh chứng lấy từ bản tích hợp.
+
+**Điều kiện hoàn thành:** Tài liệu khớp tính năng đã triển khai và phân công đóng góp.
+
+**Cần trước:** T35
+
+#### T38 Diễn tập và chốt bản nộp
+
+**Owner / phạm vi mã:** Cả nhóm
+
+**Việc cần làm:** Diễn tập bốn luồng, câu hỏi transaction/quyền/rule, thử tài khoản và dữ liệu dự phòng; đóng gói mã nguồn, migration/seed, test, README, báo cáo, slide.
+
+**Điều kiện hoàn thành:** Bản nộp mở được trên máy khác; danh sách giới hạn và lỗi còn lại được ghi rõ.
+
+**Cần trước:** T36, T37
+
+## III. Tiêu chí nghiệm thu
+
+**CORE:** catalog từ DB; đăng nhập/quyền đúng; giỏ và COD tạo đơn đúng giá/kho, không đơn trùng; chỉ chủ đơn xem đơn, Admin chuyển trạng thái đúng và deliveredAt đáng tin cậy.
+
+**Builder:** ít nhất hai cấu hình hợp lệ, ca sai và thiếu spec từng rule; build đúng chủ sở hữu, giá/giỏ/checkout khớp, không làm hỏng CORE.
+
+**Review:** chặn chưa mua/chưa giao/sai sản phẩm/sai chủ/trùng OrderItem; sao và media hợp lệ; like idempotent, ẩn/xóa/khôi phục cập nhật danh sách, media và rating đúng.
+
+**Setup Community:** chỉ người có đơn DELIVERED đăng được; ảnh bắt buộc, SKU hợp lệ, feed/ranking chỉ gồm bài công khai, like không đếm trùng, quyền chủ bài/Admin được kiểm thử.
+
+**Bàn giao:** một thành viên khác dựng theo README và chạy đủ bốn luồng; giao diện desktop/điện thoại có trạng thái tải/rỗng/lỗi; báo cáo, slide và danh sách giới hạn khớp bản chạy.

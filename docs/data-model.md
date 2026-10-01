@@ -4,9 +4,9 @@
 
 Tài liệu mô tả mô hình dữ liệu mục tiêu của PC Store, dựa trên `Bản sao của PC-Store-Class-Diagram-One-Page.drawio.xml` và các phương án hiệu chỉnh đã được người dùng yêu cầu áp dụng ngày 01/10/2026. Các quyết định dưới đây thay thế những điểm thiếu/mâu thuẫn của bản mô tả trước; đây không còn là bản chép nguyên sơ đồ. Danh sách thay đổi để đồng bộ lại class diagram nằm ở mục 7.
 
-Phạm vi gồm tài khoản, địa chỉ, catalog, tồn kho, giỏ hàng, đơn hàng, thanh toán, thông số linh kiện, PC Builder, Recommendation, Community, Promotion, Warranty và Review. Thứ tự triển khai vẫn là CORE → FEATURE → ADVANCED theo [scope.md](scope.md); mô tả đầy đủ không có nghĩa triển khai tất cả cùng lúc. Backend giữ Java Servlet → Service → DAO → JPA/Hibernate → PostgreSQL theo [architecture.md](architecture.md).
+Phạm vi gồm tài khoản, địa chỉ, catalog, tồn kho, giỏ hàng, đơn hàng, thanh toán, thông số linh kiện, PC Builder, Recommendation, Community, Promotion, Warranty và Review. Thứ tự triển khai vẫn là CORE → FEATURE → ADVANCED theo [scope.md](scope.md); mô tả đầy đủ không có nghĩa triển khai tất cả cùng lúc. Backend giữ Java Servlet → Service → DAO → JPA/Hibernate → PostgreSQL theo [hướng dẫn backend](../backend/BACKEND_GUIDE.md).
 
-**Trạng thái:** đây là thiết kế tài liệu, chưa phải migration, entity hoặc database đã triển khai. Khi kiểm tra cây mã nguồn trong phiên này, chưa thấy migration V1, entity Brand hoặc BrandDatabaseIT; JpaConfig đang dùng Hibernate `validate`. Không tiếp tục khẳng định các thành phần này tồn tại chỉ dựa vào README cũ. Chưa truy vấn database thực tế. File draw.io chưa được chỉnh sửa trong lần cập nhật tài liệu này.
+**Trạng thái T03 (01/10/2026):** đã triển khai 12 bảng CORE ở mục 8 bằng Flyway V1 + V2 và entity JPA tương ứng; Hibernate dùng `validate`. `CoreDatabaseIT` kiểm tra PostgreSQL 17 thật, nâng cấp V1 có dữ liệu, ràng buộc và lưu/đọc JPA. Các phần FEATURE/ADVANCED vẫn là thiết kế, chưa triển khai. Xem [hướng dẫn kiểm thử](../backend/BACKEND_GUIDE.md#7-schema-migration-và-kiểm-thử-cần-có). File draw.io chưa được chỉnh sửa.
 
 ## 2. Quy ước và quyết định chung
 
@@ -871,5 +871,4 @@ Các tình huống cần kiểm chứng khi có implementation:
 - Không có review thứ hai cho cùng dòng đơn kể cả đã xóa mềm; chủ review không tự khôi phục bản HIDDEN; thêm media đồng thời không vượt 6.
 - Một like/User/Post; không xóa ảnh cuối cùng của SetupPost; không vô tình cascade xóa lịch sử đơn hàng.
 
-Trong lần cập nhật này chỉ kiểm tra tính nhất quán của tài liệu: đủ các lớp/bảng mới, PK/FK có bảng/cột đích, enum, bội số và nội dung các mục không còn quyết định cũ mâu thuẫn. Chưa chạy kiểm thử ứng dụng/database vì không sửa mã thực thi hoặc migration.
 
