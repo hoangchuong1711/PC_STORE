@@ -1,0 +1,69 @@
+package com.pcstore.controller;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pcstore.config.JpaConfig;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.PersistenceException;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import java.io.IOException;
+import java.util.Map;
+
+@WebServlet(name = "healthServlet", urlPatterns = "/api/health")
+public class HealthServlet extends HttpServlet {
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private volatile EntityManagerFactory entityManagerFactory;
+
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        try {
+            EntityManagerFactory factory = getEntityManagerFactory();
+            try (EntityManager entityManager = factory.createEntityManager()) {
+                entityManager.createNativeQuery("SELECT 1").getSingleResult();
+            }
+            response.setStatus(HttpServletResponse.SC_OK);
+            objectMapper.writeValue(response.getWriter(), Map.of(
+                    "status", "ok",
+                    "application", "pc-store-backend",
+                    "database", "connected"));
+        } catch (IllegalStateException | PersistenceException exception) {
+            getServletContext().log("Backend health check failed", exception);
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            objectMapper.writeValue(response.getWriter(), Map.of(
+                    "status", "unavailable",
+                    "application", "pc-store-backend",
+                    "database", "unavailable",
+                    "message", "Check the server database configuration and PostgreSQL availability."));
+        }
+    }
+
+    private EntityManagerFactory getEntityManagerFactory() {
+        EntityManagerFactory current = entityManagerFactory;
+        if (current == null) {
+            synchronized (this) {
+                current = entityManagerFactory;
+                if (current == null) {
+                    current = JpaConfig.createEntityManagerFactory();
+                    entityManagerFactory = current;
+                }
+            }
+        }
+        return current;
+    }
+
+    @Override
+    public void destroy() {
+        EntityManagerFactory factory = entityManagerFactory;
+        if (factory != null && factory.isOpen()) {
+            factory.close();
+        }
+    }
+}

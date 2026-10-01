@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: pc_store
+      POSTGRES_USER: pc_store_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Create a local .env file}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pcstore_pgdata:/var/lib/postgresql/data
+
+volumes:
+  pcstore_pgdata:

@@ -27,6 +27,7 @@ Next.js làm giao diện và gọi Java API. Không dùng Next.js làm backend n
 - Giỏ hàng dùng giá hiện hành; `OrderItem` lưu giá đã chốt khi đặt. `Order` lưu tên, số điện thoại và **chuỗi địa chỉ giao hàng** tại thời điểm đặt để lịch sử không thay đổi theo catalog hay dịch vụ bên ngoài.
 - Theo mục chốt về class diagram khái niệm ở cuối Page 4, CORE chưa cần sổ địa chỉ `Address`/`AdministrativeArea`. Nếu sau này cần lưu địa chỉ dùng lại, nhóm sẽ quyết định schema riêng. Tích hợp gợi ý địa chỉ Google Maps không phải điều kiện để bắt đầu checkout CORE.
 - `Inventory` là nguồn số lượng tồn; `Product` giữ thông tin sản phẩm. Quy tắc tương thích dùng chung cho Builder và AI Recommendation khi triển khai.
+- Bản demo hỗ trợ COD và chuyển khoản thủ công. Cả hai trừ tồn khi đặt; trạng thái thanh toán tách khỏi trạng thái đơn. Đơn chuyển khoản chỉ được chuyển sang giao hàng sau khi Admin xác nhận đã nhận tiền.
 - Page 4 mô tả AI Recommendation; tài liệu scope hiện xếp nó vào ADVANCED. Thiết kế có sẵn không đồng nghĩa phải triển khai trước CORE.
 - Với bảo hành, dữ liệu chính sách lúc mua phải được chốt trong đơn. Page 4 đoạn cuối đề xuất snapshot trên `OrderItem` và lược `OrderItemWarranty` khỏi sơ đồ khái niệm; bảng triển khai chi tiết sẽ được quyết định khi thực sự làm Warranty.
 
@@ -39,7 +40,7 @@ API trả JSON qua HTTP. Không trả trực tiếp entity có `passwordHash` ha
 - Cách chạy Tomcat/PostgreSQL và cấu hình Docker Compose cho nhóm.
 - Công cụ migration/schema và dữ liệu mẫu.
 - Chi tiết session/cookie khi frontend và backend chạy khác origin, bao gồm CORS/CSRF.
-- Bộ lọc sản phẩm đầu tiên, phương thức thanh toán không qua cổng và các trạng thái đơn cụ thể cho CORE.
+- Bộ lọc sản phẩm đầu tiên và các trạng thái đơn cụ thể cho CORE.
 - Nhà cung cấp AI, giới hạn chi phí và khóa API nếu nhánh ADVANCED được nhận làm.
 
 Chốt mỗi mục trước Work Item phụ thuộc vào nó; cập nhật file này cùng code/config liên quan. Không cần giải hết ADVANCED trước khi làm lát cắt Product đầu tiên.
