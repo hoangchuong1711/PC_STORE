@@ -1,5 +1,8 @@
 package com.pcstore.entity;
 
+import com.pcstore.entity.enums.ActiveStatus;
+import com.pcstore.entity.enums.ComponentType;
+
 import jakarta.persistence.*;
 
 @Entity
@@ -37,4 +40,3 @@ public class Category {
     public ActiveStatus getStatus() { return status; }
     public void setStatus(ActiveStatus status) { this.status = status; }
 }
-

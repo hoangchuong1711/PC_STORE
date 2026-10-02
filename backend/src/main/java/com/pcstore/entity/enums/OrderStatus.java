@@ -1,6 +1,5 @@
-package com.pcstore.entity;
+package com.pcstore.entity.enums;
 
 public enum OrderStatus {
     PENDING, CONFIRMED, SHIPPING, DELIVERED, CANCELLED
 }
-

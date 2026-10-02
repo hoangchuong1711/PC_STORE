@@ -1,9 +1,8 @@
 package com.pcstore.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pcstore.config.JpaConfig;
+import com.pcstore.config.PersistenceManager;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.PersistenceException;
 import org.flywaydb.core.api.FlywayException;
 import jakarta.servlet.annotation.WebServlet;
@@ -17,7 +16,6 @@ import java.util.Map;
 @WebServlet(name = "healthServlet", urlPatterns = "/api/health")
 public class HealthServlet extends HttpServlet {
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private volatile EntityManagerFactory entityManagerFactory;
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -25,8 +23,7 @@ public class HealthServlet extends HttpServlet {
         response.setCharacterEncoding("UTF-8");
 
         try {
-            EntityManagerFactory factory = getEntityManagerFactory();
-            try (EntityManager entityManager = factory.createEntityManager()) {
+            try (EntityManager entityManager = PersistenceManager.get().createEntityManager()) {
                 entityManager.createNativeQuery("SELECT 1").getSingleResult();
             }
             response.setStatus(HttpServletResponse.SC_OK);
@@ -42,28 +39,6 @@ public class HealthServlet extends HttpServlet {
                     "application", "pc-store-backend",
                     "database", "unavailable",
                     "message", "Không thể khởi tạo database. Kiểm tra cấu hình kết nối và log Tomcat."));
-        }
-    }
-
-    private EntityManagerFactory getEntityManagerFactory() {
-        EntityManagerFactory current = entityManagerFactory;
-        if (current == null) {
-            synchronized (this) {
-                current = entityManagerFactory;
-                if (current == null) {
-                    current = JpaConfig.createEntityManagerFactory();
-                    entityManagerFactory = current;
-                }
-            }
-        }
-        return current;
-    }
-
-    @Override
-    public void destroy() {
-        EntityManagerFactory factory = entityManagerFactory;
-        if (factory != null && factory.isOpen()) {
-            factory.close();
         }
     }
 }

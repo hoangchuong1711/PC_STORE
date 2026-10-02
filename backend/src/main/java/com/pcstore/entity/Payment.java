@@ -1,5 +1,8 @@
 package com.pcstore.entity;
 
+import com.pcstore.entity.enums.PaymentMethod;
+import com.pcstore.entity.enums.PaymentStatus;
+
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -50,4 +53,3 @@ public class Payment {
     public LocalDateTime getPaidAt() { return paidAt; }
     public void setPaidAt(LocalDateTime paidAt) { this.paidAt = paidAt; }
 }
-

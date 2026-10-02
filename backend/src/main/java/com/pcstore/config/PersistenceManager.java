@@ -7,18 +7,39 @@ import org.flywaydb.core.Flyway;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Áp dụng migration trước khi kiểm tra mapping JPA trên PostgreSQL. */
-public final class JpaConfig {
+public final class PersistenceManager {
     private static final String PERSISTENCE_UNIT = "pcstore-persistence-unit";
+    private static volatile EntityManagerFactory factory;
 
-    private JpaConfig() {
+    private PersistenceManager() {
     }
 
-    public static EntityManagerFactory createEntityManagerFactory() {
-        return createEntityManagerFactory(required("DB_URL"), required("DB_USER"), required("DB_PASSWORD"));
+    public static EntityManagerFactory get() {
+        EntityManagerFactory current = factory;
+        if (current == null) {
+            synchronized (PersistenceManager.class) {
+                current = factory;
+                if (current == null) {
+                    String url = required("DB_URL");
+                    String user = required("DB_USER");
+                    String password = required("DB_PASSWORD");
+                    current = createEntityManagerFactory(url, user, password);
+                    try {
+                        if (Boolean.parseBoolean(System.getenv("DEMO_SEED_ENABLED"))) {
+                            DemoDataSeeder.seed(url, user, password);
+                        }
+                    } catch (RuntimeException exception) {
+                        current.close();
+                        throw exception;
+                    }
+                    factory = current;
+                }
+            }
+        }
+        return current;
     }
 
-    /** Cho phép test dùng DB riêng nhưng vẫn đi qua cùng luồng khởi tạo của ứng dụng. */
+    /** Creates an independent factory for integration tests using an isolated database schema. */
     public static EntityManagerFactory createEntityManagerFactory(String url, String user, String password) {
         Flyway.configure()
                 .dataSource(url, user, password)
@@ -34,6 +55,12 @@ public final class JpaConfig {
         properties.put("hibernate.hbm2ddl.auto", "validate");
         properties.put("hibernate.show_sql", "false");
         return Persistence.createEntityManagerFactory(PERSISTENCE_UNIT, properties);
+    }
+
+    public static synchronized void close() {
+        if (factory != null && factory.isOpen()) {
+            factory.close();
+        }
     }
 
     private static String required(String name) {

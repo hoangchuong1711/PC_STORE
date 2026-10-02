@@ -1,5 +1,7 @@
 package com.pcstore.entity;
 
+import com.pcstore.entity.enums.ActiveStatus;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

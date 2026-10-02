@@ -1,5 +1,8 @@
 package com.pcstore.entity;
 
+import com.pcstore.entity.enums.UserRole;
+import com.pcstore.entity.enums.UserStatus;
+
 import jakarta.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,4 +56,3 @@ public class User {
     public void setStatus(UserStatus status) { this.status = status; }
     public List<Address> getAddresses() { return addresses; }
 }
-

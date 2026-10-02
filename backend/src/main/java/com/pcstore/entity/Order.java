@@ -1,5 +1,7 @@
 package com.pcstore.entity;
 
+import com.pcstore.entity.enums.OrderStatus;
+
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -65,4 +67,3 @@ public class Order {
     public void setDeliveredAt(LocalDateTime deliveredAt) { this.deliveredAt = deliveredAt; }
     public List<OrderItem> getItems() { return items; }
 }
-
