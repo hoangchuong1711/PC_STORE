@@ -2,7 +2,7 @@ package com.pcstore;
 
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.*;
-import com.pcstore.config.JpaConfig;
+import com.pcstore.config.PersistenceManager;
 import com.pcstore.entity.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -142,7 +142,7 @@ class CoreDatabaseIT {
 
     @Test void validatesAndRegistersAllCoreMappings() throws Exception {
         String schemaUrl = url + (url.contains("?") ? "&" : "?") + "currentSchema=" + schema;
-        try (var factory = JpaConfig.createEntityManagerFactory(schemaUrl, user, password)) {
+        try (var factory = PersistenceManager.createEntityManagerFactory(schemaUrl, user, password)) {
             Set<String> mapped = factory.getMetamodel().getEntities().stream()
                     .map(e -> e.getJavaType().getSimpleName()).collect(Collectors.toSet());
             assertEquals(Set.of("User", "Address", "Category", "Brand", "Product", "ProductImage",
@@ -152,7 +152,7 @@ class CoreDatabaseIT {
 
     @Test void persistsAndReloadsCoreGraphWithIndependentPriceSnapshots() throws Exception {
         String schemaUrl = url + (url.contains("?") ? "&" : "?") + "currentSchema=" + schema;
-        try (var factory = JpaConfig.createEntityManagerFactory(schemaUrl, user, password);
+        try (var factory = PersistenceManager.createEntityManagerFactory(schemaUrl, user, password);
              var em = factory.createEntityManager()) {
             em.getTransaction().begin();
             var customer = new User();
