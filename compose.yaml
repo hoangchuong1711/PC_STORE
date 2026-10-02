@@ -21,6 +21,7 @@ services:
       DB_URL: jdbc:postgresql://db:5432/pc_store
       DB_USER: pc_store_app
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Create a local .env file}
+      DEMO_SEED_ENABLED: ${DEMO_SEED_ENABLED:-true}
     ports:
       - "8080:8080"
     depends_on:

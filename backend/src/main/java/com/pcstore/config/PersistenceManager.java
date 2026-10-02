@@ -20,7 +20,18 @@ public final class PersistenceManager {
             synchronized (PersistenceManager.class) {
                 current = factory;
                 if (current == null) {
-                    current = createEntityManagerFactory(required("DB_URL"), required("DB_USER"), required("DB_PASSWORD"));
+                    String url = required("DB_URL");
+                    String user = required("DB_USER");
+                    String password = required("DB_PASSWORD");
+                    current = createEntityManagerFactory(url, user, password);
+                    try {
+                        if (Boolean.parseBoolean(System.getenv("DEMO_SEED_ENABLED"))) {
+                            DemoDataSeeder.seed(url, user, password);
+                        }
+                    } catch (RuntimeException exception) {
+                        current.close();
+                        throw exception;
+                    }
                     factory = current;
                 }
             }
