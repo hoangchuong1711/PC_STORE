@@ -1,18 +1,20 @@
 package com.pcstore.dao;
 
-import com.pcstore.dto.ProductSearchQuery;
-import com.pcstore.entity.Product;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.TypedQuery;
-
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
+
+import com.pcstore.dto.ProductSearchQuery;
+import com.pcstore.entity.Product;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.TypedQuery;
 
 public class ProductDao {
     private final EntityManager em;
     public ProductDao(EntityManager em) { this.em = em; }
 
+    //hàm search: tìm kiếm sản phẩm theo query parameters, trả về danh sách sản phẩm
     public List<Product> search(ProductSearchQuery query) {
         TypedQuery<Product> q = em.createQuery(baseQuery(query, false) + " ORDER BY p.productId ASC", Product.class);
         bind(q, query);
@@ -25,6 +27,7 @@ public class ProductDao {
         return q.getSingleResult();
     }
 
+    //hàm findPublic: tìm kiếm sản phẩm theo id, chỉ trả về sản phẩm có trạng thái ACTIVE và có số lượng tồn kho > 0
     public Product findPublic(Integer id) {
         var results = em.createQuery("select distinct p from Product p join fetch p.category c join fetch p.brand b " +
                 "join Inventory i on i.product = p where p.productId = :id and p.status = com.pcstore.entity.ProductStatus.ACTIVE " +

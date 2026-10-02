@@ -2,8 +2,10 @@ package com.pcstore.dto;
 
 import java.math.BigDecimal;
 
-public record ProductSearchQuery(String keyword, Integer categoryId, Integer brandId,
-                                 BigDecimal minPrice, BigDecimal maxPrice, int page, int size) {
+public record   ProductSearchQuery(String keyword, Integer categoryId, Integer brandId,
+                                BigDecimal minPrice, BigDecimal maxPrice, int page, int size) {
+        
+    //hàm khởi tạo: kiểm tra các giá trị truyền vào có hợp lệ hay không
     public ProductSearchQuery {
         if (page < 0 || size < 1 || size > 100) throw new IllegalArgumentException("Invalid pagination");
         if (minPrice != null && minPrice.signum() < 0 || maxPrice != null && maxPrice.signum() < 0)
@@ -12,8 +14,9 @@ public record ProductSearchQuery(String keyword, Integer categoryId, Integer bra
             throw new IllegalArgumentException("Invalid price range");
     }
 
+    //hàm parse: chuyển đổi query parameters từ String sang ProductSearchQuery
     public static ProductSearchQuery parse(String keyword, String categoryId, String brandId,
-                                           String minPrice, String maxPrice, String page, String size) {
+                                        String minPrice, String maxPrice, String page, String size) {
         return new ProductSearchQuery(blankToNull(keyword), parseInt(categoryId, "categoryId"),
                 parseInt(brandId, "brandId"), parseDecimal(minPrice, "minPrice"),
                 parseDecimal(maxPrice, "maxPrice"), parseIntOrDefault(page, 0, "page"),
