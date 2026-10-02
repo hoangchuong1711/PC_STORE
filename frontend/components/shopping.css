@@ -1,0 +1,272 @@
+.shopping-page {
+  padding-block: 48px 100px;
+  min-height: 70vh;
+}
+
+.shopping-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  margin-bottom: 40px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.shopping-steps [aria-current] {
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.shopping-page h1 {
+  font-size: clamp(34px, 4vw, 56px);
+  max-width: none;
+}
+
+.shopping-intro {
+  color: var(--muted);
+  max-width: 650px;
+  margin-bottom: 36px;
+}
+
+.shopping-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 350px;
+  gap: 32px;
+  align-items: start;
+}
+
+.cart-lines {
+  display: grid;
+  gap: 18px;
+}
+
+.cart-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 20px;
+  padding: 24px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.cart-category {
+  display: grid;
+  place-items: center;
+  width: 82px;
+  min-height: 90px;
+  padding: 10px;
+  background: #eef2fa;
+  color: #324c79;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.cart-line-info {
+  flex: 1;
+  min-width: 170px;
+}
+
+.cart-line h2 {
+  font-size: 20px;
+  margin: 8px 0;
+  letter-spacing: -0.03em;
+}
+
+.cart-line-info > span,
+.cart-line-info p,
+.cart-line-info small {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.cart-line-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.cart-line output {
+  min-width: 32px;
+  text-align: center;
+}
+
+.cart-line button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.remove-item {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #99433a;
+  padding: 8px;
+}
+
+.line-total {
+  white-space: nowrap;
+}
+
+.order-summary,
+.shipping-form {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 28px;
+}
+
+.order-summary h2,
+.shipping-form h2 {
+  font-size: 24px;
+  letter-spacing: -0.03em;
+  margin-bottom: 24px;
+}
+
+.order-summary dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.order-summary dd {
+  margin: 0;
+  text-align: right;
+}
+
+.summary-total {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.order-summary .button {
+  width: 100%;
+}
+
+.order-summary .button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.order-summary p {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 18px;
+}
+
+.summary-product {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 14px;
+  font-size: 13px;
+}
+
+.shipping-form fieldset {
+  border: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.shipping-form label {
+  font-weight: 600;
+  margin-top: 10px;
+}
+
+.shipping-form input,
+.shipping-form textarea,
+.shipping-form select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #b8c0cd;
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+}
+
+.shipping-form textarea {
+  resize: vertical;
+}
+
+.cod-option {
+  background: #f4f7ed;
+  border: 1px solid #c7d9a9;
+  border-radius: 8px;
+  padding: 18px;
+  margin-top: 20px;
+}
+
+.cod-option p {
+  margin: 5px 0 0;
+  font-size: 13px;
+}
+
+.demo-scenarios {
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.demo-scenarios summary {
+  cursor: pointer;
+}
+
+.demo-scenarios label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.shopping-empty {
+  padding: 60px 24px;
+  text-align: center;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.shopping-empty > svg {
+  margin: 0 auto 22px;
+  color: var(--blue);
+}
+
+.shopping-empty h2 {
+  font-size: 30px;
+}
+
+.shopping-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+@media (max-width: 900px) {
+  .shopping-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .cart-line,
+  .order-summary,
+  .shipping-form {
+    padding: 20px;
+  }
+
+  .cart-category {
+    display: none;
+  }
+
+  .line-total {
+    width: 100%;
+  }
+}
