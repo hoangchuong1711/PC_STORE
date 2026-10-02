@@ -28,9 +28,13 @@ export function Header() {
             <span>⌕</span>
             <span>Tìm linh kiện, laptop...</span>
           </Link>
-          <button className="icon-button" aria-label="Tài khoản">
+          <Link
+            href="/orders"
+            className="icon-button"
+            aria-label="Đơn hàng của tôi"
+          >
             ◯
-          </button>
+          </Link>
           <Link
             href="/cart"
             className="cart-button"
@@ -58,6 +62,9 @@ export function Header() {
           <a href="#services" onClick={() => setOpen(false)}>
             Dịch vụ
           </a>
+          <Link href="/orders" onClick={() => setOpen(false)}>
+            Đơn hàng của tôi
+          </Link>
         </nav>
       )}
     </header>
