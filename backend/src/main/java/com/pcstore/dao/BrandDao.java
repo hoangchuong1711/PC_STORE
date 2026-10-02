@@ -12,5 +12,5 @@ public class BrandDao {
 
     //hàm findActive: tìm kiếm tất cả các thương hiệu có trạng thái ACTIVE, trả về danh sách thương hiệu
     public List<Brand> findActive() {
-        return em.createQuery("from Brand b where b.status = com.pcstore.entity.ActiveStatus.ACTIVE order by b.name, b.brandId", Brand.class).getResultList(); }
+        return em.createQuery("from Brand b where b.status = com.pcstore.entity.enums.ActiveStatus.ACTIVE order by b.name, b.brandId", Brand.class).getResultList(); }
 }

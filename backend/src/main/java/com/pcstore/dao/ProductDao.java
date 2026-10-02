@@ -30,8 +30,8 @@ public class ProductDao {
     //hàm findPublic: tìm kiếm sản phẩm theo id, chỉ trả về sản phẩm có trạng thái ACTIVE và có số lượng tồn kho > 0
     public Product findPublic(Integer id) {
         var results = em.createQuery("select distinct p from Product p join fetch p.category c join fetch p.brand b " +
-                "join Inventory i on i.product = p where p.productId = :id and p.status = com.pcstore.entity.ProductStatus.ACTIVE " +
-                "and c.status = com.pcstore.entity.ActiveStatus.ACTIVE and b.status = com.pcstore.entity.ActiveStatus.ACTIVE " +
+                "join Inventory i on i.product = p where p.productId = :id and p.status = com.pcstore.entity.enums.ProductStatus.ACTIVE " +
+                "and c.status = com.pcstore.entity.enums.ActiveStatus.ACTIVE and b.status = com.pcstore.entity.enums.ActiveStatus.ACTIVE " +
                 "and (i.quantityOnHand - i.reservedQuantity) > 0", Product.class).setParameter("id", id).getResultList();
         return results.isEmpty() ? null : results.getFirst();
     }
@@ -48,8 +48,8 @@ public class ProductDao {
     private String baseQuery(ProductSearchQuery q, boolean count) {
         String select = count ? "select count(distinct p.productId)" : "select distinct p";
         StringBuilder jpql = new StringBuilder(select + " from Product p join p.category c join p.brand b join Inventory i on i.product = p " +
-                "where p.status = com.pcstore.entity.ProductStatus.ACTIVE and c.status = com.pcstore.entity.ActiveStatus.ACTIVE " +
-                "and b.status = com.pcstore.entity.ActiveStatus.ACTIVE and (i.quantityOnHand - i.reservedQuantity) > 0");
+                "where p.status = com.pcstore.entity.enums.ProductStatus.ACTIVE and c.status = com.pcstore.entity.enums.ActiveStatus.ACTIVE " +
+                "and b.status = com.pcstore.entity.enums.ActiveStatus.ACTIVE and (i.quantityOnHand - i.reservedQuantity) > 0");
         if (q.keyword() != null) jpql.append(" and lower(p.name) like :keyword");
         if (q.categoryId() != null) jpql.append(" and c.categoryId = :categoryId");
         if (q.brandId() != null) jpql.append(" and b.brandId = :brandId");

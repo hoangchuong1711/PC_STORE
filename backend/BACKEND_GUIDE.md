@@ -34,7 +34,8 @@ Java 21, Maven, `jakarta.servlet.*`, `jakarta.persistence.*`. Frontend không tr
 | `dto` | Request/response riêng; không trả JPA Entity trực tiếp. |
 | `service` | Giá, kho, quyền sở hữu, trạng thái đơn, compatibility, transaction. |
 | `dao` | Truy vấn và persistence qua `EntityManager`. |
-| `entity` | JPA Entity, enum và quan hệ ánh xạ database. |
+| `entity` | JPA Entity và quan hệ ánh xạ database. |
+| `entity.enums` | Enum dùng bởi Entity và nghiệp vụ; giá trị lưu trong database bằng chuỗi. |
 | `filter` | Session/role cho route; Service vẫn kiểm tra chủ sở hữu từng đơn/build. |
 | `config` | JPA, datasource, JSON, CORS/cookie theo môi trường thực tế. |
 | `exception` | Lỗi nghiệp vụ và ánh xạ sang HTTP response. |

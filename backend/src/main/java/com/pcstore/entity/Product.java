@@ -1,5 +1,7 @@
 package com.pcstore.entity;
 
+import com.pcstore.entity.enums.ProductStatus;
+
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -56,4 +58,3 @@ public class Product {
     public void setBrand(Brand brand) { this.brand = brand; }
     public List<ProductImage> getImages() { return images; }
 }
-

@@ -12,5 +12,5 @@ public class CategoryDao {
 
     //hàm findActive: tìm kiếm tất cả các danh mục có trạng thái ACTIVE, trả về danh sách danh mục
     public List<Category> findActive() { 
-        return em.createQuery("from Category c where c.status = com.pcstore.entity.ActiveStatus.ACTIVE order by c.name, c.categoryId", Category.class).getResultList(); }
+        return em.createQuery("from Category c where c.status = com.pcstore.entity.enums.ActiveStatus.ACTIVE order by c.name, c.categoryId", Category.class).getResultList(); }
 }

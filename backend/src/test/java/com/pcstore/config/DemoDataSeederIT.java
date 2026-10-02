@@ -1,5 +1,9 @@
 package com.pcstore.config;
 
+import com.pcstore.dao.BrandDao;
+import com.pcstore.dao.CategoryDao;
+import com.pcstore.dto.ProductSearchQuery;
+import com.pcstore.service.ProductCatalogService;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 
@@ -40,6 +44,17 @@ class DemoDataSeederIT {
                     try (var statement = connection.createStatement()) {
                         statement.executeUpdate("UPDATE inventory SET quantity_on_hand=7 WHERE product_id=(SELECT product_id FROM products WHERE name='T05-DEMO Ryzen 5 7600')");
                     }
+                }
+
+                try (var factory = PersistenceManager.createEntityManagerFactory(schemaUrl, user, password);
+                     var entityManager = factory.createEntityManager()) {
+                    assertEquals(2, new BrandDao(entityManager).findActive().size());
+                    assertEquals(2, new CategoryDao(entityManager).findActive().size());
+                    var catalog = new ProductCatalogService(entityManager);
+                    var page = catalog.search(new ProductSearchQuery(null, null, null, null, null, 0, 20));
+                    assertEquals(2, page.totalItems());
+                    assertEquals(2, page.items().size());
+                    assertEquals(page.items().getFirst().productId(), catalog.find(page.items().getFirst().productId()).productId());
                 }
 
                 DemoDataSeeder.seed(schemaUrl, user, password);
