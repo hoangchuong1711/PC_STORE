@@ -148,7 +148,7 @@ Admin thêm/sửa/ẩn sản phẩm, điều chỉnh kho theo quy tắc một ng
 | `POST /api/auth/logout` | Login | — | 204 |
 | `GET /api/auth/me` | Login | — | user public DTO |
 | `GET /api/products` | Public | `q,categoryId,brandId,minPrice,maxPrice,page,size` | products + pagination |
-| `GET /api/products/{id}` | Public | — | product detail + specs/image/availability nếu có |
+| `GET /api/products/{id}` | Public | — | product detail + images + availability |
 | `GET /api/categories`, `GET /api/brands` | Public | — | danh mục/hãng đang hiển thị |
 | `GET /api/cart` | Customer | — | items, giá hiện hành, tổng |
 | `POST /api/cart/items` | Customer | `productId,quantity` | cart DTO |
@@ -166,6 +166,14 @@ Admin thêm/sửa/ẩn sản phẩm, điều chỉnh kho theo quy tắc một ng
 | `POST /api/builds/{id}/add-to-cart` | Chủ build | — | cart DTO |
 
 Mã lỗi tối thiểu: `400` input sai; `401` chưa đăng nhập; `403` thiếu quyền; `404` không thấy hoặc không sở hữu tài nguyên theo chính sách bảo mật; `409` xung đột như hết hàng, trạng thái đơn sai, checkout trùng; `500` lỗi server. Không trả stack trace, password hash hoặc Entity JPA ra JSON.
+
+### 6.1. T05 catalog public (đã triển khai)
+
+`GET /api/products` nhận `q`, `categoryId`, `brandId`, `minPrice`, `maxPrice`, `page` (mặc định `0`) và `size` (mặc định `20`, tối đa `100`). Các điều kiện lọc kết hợp bằng AND; tìm kiếm `q` không phân biệt hoa thường trên tên sản phẩm. Phân trang có thứ tự ổn định theo `product_id ASC`.
+
+Catalog public chỉ trả Product có `status = ACTIVE`, Category và Brand có `status = ACTIVE`, có Inventory và `quantity_on_hand - reserved_quantity > 0`. Product detail áp dụng cùng chính sách; không tìm thấy hoặc không đủ điều kiện trả `404`. Giá là VND nguyên đồng. Lỗi query trả `{ "code": "INVALID_QUERY", "message": "..." }`; product không tồn tại trả `{ "code": "PRODUCT_NOT_FOUND", "message": "..." }`.
+
+`GET /api/categories` và `GET /api/brands` chỉ trả các bản ghi ACTIVE, sắp xếp theo tên rồi ID. Response catalog dùng DTO công khai, gồm ảnh, category, brand, giá và tồn khả dụng; không trả JPA Entity.
 
 ## 7. Schema, migration và kiểm thử cần có
 
