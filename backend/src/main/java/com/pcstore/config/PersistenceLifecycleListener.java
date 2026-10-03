@@ -6,5 +6,8 @@ import jakarta.servlet.annotation.WebListener;
 
 @WebListener
 public class PersistenceLifecycleListener implements ServletContextListener {
-    @Override public void contextDestroyed(ServletContextEvent event) { JpaUtil.close(); }
+    @Override
+    public void contextDestroyed(ServletContextEvent event) {
+        PersistenceManager.close();
+    }
 }

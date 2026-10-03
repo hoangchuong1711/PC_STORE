@@ -34,7 +34,8 @@ Java 21, Maven, `jakarta.servlet.*`, `jakarta.persistence.*`. Frontend không tr
 | `dto` | Request/response riêng; không trả JPA Entity trực tiếp. |
 | `service` | Giá, kho, quyền sở hữu, trạng thái đơn, compatibility, transaction. |
 | `dao` | Truy vấn và persistence qua `EntityManager`. |
-| `entity` | JPA Entity, enum và quan hệ ánh xạ database. |
+| `entity` | JPA Entity và quan hệ ánh xạ database. |
+| `entity.enums` | Enum dùng bởi Entity và nghiệp vụ; giá trị lưu trong database bằng chuỗi. |
 | `filter` | Session/role cho route; Service vẫn kiểm tra chủ sở hữu từng đơn/build. |
 | `config` | JPA, datasource, JSON, CORS/cookie theo môi trường thực tế. |
 | `exception` | Lỗi nghiệp vụ và ánh xạ sang HTTP response. |
@@ -150,7 +151,7 @@ Admin thêm/sửa/ẩn sản phẩm, điều chỉnh kho theo quy tắc một ng
 | `POST /api/auth/logout` | Login | — | 204 |
 | `GET /api/auth/me` | Login | — | user public DTO |
 | `GET /api/products` | Public | `q,categoryId,brandId,minPrice,maxPrice,page,size` | products + pagination |
-| `GET /api/products/{id}` | Public | — | product detail + specs/image/availability nếu có |
+| `GET /api/products/{id}` | Public | — | product detail + images + availability |
 | `GET /api/categories`, `GET /api/brands` | Public | — | danh mục/hãng đang hiển thị |
 | `GET /api/cart` | Customer | — | items, giá hiện hành, tổng |
 | `POST /api/cart/items` | Customer | `productId,quantity` | cart DTO |
@@ -169,11 +170,19 @@ Admin thêm/sửa/ẩn sản phẩm, điều chỉnh kho theo quy tắc một ng
 
 Mã lỗi tối thiểu: `400` input sai; `401` chưa đăng nhập; `403` thiếu quyền; `404` không thấy hoặc không sở hữu tài nguyên theo chính sách bảo mật; `409` xung đột như hết hàng, trạng thái đơn sai, checkout trùng; `500` lỗi server. Không trả stack trace, password hash hoặc Entity JPA ra JSON.
 
+### 6.1. T05 catalog public (đã triển khai)
+
+`GET /api/products` nhận `q`, `categoryId`, `brandId`, `minPrice`, `maxPrice`, `page` (mặc định `0`) và `size` (mặc định `20`, tối đa `100`). Các điều kiện lọc kết hợp bằng AND; tìm kiếm `q` không phân biệt hoa thường trên tên sản phẩm. Phân trang có thứ tự ổn định theo `product_id ASC`.
+
+Catalog public chỉ trả Product có `status = ACTIVE`, Category và Brand có `status = ACTIVE`, có Inventory và `quantity_on_hand - reserved_quantity > 0`. Product detail áp dụng cùng chính sách; không tìm thấy hoặc không đủ điều kiện trả `404`. Giá là VND nguyên đồng. Lỗi query trả `{ "code": "INVALID_QUERY", "message": "..." }`; product không tồn tại trả `{ "code": "PRODUCT_NOT_FOUND", "message": "..." }`.
+
+`GET /api/categories` và `GET /api/brands` chỉ trả các bản ghi ACTIVE, sắp xếp theo tên rồi ID. Response catalog dùng DTO công khai, gồm ảnh, category, brand, giá và tồn khả dụng; không trả JPA Entity.
+
 ## 7. Schema, migration và kiểm thử cần có
 
 **Đã triển khai T03:** Flyway chạy V1 rồi `V2__create_core_schema.sql` trước khi Hibernate `validate`. V2 nâng Brand lên thiết kế hiện hành và thêm 11 bảng CORE. Có PK identity ALWAYS, FK theo chính sách RESTRICT/CASCADE của data-model, UNIQUE, CHECK, partial unique index cho địa chỉ mặc định/ảnh chính và index FK. Không sửa V1 đã áp dụng. Không tạo bảng FEATURE/ADVANCED hoặc cột promotion thiếu FK.
 
-JPA dùng Integer ID, BigDecimal NUMERIC(19,0), LocalDateTime, enum STRING và quan hệ LAZY. `Order` có tên JPQL `PurchaseOrder`; SQL vẫn là `orders`. Collection dùng `mappedBy`; không cascade REMOVE từ entity sang lịch sử đơn. Entity chỉ dùng trong persistence, API phải có DTO riêng. Service cung cấp thời gian theo Asia/Bangkok, chuẩn hóa chuỗi/email và kiểm tra VND nguyên đồng trước khi lưu (PostgreSQL NUMERIC(19,0) tự làm tròn số lẻ).
+JPA dùng Integer ID, BigDecimal NUMERIC(19,0), LocalDateTime, enum STRING và quan hệ LAZY. `Order` có tên JPQL `PurchaseOrder`; SQL vẫn là `orders`. Collection dùng `mappedBy`; không cascade REMOVE từ entity sang lịch sử đơn. Entity chỉ dùng trong persistence, API phải có DTO riêng. `PersistenceManager` chạy Flyway rồi tạo một `EntityManagerFactory` dùng chung cho các Servlet; mỗi request tự tạo và đóng `EntityManager`. `PersistenceLifecycleListener` đóng factory khi web app dừng. Test database dùng `PersistenceManager.createEntityManagerFactory(url, user, password)` để tạo factory độc lập trên schema riêng và tự đóng factory đó. Danh sách entity được khai báo trong `META-INF/persistence.xml`. Service cung cấp thời gian theo Asia/Bangkok, chuẩn hóa chuỗi/email và kiểm tra VND nguyên đồng trước khi lưu (PostgreSQL NUMERIC(19,0) tự làm tròn số lẻ).
 
 V2 không tự sửa dữ liệu Brand cũ: nếu tên/description/logo đang rỗng hoặc có khoảng trắng đầu/cuối, migration sẽ thất bại và rollback. Cần kiểm tra, chuẩn hóa dữ liệu có chủ đích trước khi nâng cấp; không dùng Flyway repair để bỏ qua lỗi dữ liệu/checksum.
 

@@ -22,6 +22,7 @@ services:
       DB_USER: pc_store_app
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Create a local .env file}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      DEMO_SEED_ENABLED: ${DEMO_SEED_ENABLED:-true}
     ports:
       - "8080:8080"
     depends_on:

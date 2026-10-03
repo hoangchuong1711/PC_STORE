@@ -1,9 +1,9 @@
 package com.pcstore.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pcstore.config.JpaUtil;
+
+import com.pcstore.config.PersistenceManager;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.PersistenceException;
 import org.flywaydb.core.api.FlywayException;
 import jakarta.servlet.annotation.WebServlet;
@@ -24,8 +24,7 @@ public class HealthServlet extends HttpServlet {
         response.setCharacterEncoding("UTF-8");
 
         try {
-            EntityManagerFactory factory = JpaUtil.getEntityManagerFactory();
-            try (EntityManager entityManager = factory.createEntityManager()) {
+            try (EntityManager entityManager = PersistenceManager.get().createEntityManager()) {
                 entityManager.createNativeQuery("SELECT 1").getSingleResult();
             }
             response.setStatus(HttpServletResponse.SC_OK);
@@ -43,5 +42,4 @@ public class HealthServlet extends HttpServlet {
                     "message", "Không thể khởi tạo database. Kiểm tra cấu hình kết nối và log Tomcat."));
         }
     }
-
 }
