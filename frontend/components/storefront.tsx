@@ -86,6 +86,9 @@ export function Header() {
                     <small>minhanh@example.com</small>
                   </div>
                   <div className="user-menu-divider" />
+                  <Link href="/account" className="user-menu-item">
+                    👤 Hồ sơ tài khoản
+                  </Link>
                   <Link href="/orders" className="user-menu-item">
                     📦 Đơn hàng của tôi
                   </Link>
@@ -143,6 +146,9 @@ export function Header() {
             </Link>
             <Link href="/#categories" onClick={() => setOpen(false)}>
               Danh mục
+            </Link>
+            <Link href="/account" onClick={() => setOpen(false)}>
+              Tài khoản của tôi
             </Link>
             <Link href="/orders" onClick={() => setOpen(false)}>
               Đơn hàng của tôi
