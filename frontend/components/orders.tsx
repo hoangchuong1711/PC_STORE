@@ -20,6 +20,8 @@ import {
 import { Footer, Header } from "./storefront";
 import { useCart } from "./cart-provider";
 import { useToast } from "./toast";
+import { WriteReviewModal } from "./reviews";
+import { hasUserReviewedProduct } from "../lib/reviews";
 import { formatPrice } from "../lib/products";
 import {
   filterOrders,
@@ -225,6 +227,11 @@ export function OrderDetail({ order: initialOrder }: { order: Order }) {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("Đổi ý không muốn mua nữa");
   const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [reviewProduct, setReviewProduct] = useState<{
+    slug: string;
+    name: string;
+  } | null>(null);
+  const [, setReviewVersion] = useState(0);
   const progress = getOrderProgress(order.status);
   const { add } = useCart();
   const { toast } = useToast();
@@ -337,15 +344,21 @@ export function OrderDetail({ order: initialOrder }: { order: Order }) {
                     Đơn giá: {formatPrice(line.unitPrice)} · Số lượng: <b>{line.quantity}</b>
                   </p>
                   {order.status === "DELIVERED" && (
-                    <button
-                      type="button"
-                      className="line-review-btn"
-                      onClick={() =>
-                        toast(`Tính năng đánh giá sẽ mở ở Giai đoạn 3!`, "info")
-                      }
-                    >
-                      <Star size={14} /> Viết đánh giá linh kiện
-                    </button>
+                    hasUserReviewedProduct(line.slug, order.id) ? (
+                      <span className="line-reviewed-badge">
+                        <CheckCircle2 size={13} /> Đã đánh giá linh kiện
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="line-review-btn"
+                        onClick={() =>
+                          setReviewProduct({ slug: line.slug, name: line.name })
+                        }
+                      >
+                        <Star size={14} /> Viết đánh giá linh kiện
+                      </button>
+                    )
                   )}
                 </div>
                 <strong className="ordered-line-total">
@@ -504,6 +517,17 @@ export function OrderDetail({ order: initialOrder }: { order: Order }) {
               </button>
             </div>
           </div>
+        )}
+
+        {reviewProduct && (
+          <WriteReviewModal
+            isOpen={Boolean(reviewProduct)}
+            onClose={() => setReviewProduct(null)}
+            productSlug={reviewProduct.slug}
+            productName={reviewProduct.name}
+            orderId={order.id}
+            onSuccess={() => setReviewVersion((v) => v + 1)}
+          />
         )}
       </main>
       <Footer />

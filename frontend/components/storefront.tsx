@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCart } from "./cart-provider";
 import { useToast } from "./toast";
 import { QuickSearch } from "./quick-search";
+import { ProductReviewsSection } from "./reviews";
 import { useMemo, useState } from "react";
 import {
   categories,
@@ -948,11 +949,11 @@ export function ProductDetail({ product }: { product: Product }) {
                 {product.brand} · {product.category}
               </span>
               {product.rating && (
-                <div className="detail-rating-pill">
+                <a href="#reviews" className="detail-rating-pill">
                   <Star size={14} fill="#f59e0b" color="#f59e0b" />
                   <strong>{product.rating}</strong>
                   <span>({product.reviewCount} đánh giá từ khách mua)</span>
-                </div>
+                </a>
               )}
             </div>
 
@@ -1082,6 +1083,9 @@ export function ProductDetail({ product }: { product: Product }) {
             </div>
           </div>
         </section>
+
+        {/* Product Reviews & Real Customer Feedback */}
+        <ProductReviewsSection productSlug={product.slug} productName={product.name} />
 
         {/* Related Products */}
         {relatedProducts.length > 0 && (
