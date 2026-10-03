@@ -1,9 +1,11 @@
 package com.pcstore.dao.impl;
 
+import java.util.Optional;
+
 import com.pcstore.dao.UserDAO;
 import com.pcstore.entity.User;
+
 import jakarta.persistence.EntityManager;
-import java.util.Optional;
 
 public class UserDAOImpl implements UserDAO {
     @Override public Optional<User> findByEmail(EntityManager em, String email) {

@@ -1,25 +1,25 @@
 package com.pcstore.controller;
 
+import java.io.IOException;
+import java.util.Map;
+
 import com.pcstore.dto.AuthResponse;
 import com.pcstore.dto.LoginRequest;
 import com.pcstore.dto.RegisterRequest;
 import com.pcstore.exception.AppException;
 import com.pcstore.service.AuthService;
-import com.pcstore.service.impl.AuthServiceImpl;
 import com.pcstore.util.JsonUtil;
 import com.pcstore.util.SessionUtil;
-import jakarta.servlet.ServletException;
+
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.util.Map;
 
 @WebServlet(name = "authServlet", urlPatterns = "/api/auth/*")
 public class AuthServlet extends HttpServlet {
     private AuthService authService;
-    @Override public void init() { authService = new AuthServiceImpl(); }
+    @Override public void init() { authService = new AuthService(); }
 
     @Override protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         try {

@@ -16,14 +16,17 @@ public final class SessionUtil {
     }
 
     public static void login(HttpServletRequest request, Integer userId, UserRole role) {
+        // Xóa phiên làm việc cũ (nếu có)
         HttpSession old = request.getSession(false);
         if (old != null) old.invalidate();
+        // Tạo phiên làm việc mới và lưu thông tin người dùng
         HttpSession session = request.getSession(true);
         request.changeSessionId();
         session.setAttribute(USER_ID, userId);
         session.setAttribute(USER_ROLE, role.name());
     }
 
+    // Lấy ID người dùng từ phiên làm việc
     public static Integer userId(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         Object value = session == null ? null : session.getAttribute(USER_ID);
