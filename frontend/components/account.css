@@ -42,14 +42,16 @@
 }
 
 .account-names h1 {
+  font-family: var(--font-heading);
   font-size: 24px;
   font-weight: 800;
   margin: 0 0 4px;
   color: #f8fafc;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
 }
 
 .account-names p {
+  font-family: var(--font-sans);
   margin: 0 0 8px;
   font-size: 13px;
   color: #94a3b8;
@@ -59,13 +61,16 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(56, 189, 248, 0.15);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  color: #7dd3fc;
+  background: var(--blue-subtle);
+  border: 1px solid rgba(0, 108, 225, 0.3);
+  color: var(--blue);
+  font-family: var(--font-specs);
   font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   padding: 3px 10px;
-  border-radius: 100px;
+  border-radius: 6px;
 }
 
 .account-quick-stats {
@@ -81,8 +86,9 @@
 
 .quick-stat-box strong {
   display: block;
-  font-size: 22px;
-  font-weight: 800;
+  font-family: var(--font-specs);
+  font-size: 24px;
+  font-weight: 700;
   color: #f1f5f9;
 }
 
@@ -105,6 +111,7 @@
   align-items: center;
   gap: 8px;
   padding: 12px 20px;
+  font-family: var(--font-nav);
   font-size: 14px;
   font-weight: 600;
   color: var(--muted);
@@ -140,8 +147,9 @@
 }
 
 .panel-section-title h2 {
+  font-family: var(--font-heading);
   font-size: 20px;
-  font-weight: 800;
+  font-weight: 700;
   margin: 0;
   letter-spacing: -0.02em;
   color: var(--ink);

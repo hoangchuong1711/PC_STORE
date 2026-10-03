@@ -18,14 +18,16 @@
 }
 
 .community-hero-title h1 {
+  font-family: var(--font-heading);
   font-size: clamp(28px, 4vw, 42px);
   font-weight: 800;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.03em;
   margin: 0 0 8px;
   color: var(--ink);
 }
 
 .community-hero-title p {
+  font-family: var(--font-sans);
   font-size: 16px;
   color: var(--muted);
   max-width: 640px;
@@ -38,21 +40,32 @@
   align-items: center;
   gap: 8px;
   padding: 12px 24px;
-  border-radius: 12px;
+  border-radius: 8px;
+  font-family: var(--font-gaming);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--blue);
+  color: #fff;
+  transition: all 0.2s;
+}
+
+.community-share-btn:hover {
+  background: var(--blue-hover);
+  transform: translateY(-2px);
 }
 
 /* Featured Spotlight Banner */
 .featured-spotlight {
   position: relative;
-  border-radius: 24px;
+  border-radius: 20px;
   overflow: hidden;
   margin-bottom: 48px;
-  background: #0f172a;
+  background: var(--rog-dark);
   color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.3);
+  border: 1px solid var(--rog-border);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.4);
 }
 
 .spotlight-grid {
@@ -83,7 +96,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: linear-gradient(135deg, var(--rog-dark) 0%, #151820 100%);
   position: relative;
 }
 
@@ -91,21 +104,25 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  color: #fbbf24;
-  font-size: 12px;
+  background: rgba(255, 0, 51, 0.15);
+  border: 1px solid rgba(255, 0, 51, 0.35);
+  color: var(--rog-red);
+  font-family: var(--font-gaming);
+  font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   padding: 4px 12px;
-  border-radius: 100px;
+  border-radius: 6px;
   align-self: flex-start;
   margin-bottom: 16px;
 }
 
 .spotlight-content h2 {
+  font-family: var(--font-heading);
   font-size: clamp(22px, 2.5vw, 30px);
   font-weight: 800;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
   line-height: 1.25;
   margin: 0 0 14px;
   color: #f8fafc;
@@ -219,7 +236,8 @@
 .style-tab-btn {
   white-space: nowrap;
   padding: 10px 18px;
-  border-radius: 10px;
+  border-radius: 8px;
+  font-family: var(--font-nav);
   font-size: 13px;
   font-weight: 600;
   background: #fff;
@@ -230,14 +248,14 @@
 }
 
 .style-tab-btn:hover {
-  border-color: var(--ink);
-  color: var(--ink);
+  border-color: var(--blue);
+  color: var(--blue);
 }
 
 .style-tab-btn.active {
-  background: var(--ink);
+  background: var(--blue);
   color: #fff;
-  border-color: var(--ink);
+  border-color: var(--blue);
 }
 
 .community-search-sort-row {
@@ -342,14 +360,16 @@
   position: absolute;
   top: 12px;
   left: 12px;
-  background: rgba(15, 23, 42, 0.75);
+  background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(8px);
   color: #fff;
+  font-family: var(--font-specs);
   font-size: 11px;
   font-weight: 700;
   padding: 4px 10px;
-  border-radius: 100px;
-  letter-spacing: 0.02em;
+  border-radius: 6px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .setup-card-like-btn {
@@ -370,12 +390,12 @@
 }
 
 .setup-card-like-btn:hover {
-  background: rgba(239, 68, 68, 0.85);
+  background: var(--rog-red);
   transform: scale(1.1);
 }
 
 .setup-card-like-btn.liked {
-  background: #ef4444;
+  background: var(--rog-red);
   color: #fff;
 }
 
@@ -388,6 +408,7 @@
 
 .setup-card-title {
   margin: 0 0 10px;
+  font-family: var(--font-heading);
   font-size: 17px;
   font-weight: 700;
   line-height: 1.35;
@@ -441,9 +462,11 @@
   border: 1px solid #e2e8f0;
   padding: 3px 8px;
   border-radius: 6px;
+  font-family: var(--font-specs);
   font-size: 11px;
   color: #475569;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .setup-card-footer {
@@ -466,6 +489,9 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  font-family: var(--font-specs);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 /* Community Empty State */

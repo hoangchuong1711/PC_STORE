@@ -14,12 +14,14 @@
 
 .orders-heading h1,
 .order-detail-heading h1 {
+  font-family: var(--font-heading);
   margin: 8px 0 10px;
   font-size: clamp(34px, 4.5vw, 56px);
-  letter-spacing: -0.04em;
+  letter-spacing: -0.03em;
 }
 
 .orders-heading p {
+  font-family: var(--font-sans);
   margin: 0;
   color: var(--muted);
 }
@@ -57,6 +59,7 @@
   border-radius: 8px;
   background: transparent;
   color: var(--muted);
+  font-family: var(--font-nav);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -65,11 +68,11 @@
 
 .order-filters button:hover {
   background: #f1f5f9;
-  color: var(--ink);
+  color: var(--blue);
 }
 
 .order-filters button.active {
-  background: var(--ink);
+  background: var(--blue);
   color: white;
 }
 
@@ -95,17 +98,11 @@
   border-top: 1px solid var(--line);
 }
 
-.order-row-number,
-.order-row-products,
-.order-row-total {
-  display: grid;
-  gap: 4px;
-}
-
-.order-row span,
-.order-row small {
-  color: var(--muted);
-  font-size: 12px;
+.order-row-number {
+  font-family: var(--font-specs);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
 }
 
 .order-row-products strong {
@@ -132,7 +129,10 @@
 }
 
 .order-row-total strong {
+  font-family: var(--font-specs);
   font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   color: var(--ink);
 }
 
@@ -177,14 +177,15 @@
   display: inline-flex;
   justify-content: center;
   width: max-content;
-  padding: 5px 10px;
-  border-radius: 999px;
+  padding: 4px 10px;
+  border-radius: 6px;
   background: #eef2fa;
   color: #324c79;
+  font-family: var(--font-specs);
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
 }
 
 .status-pending {

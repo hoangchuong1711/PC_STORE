@@ -13,9 +13,10 @@
 }
 
 .builder-hero-copy h1 {
+  font-family: var(--font-heading);
   font-size: clamp(34px, 4.5vw, 56px);
   margin: 10px 0 14px;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.03em;
 }
 
 .builder-hero-copy p {
@@ -74,18 +75,22 @@
 }
 
 .preset-btn-name {
+  font-family: var(--font-nav);
   font-size: 13px;
   font-weight: 700;
   color: var(--ink);
 }
 
 .preset-btn-tag {
+  font-family: var(--font-specs);
   font-size: 11px;
   font-weight: 700;
-  background: #dbeafe;
-  color: #1e40af;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--blue-subtle);
+  color: var(--blue);
   padding: 3px 8px;
-  border-radius: 100px;
+  border-radius: 6px;
 }
 
 /* Compatibility Status Banner */
@@ -208,8 +213,9 @@
 
 .slot-title {
   display: block;
+  font-family: var(--font-heading);
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--ink);
 }
 
@@ -230,6 +236,7 @@
   justify-content: center;
   gap: 8px;
   padding: 12px;
+  font-family: var(--font-nav);
   font-size: 13px;
   font-weight: 700;
   border-style: dashed;
@@ -260,7 +267,8 @@
   display: grid;
   place-items: center;
   color: #fff;
-  font-size: 24px;
+  font-family: var(--font-gaming);
+  font-size: 22px;
   font-weight: 800;
   flex-shrink: 0;
 }
@@ -271,13 +279,16 @@
 }
 
 .slot-item-brand {
+  font-family: var(--font-specs);
   font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
 .slot-item-name {
+  font-family: var(--font-heading);
   font-size: 16px;
   margin: 2px 0 6px;
   font-weight: 700;
@@ -292,7 +303,10 @@
 }
 
 .builder-spec-chip {
+  font-family: var(--font-specs);
   font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
   background: #f1f5f9;
   color: #475569;
   padding: 2px 8px;
@@ -306,7 +320,10 @@
 }
 
 .slot-item-price strong {
-  font-size: 16px;
+  font-family: var(--font-specs);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   color: var(--ink);
 }
 
@@ -414,7 +431,10 @@
 }
 
 .wattage-meter-label strong {
-  font-size: 15px;
+  font-family: var(--font-specs);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   color: #f59e0b;
 }
 
@@ -485,9 +505,11 @@
 }
 
 .builder-total-price {
-  font-size: 22px;
+  font-family: var(--font-specs);
+  font-size: 26px;
   color: var(--ink);
-  font-weight: 800;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .free-tag {
@@ -504,12 +526,27 @@
 .builder-add-cart-btn {
   width: 100%;
   padding: 14px;
-  font-size: 15px;
-  font-weight: 800;
+  font-family: var(--font-gaming);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.builder-add-cart-btn:hover {
+  background: var(--blue-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 108, 225, 0.3);
 }
 
 .builder-secondary-actions {
@@ -647,8 +684,9 @@
   display: grid;
   place-items: center;
   color: #fff;
+  font-family: var(--font-gaming);
   font-size: 20px;
-  font-weight: 800;
+  font-weight: 700;
   flex-shrink: 0;
 }
 
@@ -658,13 +696,16 @@
 }
 
 .picker-prod-brand {
+  font-family: var(--font-specs);
   font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.04em;
   color: var(--muted);
   text-transform: uppercase;
 }
 
 .picker-prod-info h3 {
+  font-family: var(--font-heading);
   font-size: 14px;
   margin: 2px 0 6px;
   font-weight: 700;
@@ -679,6 +720,8 @@
 }
 
 .picker-prod-specs span {
+  font-family: var(--font-specs);
+  font-weight: 700;
   background: #f1f5f9;
   padding: 2px 6px;
   border-radius: 4px;
@@ -691,15 +734,26 @@
 
 .picker-prod-price {
   display: block;
-  font-size: 15px;
+  font-family: var(--font-specs);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   color: var(--ink);
   margin-bottom: 8px;
 }
 
 .picker-select-btn {
+  font-family: var(--font-nav);
   padding: 6px 14px;
   font-size: 12px;
   font-weight: 700;
+  background: var(--blue);
+  color: #fff;
+  border-radius: 6px;
+}
+
+.picker-select-btn:hover {
+  background: var(--blue-hover);
 }
 
 .picker-empty-results {
