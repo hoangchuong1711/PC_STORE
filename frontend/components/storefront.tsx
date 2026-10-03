@@ -87,16 +87,16 @@ export function Header() {
                   </div>
                   <div className="user-menu-divider" />
                   <Link href="/account" className="user-menu-item">
-                    👤 Hồ sơ tài khoản
+                    Hồ sơ tài khoản
                   </Link>
                   <Link href="/orders" className="user-menu-item">
-                    📦 Đơn hàng của tôi
+                    Đơn hàng của tôi
                   </Link>
                   <Link href="/builder" className="user-menu-item">
-                    🛠️ Cấu hình PC đã lưu
+                    Cấu hình PC đã lưu
                   </Link>
                   <Link href="/community" className="user-menu-item">
-                    📸 Góc máy của tôi
+                    Góc máy của tôi
                   </Link>
                   <div className="user-menu-divider" />
                   <Link href="/auth/login" className="user-menu-item text-muted">
@@ -336,7 +336,7 @@ export function HomePage() {
                   Khám phá linh kiện <span>↗</span>
                 </Link>
                 <Link className="button button-outline" href="/builder">
-                  Tự ráp cấu hình PC <span>⚡</span>
+                  Tự ráp cấu hình PC <span>↗</span>
                 </Link>
               </div>
               <div className="hero-features-list">
@@ -380,7 +380,7 @@ export function HomePage() {
                 hoàn toàn tự động!
               </p>
               <Link href="/builder" className="button button-primary">
-                Bắt đầu ráp máy ngay <span>⚡</span>
+                Bắt đầu ráp máy ngay <span>↗</span>
               </Link>
             </div>
             <div className="builder-teaser-stats">

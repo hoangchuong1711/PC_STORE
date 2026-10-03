@@ -476,7 +476,7 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
                     )}
 
                     <details className="demo-scenarios">
-                      <summary>⚙️ Giả lập kịch bản kiểm thử API</summary>
+                      <summary>Giả lập kịch bản kiểm thử API</summary>
                       <label htmlFor="scenario">Kết quả đặt hàng:</label>
                       <select
                         id="scenario"
