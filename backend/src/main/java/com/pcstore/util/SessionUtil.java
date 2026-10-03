@@ -1,7 +1,8 @@
 package com.pcstore.util;
 
 import com.pcstore.entity.User;
-import com.pcstore.entity.UserRole;
+import com.pcstore.entity.enums.UserRole;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
