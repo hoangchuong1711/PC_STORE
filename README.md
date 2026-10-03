@@ -32,7 +32,6 @@ nếu đã được build sẵn chạy lệnh:"docker compose up -d"
 
 ## Cấu trúc repo
 
-T03 đã có schema và mapping JPA cho 12 bảng CORE bằng Flyway V1 + V2. Chạy kiểm thử PostgreSQL bằng `mvn -B -Pdb-test verify` trong `backend/` sau khi cấu hình database test riêng; xem [hướng dẫn backend](backend/BACKEND_GUIDE.md#7-schema-migration-và-kiểm-thử-cần-có). Các API nghiệp vụ vẫn được triển khai theo task tiếp theo.
 
 | Đường dẫn | Nội dung |
 | --- | --- |

@@ -14,7 +14,7 @@
 
 **Mức kiểm chứng:** file draw.io và các tài liệu đã có trong repo được đọc lại trực tiếp khi soạn bản này. Công cụ đọc Plane không mở lại được các page trong lượt làm việc hiện tại, nên phần Page 4/BE/SystemDesign dựa trên nội dung đã đọc ở lượt trước và bản tóm lược `README.md`, `docs/scope.md`. Vì vậy tên endpoint, schema vật lý và chi tiết chưa thể kiểm tra trực tiếp được đánh dấu là đề xuất/chưa chốt, không gán nhầm là nội dung nguyên văn từ Plane.
 
-**Trạng thái repo:** đã có Servlet `GET /api/health`, JPA/Hibernate và Flyway V1 + V2 cho 12 bảng CORE, cùng entity và kiểm thử PostgreSQL. ERD CORE nằm trong [data-model.md](../docs/data-model.md). Các API nghiệp vụ và bảng FEATURE/ADVANCED ở dưới vẫn là **thiết kế**, chưa hoàn thành. Cách gọi health nằm trong [README](../README.md).
+**Trạng thái repo:** đã có Servlet `GET /api/health`, JPA/Hibernate và Flyway V1 + V2 cho 12 bảng CORE, cùng entity và kiểm thử PostgreSQL. Catalog T05 và auth T06 đã có API; các luồng CORE còn lại tiếp tục theo task. T10 bổ sung V3 cho 21 bảng Builder/Spec, Review và Setup, mới ở mức schema; xem [hướng dẫn T10](T10_MIGRATION.md). API FEATURE và các phần ADVANCED còn là thiết kế. ERD nằm trong [data-model.md](../docs/data-model.md); cách gọi health nằm trong [README](../README.md).
 
 ## 2. Kiến trúc và quy ước code
 
@@ -179,6 +179,8 @@ Catalog public chỉ trả Product có `status = ACTIVE`, Category và Brand có
 `GET /api/categories` và `GET /api/brands` chỉ trả các bản ghi ACTIVE, sắp xếp theo tên rồi ID. Response catalog dùng DTO công khai, gồm ảnh, category, brand, giá và tồn khả dụng; không trả JPA Entity.
 
 ## 7. Schema, migration và kiểm thử cần có
+
+**T10 (04/10/2026):** V3 thêm 21 bảng Builder/8 Spec, Review/Media/Like và Setup, bao gồm metadata kiểm duyệt Setup đã chốt để phục vụ T30. T10 chỉ thay schema, chưa có entity/API FEATURE. `PersistenceManager` tự chạy V3 trước Hibernate validate; V1/V2 giữ nguyên. Script xuống V2 chỉ dành cho DB thử nghiệm, kiểm thử và hướng dẫn bàn giao nằm tại [T10_MIGRATION.md](T10_MIGRATION.md). Các nhận định “chưa tạo FEATURE” ở phần T03 dưới đây mô tả riêng phạm vi lịch sử T03.
 
 **Đã triển khai T03:** Flyway chạy V1 rồi `V2__create_core_schema.sql` trước khi Hibernate `validate`. V2 nâng Brand lên thiết kế hiện hành và thêm 11 bảng CORE. Có PK identity ALWAYS, FK theo chính sách RESTRICT/CASCADE của data-model, UNIQUE, CHECK, partial unique index cho địa chỉ mặc định/ảnh chính và index FK. Không sửa V1 đã áp dụng. Không tạo bảng FEATURE/ADVANCED hoặc cột promotion thiếu FK.
 
