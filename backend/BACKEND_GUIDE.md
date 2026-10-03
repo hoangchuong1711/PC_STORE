@@ -107,8 +107,10 @@ Tiền dùng `BigDecimal` ở Java và `NUMERIC/DECIMAL` ở PostgreSQL; không 
 
 1. Đăng ký: chuẩn hóa email, kiểm tra trùng, hash password, mặc định `CUSTOMER/ACTIVE`.
 2. Đăng nhập: kiểm tra hash và trạng thái, tạo `HttpSession`; cookie phiên do Tomcat quản lý. Logout hủy session.
-3. Filter chặn route cần đăng nhập/ADMIN. Service tiếp tục kiểm tra `order.user.id`, `cart.user.id`, `build.user.id` trước mọi thao tác theo ID. Không tin `userId`, `role`, `price` do client gửi.
-4. Chốt cấu hình cookie, CORS và CSRF theo origin thực tế trước khi nối frontend; không ghi `Access-Control-Allow-Origin: *` cùng cookie. Trong Compose, trình duyệt dùng `/api/*` nhưng Tomcat chạy dưới `/pc-store-backend`; cần đặt `Path` của session cookie cho đường dẫn công khai trước khi triển khai đăng nhập.
+3. Filter chặn route cần đăng nhập, CUSTOMER hoặc ADMIN. Service tiếp tục kiểm tra `order.user.id`, `cart.user.id`, `build.user.id` trước mọi thao tác theo ID. Không tin `userId`, `role`, `price` do client gửi.
+4. `CorsFilter` cho phép đúng origin trong `CORS_ALLOWED_ORIGINS` (danh sách phân cách dấu phẩy), bật credentials và từ chối origin khác. Giá trị Compose mặc định là `http://localhost:3000`; cấu hình domain frontend thật khi triển khai. Không dùng `Access-Control-Allow-Origin: *` cùng cookie. Filter điều chỉnh cookie `JSESSIONID` cho `Path=/`, `HttpOnly`, `SameSite=Lax` tương thích proxy `/api/*` tới context `/pc-store-backend`. Bật `SESSION_COOKIE_SECURE=true` khi chạy sau HTTPS. Khi frontend gọi trực tiếp backend khác site, cần HTTPS và cấu hình SameSite/CSRF phù hợp.
+
+Các endpoint auth đã triển khai: `POST /api/auth/register` (201), `POST /api/auth/login` (200 + session cookie), `POST /api/auth/logout` (204), `GET /api/auth/me` (200). Lỗi JSON có dạng `{ "code": "...", "message": "..." }`; email được trim/chuyển chữ thường và unique, mật khẩu lưu PBKDF2-HMAC-SHA256. Route `/api/admin/*` yêu cầu ADMIN; `/api/customer/*` yêu cầu CUSTOMER; `/api/auth/me` và logout yêu cầu session. Không gửi cookie hoặc role trong JSON.
 
 ### Catalog → giỏ → checkout → đơn
 

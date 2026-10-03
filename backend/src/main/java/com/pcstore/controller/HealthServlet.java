@@ -1,7 +1,7 @@
 package com.pcstore.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pcstore.config.JpaConfig;
+import com.pcstore.config.JpaUtil;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.PersistenceException;
@@ -17,7 +17,6 @@ import java.util.Map;
 @WebServlet(name = "healthServlet", urlPatterns = "/api/health")
 public class HealthServlet extends HttpServlet {
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private volatile EntityManagerFactory entityManagerFactory;
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -25,7 +24,7 @@ public class HealthServlet extends HttpServlet {
         response.setCharacterEncoding("UTF-8");
 
         try {
-            EntityManagerFactory factory = getEntityManagerFactory();
+            EntityManagerFactory factory = JpaUtil.getEntityManagerFactory();
             try (EntityManager entityManager = factory.createEntityManager()) {
                 entityManager.createNativeQuery("SELECT 1").getSingleResult();
             }
@@ -45,25 +44,4 @@ public class HealthServlet extends HttpServlet {
         }
     }
 
-    private EntityManagerFactory getEntityManagerFactory() {
-        EntityManagerFactory current = entityManagerFactory;
-        if (current == null) {
-            synchronized (this) {
-                current = entityManagerFactory;
-                if (current == null) {
-                    current = JpaConfig.createEntityManagerFactory();
-                    entityManagerFactory = current;
-                }
-            }
-        }
-        return current;
-    }
-
-    @Override
-    public void destroy() {
-        EntityManagerFactory factory = entityManagerFactory;
-        if (factory != null && factory.isOpen()) {
-            factory.close();
-        }
-    }
 }
