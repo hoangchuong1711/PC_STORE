@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { CartProvider } from "../components/cart-provider";
+import { CartDrawer } from "../components/cart-drawer";
+import { ToastProvider } from "../components/toast";
 
 export const metadata: Metadata = {
   title: "PC Store · Build your next level",
@@ -13,7 +15,12 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body>
-        <CartProvider>{children}</CartProvider>
+        <ToastProvider>
+          <CartProvider>
+            {children}
+            <CartDrawer />
+          </CartProvider>
+        </ToastProvider>
       </body>
     </html>
   );

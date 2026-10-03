@@ -8,6 +8,8 @@ export const orderStatuses = [
 
 export type OrderStatus = (typeof orderStatuses)[number];
 export type OrderFilter = "ALL" | OrderStatus;
+export type PaymentMethod = "COD" | "BANK_TRANSFER";
+export type PaymentStatus = "PENDING" | "PAID";
 
 export type OrderLine = {
   productId: string;
@@ -23,10 +25,14 @@ export type Order = {
   code: string;
   createdAt: string;
   status: OrderStatus;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  cancelReason?: string;
   recipient: {
     name: string;
     phone: string;
     address: string;
+    note?: string;
   };
   lines: OrderLine[];
   total: number;
@@ -44,6 +50,8 @@ export const orders: Order[] = [
     code: "PCS-251018-01",
     createdAt: "2025-10-18T09:30:00+07:00",
     status: "SHIPPING",
+    paymentMethod: "BANK_TRANSFER",
+    paymentStatus: "PAID",
     recipient,
     lines: [
       {
@@ -70,6 +78,8 @@ export const orders: Order[] = [
     code: "PCS-251012-02",
     createdAt: "2025-10-12T14:15:00+07:00",
     status: "CONFIRMED",
+    paymentMethod: "COD",
+    paymentStatus: "PENDING",
     recipient,
     lines: [
       {
@@ -88,6 +98,8 @@ export const orders: Order[] = [
     code: "PCS-250927-03",
     createdAt: "2025-09-27T11:05:00+07:00",
     status: "DELIVERED",
+    paymentMethod: "BANK_TRANSFER",
+    paymentStatus: "PAID",
     recipient,
     lines: [
       {
@@ -114,6 +126,9 @@ export const orders: Order[] = [
     code: "PCS-250904-04",
     createdAt: "2025-09-04T16:40:00+07:00",
     status: "CANCELLED",
+    paymentMethod: "COD",
+    paymentStatus: "PENDING",
+    cancelReason: "Khách hàng đổi ý, muốn nâng cấp lên dòng card cao hơn.",
     recipient,
     lines: [
       {
@@ -151,6 +166,16 @@ export const orderStatusLabels: Record<OrderStatus, string> = {
   SHIPPING: "Đang giao",
   DELIVERED: "Đã giao",
   CANCELLED: "Đã hủy",
+};
+
+export const paymentMethodLabels: Record<PaymentMethod, string> = {
+  COD: "Thanh toán khi nhận hàng (COD)",
+  BANK_TRANSFER: "Chuyển khoản ngân hàng (VietQR)",
+};
+
+export const paymentStatusLabels: Record<PaymentStatus, string> = {
+  PENDING: "Chờ thanh toán",
+  PAID: "Đã thanh toán",
 };
 
 export function formatOrderDate(value: string) {
