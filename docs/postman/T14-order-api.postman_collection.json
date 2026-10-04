@@ -1,0 +1,117 @@
+{
+  "info": {
+    "_postman_id": "e31dedde-989d-4e5e-9da9-869e67601337",
+    "name": "PC Store - T14 Order API",
+    "description": "Checkout COD, owner orders, cancellation and Admin delivery lifecycle.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/pc-store-backend/api" },
+    { "key": "customerEmail", "value": "t14.customer@pcstore.local" },
+    { "key": "customerPassword", "value": "Customer12345" },
+    { "key": "adminEmail", "value": "t14.admin@pcstore.local" },
+    { "key": "adminPassword", "value": "Admin12345" },
+    { "key": "idempotencyKey", "value": "" },
+    { "key": "orderId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Customer session",
+      "item": [
+        {
+          "name": "Register customer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"fullName\": \"T14 Customer\",\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{customerPassword}}\",\n  \"phone\": \"0901234567\"\n}" },
+            "url": "{{baseUrl}}/auth/register"
+          }
+        },
+        {
+          "name": "Login customer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{customerPassword}}\"\n}" },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": { "method": "POST", "url": "{{baseUrl}}/auth/logout" }
+        }
+      ]
+    },
+    {
+      "name": "Customer orders",
+      "item": [
+        {
+          "name": "Checkout COD - new key",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": { "exec": ["pm.collectionVariables.set('idempotencyKey', pm.variables.replaceIn('{{$guid}}'));"] }
+            },
+            {
+              "listen": "test",
+              "script": { "exec": ["pm.test('Created', () => pm.response.to.have.status(201));", "const body = pm.response.json();", "pm.collectionVariables.set('orderId', String(body.orderId));", "pm.expect(pm.response.headers.get('Idempotent-Replayed')).to.eql('false');"] }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"shippingName\": \"Nguyễn Văn A\",\n  \"shippingPhone\": \"0901234567\",\n  \"shippingAddressText\": \"123 Nguyễn Văn Linh, Đà Nẵng\",\n  \"paymentMethod\": \"COD\"\n}" },
+            "url": "{{baseUrl}}/orders"
+          }
+        },
+        {
+          "name": "Replay same checkout",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Replayed', () => pm.response.to.have.status(200));", "pm.expect(pm.response.headers.get('Idempotent-Replayed')).to.eql('true');"] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "{{idempotencyKey}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"shippingName\": \"Nguyễn Văn A\",\n  \"shippingPhone\": \"0901234567\",\n  \"shippingAddressText\": \"123 Nguyễn Văn Linh, Đà Nẵng\",\n  \"paymentMethod\": \"COD\"\n}" },
+            "url": "{{baseUrl}}/orders"
+          }
+        },
+        { "name": "List my orders", "request": { "method": "GET", "url": "{{baseUrl}}/orders" } },
+        { "name": "Get my order", "request": { "method": "GET", "url": "{{baseUrl}}/orders/{{orderId}}" } },
+        { "name": "Cancel my PENDING order", "request": { "method": "POST", "url": "{{baseUrl}}/orders/{{orderId}}/cancel" } }
+      ]
+    },
+    {
+      "name": "Admin orders",
+      "item": [
+        {
+          "name": "Login admin",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}" },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        { "name": "List all orders", "request": { "method": "GET", "url": "{{baseUrl}}/admin/orders" } },
+        { "name": "Get order", "request": { "method": "GET", "url": "{{baseUrl}}/admin/orders/{{orderId}}" } },
+        {
+          "name": "1 - Confirm order",
+          "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"status\": \"CONFIRMED\" }" }, "url": "{{baseUrl}}/admin/orders/{{orderId}}/status" }
+        },
+        {
+          "name": "2 - Start shipping",
+          "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"status\": \"SHIPPING\" }" }, "url": "{{baseUrl}}/admin/orders/{{orderId}}/status" }
+        },
+        {
+          "name": "3 - Mark delivered",
+          "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"status\": \"DELIVERED\" }" }, "url": "{{baseUrl}}/admin/orders/{{orderId}}/status" }
+        }
+      ]
+    }
+  ]
+}
