@@ -14,7 +14,7 @@
 
 **Mức kiểm chứng:** file draw.io và các tài liệu đã có trong repo được đọc lại trực tiếp khi soạn bản này. Công cụ đọc Plane không mở lại được các page trong lượt làm việc hiện tại, nên phần Page 4/BE/SystemDesign dựa trên nội dung đã đọc ở lượt trước và bản tóm lược `README.md`, `docs/scope.md`. Vì vậy tên endpoint, schema vật lý và chi tiết chưa thể kiểm tra trực tiếp được đánh dấu là đề xuất/chưa chốt, không gán nhầm là nội dung nguyên văn từ Plane.
 
-**Trạng thái repo:** đã có Servlet `GET /api/health`, JPA/Hibernate và Flyway V1 + V2 cho 12 bảng CORE, cùng entity và kiểm thử PostgreSQL. ERD CORE nằm trong [data-model.md](../docs/data-model.md). Các API nghiệp vụ và bảng FEATURE/ADVANCED ở dưới vẫn là **thiết kế**, chưa hoàn thành. Cách gọi health nằm trong [README](../README.md).
+**Trạng thái repo:** đã có Servlet `GET /api/health`, JPA/Hibernate và Flyway V1 + V2 cho 12 bảng CORE, cùng entity và kiểm thử PostgreSQL. Catalog T05 và auth T06 đã có API; các luồng CORE còn lại tiếp tục theo task. T10 bổ sung V3 cho 21 bảng Builder/Spec, Review và Setup, mới ở mức schema; xem [hướng dẫn T10](T10_MIGRATION.md). API FEATURE và các phần ADVANCED còn là thiết kế. ERD nằm trong [data-model.md](../docs/data-model.md); cách gọi health nằm trong [README](../README.md).
 
 ## 2. Kiến trúc và quy ước code
 
@@ -108,8 +108,10 @@ Tiền dùng `BigDecimal` ở Java và `NUMERIC/DECIMAL` ở PostgreSQL; không 
 
 1. Đăng ký: chuẩn hóa email, kiểm tra trùng, hash password, mặc định `CUSTOMER/ACTIVE`.
 2. Đăng nhập: kiểm tra hash và trạng thái, tạo `HttpSession`; cookie phiên do Tomcat quản lý. Logout hủy session.
-3. Filter chặn route cần đăng nhập/ADMIN. Service tiếp tục kiểm tra `order.user.id`, `cart.user.id`, `build.user.id` trước mọi thao tác theo ID. Không tin `userId`, `role`, `price` do client gửi.
-4. Chốt cấu hình cookie, CORS và CSRF theo origin thực tế trước khi nối frontend; không ghi `Access-Control-Allow-Origin: *` cùng cookie. Trong Compose, trình duyệt dùng `/api/*` nhưng Tomcat chạy dưới `/pc-store-backend`; cần đặt `Path` của session cookie cho đường dẫn công khai trước khi triển khai đăng nhập.
+3. Filter chặn route cần đăng nhập, CUSTOMER hoặc ADMIN. Service tiếp tục kiểm tra `order.user.id`, `cart.user.id`, `build.user.id` trước mọi thao tác theo ID. Không tin `userId`, `role`, `price` do client gửi.
+4. `CorsFilter` cho phép đúng origin trong `CORS_ALLOWED_ORIGINS` (danh sách phân cách dấu phẩy), bật credentials và từ chối origin khác. Giá trị Compose mặc định là `http://localhost:3000`; cấu hình domain frontend thật khi triển khai. Không dùng `Access-Control-Allow-Origin: *` cùng cookie. Filter điều chỉnh cookie `JSESSIONID` cho `Path=/`, `HttpOnly`, `SameSite=Lax` tương thích proxy `/api/*` tới context `/pc-store-backend`. Bật `SESSION_COOKIE_SECURE=true` khi chạy sau HTTPS. Khi frontend gọi trực tiếp backend khác site, cần HTTPS và cấu hình SameSite/CSRF phù hợp.
+
+Các endpoint auth đã triển khai: `POST /api/auth/register` (201), `POST /api/auth/login` (200 + session cookie), `POST /api/auth/logout` (204), `GET /api/auth/me` (200). Lỗi JSON có dạng `{ "code": "...", "message": "..." }`; email được trim/chuyển chữ thường và unique, mật khẩu lưu PBKDF2-HMAC-SHA256. Route `/api/admin/*` yêu cầu ADMIN; `/api/customer/*` yêu cầu CUSTOMER; `/api/auth/me` và logout yêu cầu session. Không gửi cookie hoặc role trong JSON.
 
 ### Catalog → giỏ → checkout → đơn
 
@@ -159,6 +161,7 @@ Admin thêm/sửa/ẩn sản phẩm, điều chỉnh kho theo quy tắc một ng
 | `GET /api/orders`, `GET /api/orders/{id}` | Customer | — | chỉ đơn của chính user |
 | `POST /api/orders/{id}/cancel` | Chủ đơn/Admin theo rule | — | order status, tồn đã hoàn nếu áp dụng |
 | `POST /api/admin/products`, `PATCH /api/admin/products/{id}` | Admin | trường catalog/kho phù hợp | product DTO |
+| `PATCH /api/admin/products/{id}/inventory` | Admin | `quantityOnHand` | product Admin DTO và tồn hiện tại |
 | `GET /api/admin/orders`, `PATCH /api/admin/orders/{id}/status` | Admin | status mới | order DTO |
 | `POST /api/admin/orders/{id}/confirm-payment` | Admin | mã tham chiếu tùy chọn sau khi đối chiếu | Payment `PAID`, `paidAt`; từ chối xác nhận lặp |
 | `GET /api/builds`, `POST /api/builds` | Customer | name/items | build DTO |
@@ -176,7 +179,42 @@ Catalog public chỉ trả Product có `status = ACTIVE`, Category và Brand có
 
 `GET /api/categories` và `GET /api/brands` chỉ trả các bản ghi ACTIVE, sắp xếp theo tên rồi ID. Response catalog dùng DTO công khai, gồm ảnh, category, brand, giá và tồn khả dụng; không trả JPA Entity.
 
+### 6.2. T12 Admin sản phẩm và tồn (đã triển khai)
+
+Các endpoint dưới `/api/admin/*` yêu cầu session có role `ADMIN`. Request chưa đăng nhập trả `401`; session `CUSTOMER` trả `403` trước khi vào Servlet.
+
+- `POST /api/admin/products`: tạo Product và Inventory trong cùng transaction. `status` mặc định `DRAFT`; `quantityOnHand` bắt buộc và không âm.
+- `PATCH /api/admin/products/{id}`: sửa các trường khác `null`. Gửi `status: HIDDEN` để ẩn sản phẩm; không xóa cứng Product.
+- `PATCH /api/admin/products/{id}/inventory`: đổi `quantityOnHand`; không nhận `reservedQuantity` từ client và trả `409 INVENTORY_CONFLICT` nếu tồn mới nhỏ hơn lượng đang giữ chỗ.
+- `DELETE /api/admin/products/{id}`: luôn trả `405 HARD_DELETE_NOT_ALLOWED`. FK từ OrderItem tới Product tiếp tục dùng `ON DELETE RESTRICT` để bảo vệ lịch sử đơn.
+
+Giá dùng `BigDecimal`, phải là VND nguyên đồng, không âm và vừa `NUMERIC(19,0)`. Khi Product là `ACTIVE`, Category và Brand liên quan cũng phải `ACTIVE`. Tồn bằng 0 không tự đổi Product sang `OUT_OF_STOCK`; catalog public đã dùng tồn khả dụng (`quantityOnHand - reservedQuantity > 0`) làm điều kiện hiển thị.
+
+Ví dụ tạo sản phẩm:
+
+```json
+{
+  "name": "AMD Ryzen 5 7600",
+  "description": "CPU AMD socket AM5",
+  "price": 5490000,
+  "categoryId": 1,
+  "brandId": 1,
+  "status": "ACTIVE",
+  "quantityOnHand": 10
+}
+```
+
+Ví dụ chỉnh tồn:
+
+```json
+{
+  "quantityOnHand": 25
+}
+```
+
 ## 7. Schema, migration và kiểm thử cần có
+
+**T10 (04/10/2026):** V3 thêm 21 bảng Builder/8 Spec, Review/Media/Like và Setup, bao gồm metadata kiểm duyệt Setup đã chốt để phục vụ T30. T10 chỉ thay schema, chưa có entity/API FEATURE. `PersistenceManager` tự chạy V3 trước Hibernate validate; V1/V2 giữ nguyên. Script xuống V2 chỉ dành cho DB thử nghiệm, kiểm thử và hướng dẫn bàn giao nằm tại [T10_MIGRATION.md](T10_MIGRATION.md). Các nhận định “chưa tạo FEATURE” ở phần T03 dưới đây mô tả riêng phạm vi lịch sử T03.
 
 **Đã triển khai T03:** Flyway chạy V1 rồi `V2__create_core_schema.sql` trước khi Hibernate `validate`. V2 nâng Brand lên thiết kế hiện hành và thêm 11 bảng CORE. Có PK identity ALWAYS, FK theo chính sách RESTRICT/CASCADE của data-model, UNIQUE, CHECK, partial unique index cho địa chỉ mặc định/ảnh chính và index FK. Không sửa V1 đã áp dụng. Không tạo bảng FEATURE/ADVANCED hoặc cột promotion thiếu FK.
 

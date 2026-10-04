@@ -262,7 +262,7 @@ class CoreDatabaseIT {
             execute("SET search_path TO " + upgradeSchema);
             execute("INSERT INTO brands(name) VALUES ('Existing brand')");
             var upgrade = Flyway.configure().dataSource(url, user, password).defaultSchema(upgradeSchema).load();
-            assertEquals(1, upgrade.migrate().migrationsExecuted);
+            assertEquals(2, upgrade.migrate().migrationsExecuted);
             assertEquals(1, scalar("SELECT count(*) FROM brands WHERE name='Existing brand' AND brand_id=1"));
             rejects("428C9", "INSERT INTO brands(brand_id,name) VALUES (99,'Explicit identity')");
             execute("INSERT INTO brands(name) VALUES ('New brand')");
