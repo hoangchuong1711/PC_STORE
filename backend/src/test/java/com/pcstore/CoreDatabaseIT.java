@@ -139,6 +139,17 @@ class CoreDatabaseIT {
         assertEquals(0, scalar("SELECT count(*) FROM product_images WHERE product_id=2"));
     }
 
+    @Test void enforcesCheckoutIdempotencyPerUser() throws Exception {
+        fixture();
+        execute("UPDATE orders SET checkout_idempotency_key='checkout-001', checkout_request_hash=repeat('a',64) WHERE order_id=1");
+        execute("INSERT INTO users(full_name,email,password_hash) VALUES ('Other','other@example.test','test-hash')");
+        execute("INSERT INTO orders(user_id,order_date,total_amount,shipping_name,shipping_phone,shipping_address_text,checkout_idempotency_key,checkout_request_hash) VALUES (2,now(),0,'Other','0987654321','Other address','checkout-001',repeat('b',64))");
+        rejects("23505", "INSERT INTO orders(user_id,order_date,total_amount,shipping_name,shipping_phone,shipping_address_text,checkout_idempotency_key,checkout_request_hash) VALUES (1,now(),0,'Customer','0123456789','Demo address','checkout-001',repeat('c',64))");
+        rejects("23514", "UPDATE orders SET checkout_request_hash=NULL WHERE order_id=1");
+        rejects("23514", "UPDATE orders SET checkout_idempotency_key=' ' WHERE order_id=1");
+        rejects("23514", "UPDATE orders SET checkout_request_hash='not-a-sha-256' WHERE order_id=1");
+    }
+
     private long scalar(String sql) throws SQLException {
         try (Statement statement = db.createStatement(); ResultSet rs = statement.executeQuery(sql)) {
             assertTrue(rs.next());
@@ -243,6 +254,8 @@ class CoreDatabaseIT {
             assertEquals(PaymentStatus.PENDING, em.find(Payment.class, payment.getPaymentId()).getStatus());
             assertNull(em.find(Payment.class, payment.getPaymentId()).getPaidAt());
             assertEquals(ProductStatus.DRAFT, em.find(Product.class, product.getProductId()).getStatus());
+            assertNull(loaded.getCheckoutIdempotencyKey());
+            assertNull(loaded.getCheckoutRequestHash());
             assertEquals(255, em.find(Brand.class, brand.getBrandId()).getName().length());
             em.getTransaction().begin();
             em.find(Product.class, product.getProductId()).setPrice(new BigDecimal("2000000"));
@@ -262,7 +275,7 @@ class CoreDatabaseIT {
             execute("SET search_path TO " + upgradeSchema);
             execute("INSERT INTO brands(name) VALUES ('Existing brand')");
             var upgrade = Flyway.configure().dataSource(url, user, password).defaultSchema(upgradeSchema).load();
-            assertEquals(2, upgrade.migrate().migrationsExecuted);
+            assertEquals(3, upgrade.migrate().migrationsExecuted);
             assertEquals(1, scalar("SELECT count(*) FROM brands WHERE name='Existing brand' AND brand_id=1"));
             rejects("428C9", "INSERT INTO brands(brand_id,name) VALUES (99,'Explicit identity')");
             execute("INSERT INTO brands(name) VALUES ('New brand')");
