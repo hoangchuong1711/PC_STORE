@@ -2,7 +2,7 @@
 -- Historical/manual orders may keep both values NULL; API-created orders always set both.
 ALTER TABLE orders
     ADD COLUMN checkout_idempotency_key VARCHAR(128),
-    ADD COLUMN checkout_request_hash CHAR(64),
+    ADD COLUMN checkout_request_hash VARCHAR(64),
     ADD CONSTRAINT ck_orders_checkout_idempotency_pair CHECK (
         (checkout_idempotency_key IS NULL AND checkout_request_hash IS NULL)
         OR

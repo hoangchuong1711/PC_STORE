@@ -34,6 +34,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
@@ -104,7 +105,14 @@ public class OrderService {
                 Map<Integer, Inventory> inventoryByProduct = indexInventories(orders.lockInventories(productIds));
                 validateAndReserve(cartItems, inventoryByProduct);
 
-                LocalDateTime now = LocalDateTime.now(clock);
+                BigDecimal total = BigDecimal.ZERO;
+                for (CartItem cartItem : cartItems) {
+                    BigDecimal unitPrice = money(cartItem.getProduct().getPrice());
+                    BigDecimal lineTotal = checkedMoney(unitPrice.multiply(BigDecimal.valueOf(cartItem.getQuantity())));
+                    total = checkedMoney(total.add(lineTotal));
+                }
+
+                LocalDateTime now = now();
                 Order order = new Order();
                 order.setUser(user);
                 order.setOrderDate(now);
@@ -114,14 +122,12 @@ public class OrderService {
                 order.setShippingAddressText(checkout.shippingAddressText());
                 order.setCheckoutIdempotencyKey(checkout.idempotencyKey());
                 order.setCheckoutRequestHash(checkout.requestHash());
+                order.setTotalAmount(total);
                 orders.persist(order);
 
-                BigDecimal total = BigDecimal.ZERO;
                 for (CartItem cartItem : cartItems) {
                     Product product = cartItem.getProduct();
                     BigDecimal unitPrice = money(product.getPrice());
-                    BigDecimal lineTotal = checkedMoney(unitPrice.multiply(BigDecimal.valueOf(cartItem.getQuantity())));
-                    total = checkedMoney(total.add(lineTotal));
 
                     OrderItem item = new OrderItem();
                     item.setOrder(order);
@@ -132,7 +138,6 @@ public class OrderService {
                     orders.persist(item);
                     order.getItems().add(item);
                 }
-                order.setTotalAmount(total);
 
                 Payment payment = new Payment();
                 payment.setOrder(order);
@@ -152,7 +157,8 @@ public class OrderService {
                 throw exception;
             } catch (PersistenceException exception) {
                 rollback(em);
-                throw new AppException(409, "CHECKOUT_CONFLICT", "Checkout xung đột với một yêu cầu khác. Hãy tải lại giỏ hàng.");
+                throw new AppException(409, "CHECKOUT_CONFLICT",
+                        "Checkout xung đột với một yêu cầu khác. Hãy tải lại giỏ hàng.", exception);
             } catch (RuntimeException exception) {
                 rollback(em);
                 throw exception;
@@ -232,7 +238,8 @@ public class OrderService {
                 throw exception;
             } catch (PersistenceException exception) {
                 rollback(em);
-                throw new AppException(409, "ORDER_UPDATE_CONFLICT", "Đơn hàng vừa được cập nhật bởi yêu cầu khác.");
+                throw new AppException(409, "ORDER_UPDATE_CONFLICT",
+                        "Đơn hàng vừa được cập nhật bởi yêu cầu khác.", exception);
             } catch (RuntimeException exception) {
                 rollback(em);
                 throw exception;
@@ -261,7 +268,7 @@ public class OrderService {
             case DELIVERED -> {
                 requireTransition(current == OrderStatus.SHIPPING, current, target);
                 Payment payment = requirePayment(orders, order);
-                LocalDateTime now = LocalDateTime.now(clock);
+                LocalDateTime now = now();
                 if (payment.getMethod() == PaymentMethod.COD) {
                     if (payment.getStatus() != PaymentStatus.PENDING) {
                         throw conflict("INVALID_PAYMENT_STATUS", "Thanh toán COD không còn ở trạng thái PENDING.");
@@ -420,6 +427,10 @@ public class OrderService {
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("JVM không hỗ trợ SHA-256", exception);
         }
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
     }
 
     private static void verifySameRequest(Order order, String requestHash) {
