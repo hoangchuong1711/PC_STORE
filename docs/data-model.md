@@ -6,7 +6,7 @@ Tài liệu mô tả mô hình dữ liệu mục tiêu của PC Store, dựa tr�
 
 Phạm vi gồm tài khoản, địa chỉ, catalog, tồn kho, giỏ hàng, đơn hàng, thanh toán, thông số linh kiện, PC Builder, Recommendation, Community, Promotion, Warranty và Review. Thứ tự triển khai vẫn là CORE → FEATURE → ADVANCED theo [scope.md](scope.md); mô tả đầy đủ không có nghĩa triển khai tất cả cùng lúc. Backend giữ Java Servlet → Service → DAO → JPA/Hibernate → PostgreSQL theo [hướng dẫn backend](../backend/BACKEND_GUIDE.md).
 
-**Trạng thái:** T03 (01/10/2026) triển khai 12 bảng CORE bằng Flyway V1 + V2 và entity JPA; Hibernate dùng `validate`. T10 (04/10/2026) thêm V3 với 21 bảng cho 8 Spec Builder, PC Builder, Review/Media/Like và Setup; mới có schema, chưa có entity/API FEATURE. `CoreDatabaseIT` kiểm tra CORE/JPA; `FeatureMigrationIT` kiểm tra V3, nâng cấp T03 có dữ liệu, lên/xuống, UNIQUE, FK chủ sở hữu, CHECK, index và chính sách xóa trên PostgreSQL thật. MonitorSpec/GearSpec và các phần ADVANCED khác còn là thiết kế. Xem [hướng dẫn T10](../backend/T10_MIGRATION.md). File draw.io chưa được chỉnh sửa.
+**Trạng thái T03 (01/10/2026):** đã triển khai 12 bảng CORE ở mục 8 bằng Flyway V1 + V2 và entity JPA tương ứng; Hibernate dùng `validate`. `CoreDatabaseIT` kiểm tra PostgreSQL 17 thật, nâng cấp V1 có dữ liệu, ràng buộc và lưu/đọc JPA. Các phần FEATURE/ADVANCED vẫn là thiết kế, chưa triển khai. Xem [hướng dẫn kiểm thử](../backend/BACKEND_GUIDE.md#7-schema-migration-và-kiểm-thử-cần-có). File draw.io chưa được chỉnh sửa.
 
 ## 2. Quy ước và quyết định chung
 
@@ -101,7 +101,6 @@ Không có FK Request → Result trực tiếp. Truy vết qua Request → Attem
 ```mermaid
 erDiagram
     users ||--o{ setup_posts : authors
-    users o|--o{ setup_posts : moderates
     setup_posts ||--|{ setup_images : images
     setup_posts ||--o{ setup_post_products : tags
     products ||--o{ setup_post_products : tagged
@@ -125,8 +124,6 @@ erDiagram
     order_items ||--o| product_reviews : review
     users o|--o{ product_reviews : moderates
     product_reviews ||--o{ review_media : media
-    product_reviews ||--o{ review_likes : receives
-    users ||--o{ review_likes : likes
 ```
 
 ReviewMedia giới hạn **0..6** bản ghi/review; Mermaid chỉ thể hiện phía nhiều, giới hạn 6 được bảo đảm bằng nghiệp vụ. Quan hệ User–Review trong ERD là **người kiểm duyệt tùy chọn**, không phải tác giả. Tác giả được xác định từ OrderItem → Order → User.
@@ -565,16 +562,6 @@ UNIQUE(attempt_id), UNIQUE(build_id); estimated_total >= 0. Chỉ tạo Result c
 
 DEFAULT status = PUBLISHED. created_at/updated_at do Service ghi. Tạo bài phải có ít nhất một ảnh và tác giả đã có đơn DELIVERED; thực hiện cùng transaction. HIDDEN dùng khi ẩn bài.
 
-T10 bổ sung metadata kiểm duyệt để đáp ứng T30 (đã được chốt ngày 04/10/2026):
-
-| Thuộc tính Java | Cột | Kiểu PostgreSQL | Ràng buộc |
-| --- | --- | --- | --- |
-| `moderationReason` | `moderation_reason` | `TEXT` | NULL; nếu có phải trim, không rỗng |
-| `moderatedBy` | `moderated_by` | `INTEGER` | NULL; FK → users.user_id |
-| `moderatedAt` | `moderated_at` | `TIMESTAMP WITHOUT TIME ZONE` | NULL |
-
-moderated_by và moderated_at cùng NULL hoặc cùng có giá trị. Status HIDDEN bắt buộc cả ba trường kiểm duyệt. Sau khi khôi phục PUBLISHED có thể giữ metadata lần kiểm duyệt gần nhất; đây không phải bảng lịch sử kiểm duyệt. `user_id` vẫn là tác giả; `moderated_by` là người kiểm duyệt. Service kiểm tra quyền ADMIN.
-
 #### SetupImage → `setup_images`
 
 | Thuộc tính Java | Cột | Kiểu PostgreSQL | Ràng buộc |
@@ -719,16 +706,6 @@ UNIQUE(order_item_id); rating BETWEEN 1 AND 5; content không trống; DEFAULT s
 
 UNIQUE(review_id, sort_order), UNIQUE(storage_key); sort_order >= 0; size_bytes > 0. IMAGE có duration_second NULL; VIDEO có duration_second > 0. Tối đa 6 file/review: khóa dòng Review trước khi đếm và thêm media. Không ghi URL công khai cố định thay cho storage_key.
 
-#### ReviewLike → `review_likes` (bổ sung T10)
-
-| Thuộc tính Java | Cột | Kiểu PostgreSQL | Ràng buộc |
-| --- | --- | --- | --- |
-| `review` | `review_id` | `INTEGER` | PK, NN; FK → product_reviews.review_id |
-| `user` | `user_id` | `INTEGER` | PK, NN; FK → users.user_id |
-| `createdAt` | `created_at` | `TIMESTAMP WITHOUT TIME ZONE` | NN; Service cung cấp |
-
-PK ghép `(review_id, user_id)` bảo đảm một like/user/review. Unlike xóa bản ghi; số like tính COUNT. FK review dùng ON DELETE CASCADE, FK user dùng RESTRICT; thêm index user_id cho chiều ngược. T27 kiểm tra đăng nhập, review PUBLISHED và cấm tự like bằng tác giả suy ra từ OrderItem → Order → User. Schema này được chốt cùng T10 ngày 04/10/2026.
-
 ## 5. Enum sử dụng trong mô hình đã sửa
 
 | Enum | Giá trị |
@@ -823,7 +800,6 @@ Mốc bắt đầu là deliveredAt. Cộng tháng lịch bằng quy tắc LocalD
 - ReviewMedia gắn với Review; tối đa 6, cả IMAGE và VIDEO cùng tính vào giới hạn. Service khóa Review trước mọi thao tác thêm media; validate MIME thực, kích thước và thời lượng. Giới hạn dung lượng/thời lượng upload là cấu hình ứng dụng, không phải bội số database. Review HIDDEN/DELETED không hiển thị media công khai.
 - SetupPost có ít nhất một SetupImage ngay khi tạo. Các lần sửa/xóa ảnh phải khóa Post và bảo đảm không còn 0 ảnh; ảnh được sắp theo sort_order. Người đăng cần từng có đơn DELIVERED; sản phẩm gắn vào bài không bắt buộc trùng sản phẩm từng mua vì có thể đã sở hữu từ nơi khác.
 - SetupPostProduct chỉ lưu liên kết; SetupLike chỉ lưu một like/User/Post. User phải đăng nhập để like; quyền xem bài HIDDEN được kiểm tra ở Service.
-- ReviewLike chỉ lưu một like/User/Review; không tự like review của mình theo T27. Việc đối chiếu user đăng nhập với chủ OrderItem/Build/Setup, đơn DELIVERED, giới hạn media, ảnh bắt buộc, trạng thái và quyền ADMIN là trách nhiệm Service trong transaction. T10 kiểm thử đường FK xác định chủ sở hữu, không thay thế kiểm thử phân quyền API của T24/T26–T30.
 
 ### 6.6. Index và chính sách xóa
 
@@ -842,7 +818,7 @@ Các unique index có điều kiện bắt buộc: addresses(user_id) WHERE is_d
 | RecommendationRequest → Purpose, RequestOwnedProduct | request_id ở hai bảng này |
 | SetupPost → SetupImage, SetupPostProduct, SetupLike | post_id ở ba bảng này |
 | PromotionRule → hai bảng mục tiêu | rule_id ở hai bảng nối |
-| ProductReview → ReviewMedia, ReviewLike | review_id ở hai bảng này |
+| ProductReview → ReviewMedia | review_media.review_id |
 
 User/Product có lịch sử giao dịch được vô hiệu hóa bằng status, không xóa cứng. Orders, OrderItems, Payments, OrderItemWarranty, Review và chuỗi Request–Attempt–Result được giữ để truy vết; không xóa cứng qua API nghiệp vụ. Rule đã được OrderItem tham chiếu không sửa/xóa; muốn đổi mức giảm/đối tượng phải tạo rule hoặc Promotion mới. Thay đổi trạng thái Promotion chỉ ảnh hưởng giao dịch tương lai.
 
@@ -880,7 +856,7 @@ Khi cập nhật draw.io, bổ sung các lớp/bảng nối và thuộc tính m�
 
 1. **CORE:** User, Address, Category, Brand, Product, ProductImage, Inventory, Cart, CartItem, Order, OrderItem, Payment. Khi chưa có Promotion, unitPrice = baseUnitPrice và chưa tạo FK tới bảng rule; thêm cột/FK nullable ở migration Promotion. Tương tự snapshot Warranty triển khai cùng tính năng bảo hành, không tuyên bố đơn CORE cũ đã có snapshot.
 2. **FEATURE:** Spec/Compatibility, PC Builder, Review và Community. Một ảnh setup cơ bản thuộc FEATURE; media nâng cao triển khai sau.
-3. **ADVANCED:** Recommendation/Attempt/Result, Promotion, Warranty và xử lý Media nâng cao theo scope. Schema `review_media` đã nằm trong T10 theo Work Item được giao; upload/xử lý file thuộc T21. Schema mục tiêu ở mục 4 mô tả trạng thái sau khi đủ các phần, migration phải theo đúng thứ tự phụ thuộc.
+3. **ADVANCED:** Recommendation/Attempt/Result, Promotion, Warranty và ReviewMedia nâng cao theo scope. Schema mục tiêu ở mục 4 mô tả trạng thái sau khi đủ các phần, migration phải theo đúng thứ tự phụ thuộc.
 
 Tạo migration riêng và entity JPA theo từng bước; Hibernate chỉ validate, không tự sửa schema. Collection dùng mappedBy/join table đúng FK; Spec và OrderItemWarranty dùng shared PK; không trả entity chứa passwordHash hoặc quan hệ vòng ra API. Tài liệu không thay thế SQL migration và không xác nhận migration đã chạy.
 

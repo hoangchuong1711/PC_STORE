@@ -1,20 +1,11 @@
 package com.pcstore.entity;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import com.pcstore.entity.enums.UserRole;
 import com.pcstore.entity.enums.UserStatus;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -45,7 +36,7 @@ public class User {
     private UserStatus status = UserStatus.ACTIVE;
 
     @OneToMany(mappedBy = "user")
-    private final List<Address> addresses = new ArrayList<>();
+    private List<Address> addresses = new ArrayList<>();
 
     public User() {
     }

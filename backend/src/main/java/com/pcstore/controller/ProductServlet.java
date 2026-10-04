@@ -6,8 +6,8 @@ import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pcstore.config.PersistenceManager;
 import com.pcstore.dto.ProductSearchQuery;
-import com.pcstore.exception.ResourceNotFoundException;
 import com.pcstore.service.ProductCatalogService;
+import com.pcstore.service.ResourceNotFoundException;
 
 import jakarta.persistence.EntityManager;
 import jakarta.servlet.annotation.WebServlet;

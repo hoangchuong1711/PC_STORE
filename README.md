@@ -21,28 +21,18 @@ Cần Docker Desktop ở chế độ Linux containers và Docker Compose. Từ t
 ```powershell
 Copy-Item .env.example .env
 # Đổi POSTGRES_PASSWORD trong .env thành mật khẩu local
+docker compose up --build -d
 ```
-
-build docker và chạy BE+FE: "docker compose up --build -d"
-
 nếu đã được build sẵn chạy lệnh:"docker compose up -d"
-
-nếu chỉ muốn chạy BE: "docker compose up --build -d backend"
-nếu chỉ muốn chạy FE:"
-cd frontend
-npm install
-npm run dev
-"
 
 - Giao diện: http://localhost:3000
 - Kiểm tra API và kết nối database: http://localhost:3000/api/health
-
-Nếu Compose báo cổng `8080` đang được sử dụng, backend không khởi động được và frontend phụ thuộc backend cũng chưa chạy. Đặt `BACKEND_PORT=8081` trong `.env`, rồi chạy lại `docker compose up -d`. Giao diện vẫn ở `http://localhost:3000`;
 
 Để xem log: `docker compose logs -f backend`. Sau khi sửa mã nguồn, chạy lại `docker compose up --build -d`. Dừng ứng dụng bằng `docker compose down`; dữ liệu vẫn nằm trong Docker volume. Không commit file `.env`.
 
 ## Cấu trúc repo
 
+T03 đã có schema và mapping JPA cho 12 bảng CORE bằng Flyway V1 + V2. Chạy kiểm thử PostgreSQL bằng `mvn -B -Pdb-test verify` trong `backend/` sau khi cấu hình database test riêng; xem [hướng dẫn backend](backend/BACKEND_GUIDE.md#7-schema-migration-và-kiểm-thử-cần-có). Các API nghiệp vụ vẫn được triển khai theo task tiếp theo.
 
 | Đường dẫn | Nội dung |
 | --- | --- |
