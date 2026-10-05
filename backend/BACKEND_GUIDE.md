@@ -160,11 +160,11 @@ những endpoint chưa triển khai, không tự đưa chúng vào Swagger UI.
 | `GET /api/products` | Public | `q,categoryId,brandId,minPrice,maxPrice,page,size` | products + pagination |
 | `GET /api/products/{id}` | Public | — | product detail + images + availability |
 | `GET /api/categories`, `GET /api/brands` | Public | — | danh mục/hãng đang hiển thị |
-| `GET /api/cart` | Customer | — | items, giá hiện hành, tổng |
-| `POST /api/cart/items` | Customer | `productId,quantity` | cart DTO |
-| `PATCH /api/cart/items/{id}` | Customer | `quantity` | cart DTO |
-| `DELETE /api/cart/items/{id}` | Customer | — | 204 |
-| `POST /api/orders` | Customer | header `Idempotency-Key`; `shippingName,shippingPhone,shippingAddressText,paymentMethod: COD`; giỏ ở server | order ID, snapshot items/total/status và Payment status |
+| `GET /api/customer/cart` | Customer | — | 200, cart DTO với giá hiện hành và tổng |
+| `POST /api/customer/cart/items` | Customer | `productId,quantity` | 200, cart DTO sau khi thêm/gộp |
+| `PATCH /api/customer/cart/items/{cartItemId}` | Customer | `quantity` | 200, cart DTO sau khi thay số lượng |
+| `DELETE /api/customer/cart/items/{cartItemId}` | Customer | — | 204 |
+| `POST /api/orders` | Customer | `shippingName,shippingPhone,shippingAddressText,paymentMethod: COD/BANK_TRANSFER`; giỏ ở server | order ID, snapshot items/total/status và Payment status |
 | `GET /api/orders`, `GET /api/orders/{id}` | Customer | — | chỉ đơn của chính user |
 | `POST /api/orders/{id}/cancel` | Chủ đơn | — | order status, tồn giữ chỗ đã giải phóng nếu áp dụng |
 | `POST /api/admin/products`, `PATCH /api/admin/products/{id}` | Admin | trường catalog/kho phù hợp | product DTO |
@@ -195,6 +195,25 @@ Hướng dẫn chạy tay và collection import được lưu tại [T14_ORDER_A
 
 `GET /api/categories` và `GET /api/brands` chỉ trả các bản ghi ACTIVE, sắp xếp theo tên rồi ID. Response catalog dùng DTO công khai, gồm ảnh, category, brand, giá và tồn khả dụng; không trả JPA Entity.
 
+
+### 6.2. T13 giỏ hàng (đã triển khai)
+
+Các API giỏ dùng `/api/customer/cart` để tái sử dụng Filter CUSTOMER của T06; đường dẫn `/api/cart` trong bản đề xuất trước được thay bằng đường dẫn này. Servlet → Service → DAO → JPA, tái sử dụng Cart/CartItem CORE.
+
+POST nhận `{"productId":1,"quantity":2}` và cộng số lượng vào dòng đã có cùng sản phẩm; quantity phải từ 1 trở lên. PATCH nhận `{"quantity":1}` để thay số lượng, hoặc `{"quantity":0}` để xóa dòng và trả giỏ sau khi xóa (200). DELETE vẫn xóa dòng trực tiếp và trả 204. ID trên PATCH/DELETE là **cartItemId**, không phải productId.
+
+GET/POST/PATCH trả `CartResponse` gồm `cartId`, `items`, `totalAmount`. Mỗi dòng gồm `cartItemId`, `productId`, `name`, `quantity`, `unitPrice`, `lineTotal`, `availableQuantity`, `available`. Giá lấy từ Product hiện hành bằng BigDecimal; `lineTotal = quantity × unitPrice`, `totalAmount` cộng tất cả dòng, chưa có khuyến mãi/phí giao hàng.
+
+User chưa có giỏ nhận `{"cartId":null,"items":[],"totalAmount":0}`. GET không tạo dữ liệu; giỏ được tạo khi thêm sản phẩm thành công lần đầu. Xóa hết dòng vẫn giữ cartId.
+
+- User lấy từ HttpSession; Filter yêu cầu CUSTOMER, Service kiểm tra lại tài khoản ACTIVE/CUSTOMER và quyền sở hữu dòng giỏ. Chưa đăng nhập trả 401; thiếu quyền trả 403; dòng của user khác trả 404.
+- ID phải là số nguyên dương; quantity là số nguyên trong giới hạn INTEGER, POST yêu cầu > 0, PATCH cho phép 0 và từ chối số âm. Request chỉ nhận các trường đã quy định; từ chối trường dư như price/userId/role, số dạng chuỗi, số thập phân, JSON rỗng/null hoặc nhiều giá trị JSON nối tiếp.
+- Thêm/sửa với quantity > 0 yêu cầu Product, Category và Brand ACTIVE, có Inventory; số lượng sau gộp/thay không vượt `quantityOnHand − reservedQuantity`. PATCH quantity = 0 và DELETE vẫn cho xóa dòng có sản phẩm không khả dụng. Thao tác giỏ không thay đổi Inventory hoặc giữ chỗ; checkout kiểm tra lại giá/tồn ở T14.
+- GET trả giá/tồn hiện tại. Dòng không còn được phép bán hoặc số lượng vượt tồn vẫn được hiển thị với `available = false` và có thể xóa; tổng vẫn cộng dòng đó, không bảo đảm checkout thành công.
+- Mỗi thao tác dùng transaction. Khi ghi, khóa User trước rồi Cart nếu đã tồn tại để tránh tạo giỏ/dòng trùng và mất số lượng khi thêm đồng thời. Service ghi thời gian theo Asia/Bangkok; GET không sửa updatedAt.
+
+Lỗi trả JSON `{ "code": "...", "message": "..." }`: 400 với `INVALID_JSON`, `INVALID_ID`, `INVALID_QUANTITY`; 404 với `PRODUCT_NOT_FOUND`, `CART_ITEM_NOT_FOUND`; 409 với `PRODUCT_NOT_AVAILABLE` hoặc `OUT_OF_STOCK`.
+=======
 ### 6.2. T12 Admin sản phẩm và tồn (đã triển khai)
 
 Các endpoint dưới `/api/admin/*` yêu cầu session có role `ADMIN`. Request chưa đăng nhập trả `401`; session `CUSTOMER` trả `403` trước khi vào Servlet.
@@ -227,6 +246,7 @@ Ví dụ chỉnh tồn:
   "quantityOnHand": 25
 }
 ```
+
 
 ## 7. Schema, migration và kiểm thử cần có
 
