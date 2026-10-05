@@ -142,6 +142,13 @@ Admin thêm/sửa/ẩn sản phẩm, điều chỉnh kho theo quy tắc một ng
 
 ## 6. Hợp đồng API đề xuất
 
+**Tài liệu tương tác cho API đã triển khai:** [API_DOCS.md](API_DOCS.md).
+Swagger UI nằm tại `/pc-store-backend/api-docs/`; nguồn contract là
+`src/main/webapp/api-docs/openapi.yaml`. Khi sửa API/DTO/quyền/status, cập nhật spec
+cùng code. CorsFilter cho phép request cùng origin backend (Swagger UI) ngoài
+allowlist frontend; origin khác vẫn bị từ chối. Bảng thiết kế dưới đây vẫn bao gồm
+những endpoint chưa triển khai, không tự đưa chúng vào Swagger UI.
+
 **Đây là danh sách endpoint đề xuất để frontend/backend code thống nhất, không phải endpoint đã tồn tại trong Plane hay repo.** Khi triển khai endpoint nghiệp vụ, cập nhật path, JSON mẫu và mã lỗi trong hướng dẫn này để cả hai phía dùng một hợp đồng. Response dùng DTO; lỗi có dạng thống nhất như `{ "code": "OUT_OF_STOCK", "message": "..." }`.
 
 | Method/path | Quyền | Request chính | Response chính |

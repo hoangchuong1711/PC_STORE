@@ -35,6 +35,10 @@ npm run dev
 "
 
 - Giao diện: http://localhost:3000
+- Swagger UI (danh sách và thử API): http://localhost:8080/pc-store-backend/api-docs/
+  Đổi `8080` theo `BACKEND_PORT` nếu có. Sau khi lấy thay đổi này, rebuild bằng
+  `docker compose up --build -d backend`. Gọi `POST /api/auth/login` trong Swagger
+  trước khi thử API cần session; trình duyệt tự quản lý cookie. Xem [hướng dẫn API](backend/API_DOCS.md).
 - Kiểm tra API và kết nối database: http://localhost:3000/api/health
 
 Nếu Compose báo cổng `8080` đang được sử dụng, backend không khởi động được và frontend phụ thuộc backend cũng chưa chạy. Đặt `BACKEND_PORT=8081` trong `.env`, rồi chạy lại `docker compose up -d`. Giao diện vẫn ở `http://localhost:3000`;
