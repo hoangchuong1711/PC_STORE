@@ -142,6 +142,13 @@ Admin thêm/sửa/ẩn sản phẩm, điều chỉnh kho theo quy tắc một ng
 
 ## 6. Hợp đồng API đề xuất
 
+**Tài liệu tương tác cho API đã triển khai:** [API_DOCS.md](API_DOCS.md).
+Swagger UI nằm tại `/pc-store-backend/api-docs/`; nguồn contract là
+`src/main/webapp/api-docs/openapi.yaml`. Khi sửa API/DTO/quyền/status, cập nhật spec
+cùng code. CorsFilter cho phép request cùng origin backend (Swagger UI) ngoài
+allowlist frontend; origin khác vẫn bị từ chối. Bảng thiết kế dưới đây vẫn bao gồm
+những endpoint chưa triển khai, không tự đưa chúng vào Swagger UI.
+
 **Đây là danh sách endpoint đề xuất để frontend/backend code thống nhất, không phải endpoint đã tồn tại trong Plane hay repo.** Khi triển khai endpoint nghiệp vụ, cập nhật path, JSON mẫu và mã lỗi trong hướng dẫn này để cả hai phía dùng một hợp đồng. Response dùng DTO; lỗi có dạng thống nhất như `{ "code": "OUT_OF_STOCK", "message": "..." }`.
 
 | Method/path | Quyền | Request chính | Response chính |
@@ -162,7 +169,8 @@ Admin thêm/sửa/ẩn sản phẩm, điều chỉnh kho theo quy tắc một ng
 | `POST /api/orders/{id}/cancel` | Chủ đơn | — | order status, tồn giữ chỗ đã giải phóng nếu áp dụng |
 | `POST /api/admin/products`, `PATCH /api/admin/products/{id}` | Admin | trường catalog/kho phù hợp | product DTO |
 | `GET /api/admin/orders`, `GET /api/admin/orders/{id}` | Admin | — | mọi đơn hoặc chi tiết đơn |
-| `PUT /api/admin/orders/{id}/status` | Admin | `status` mới | order DTO |
+| `PATCH /api/admin/products/{id}/inventory` | Admin | `quantityOnHand` | product Admin DTO và tồn hiện tại |
+| `PATCH /api/admin/orders/{id}/status` | Admin | status mới | order DTO |
 | `POST /api/admin/orders/{id}/confirm-payment` | Admin | mã tham chiếu tùy chọn sau khi đối chiếu | Payment `PAID`, `paidAt`; từ chối xác nhận lặp |
 | `GET /api/builds`, `POST /api/builds` | Customer | name/items | build DTO |
 | `GET /api/builds/{id}`, `PUT /api/builds/{id}`, `DELETE /api/builds/{id}` | Chủ build | items/name | build DTO hoặc 204 |
@@ -186,6 +194,39 @@ Customer chỉ đọc/hủy đơn của mình; truy cập ID của người khá
 Hướng dẫn chạy tay và collection import được lưu tại [T14_ORDER_API.md](../docs/T14_ORDER_API.md) và [T14-order-api.postman_collection.json](../docs/postman/T14-order-api.postman_collection.json).
 
 `GET /api/categories` và `GET /api/brands` chỉ trả các bản ghi ACTIVE, sắp xếp theo tên rồi ID. Response catalog dùng DTO công khai, gồm ảnh, category, brand, giá và tồn khả dụng; không trả JPA Entity.
+
+### 6.2. T12 Admin sản phẩm và tồn (đã triển khai)
+
+Các endpoint dưới `/api/admin/*` yêu cầu session có role `ADMIN`. Request chưa đăng nhập trả `401`; session `CUSTOMER` trả `403` trước khi vào Servlet.
+
+- `POST /api/admin/products`: tạo Product và Inventory trong cùng transaction. `status` mặc định `DRAFT`; `quantityOnHand` bắt buộc và không âm.
+- `PATCH /api/admin/products/{id}`: sửa các trường khác `null`. Gửi `status: HIDDEN` để ẩn sản phẩm; không xóa cứng Product.
+- `PATCH /api/admin/products/{id}/inventory`: đổi `quantityOnHand`; không nhận `reservedQuantity` từ client và trả `409 INVENTORY_CONFLICT` nếu tồn mới nhỏ hơn lượng đang giữ chỗ.
+- `DELETE /api/admin/products/{id}`: luôn trả `405 HARD_DELETE_NOT_ALLOWED`. FK từ OrderItem tới Product tiếp tục dùng `ON DELETE RESTRICT` để bảo vệ lịch sử đơn.
+
+Giá dùng `BigDecimal`, phải là VND nguyên đồng, không âm và vừa `NUMERIC(19,0)`. Khi Product là `ACTIVE`, Category và Brand liên quan cũng phải `ACTIVE`. Tồn bằng 0 không tự đổi Product sang `OUT_OF_STOCK`; catalog public đã dùng tồn khả dụng (`quantityOnHand - reservedQuantity > 0`) làm điều kiện hiển thị.
+
+Ví dụ tạo sản phẩm:
+
+```json
+{
+  "name": "AMD Ryzen 5 7600",
+  "description": "CPU AMD socket AM5",
+  "price": 5490000,
+  "categoryId": 1,
+  "brandId": 1,
+  "status": "ACTIVE",
+  "quantityOnHand": 10
+}
+```
+
+Ví dụ chỉnh tồn:
+
+```json
+{
+  "quantityOnHand": 25
+}
+```
 
 ## 7. Schema, migration và kiểm thử cần có
 

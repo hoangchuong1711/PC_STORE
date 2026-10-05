@@ -1,0 +1,708 @@
+openapi: "3.0.3"
+info:
+  title: "PC Store API"
+  version: "1.0.0"
+  description: "Danh sách API đã triển khai. Chọn endpoint → Try it out → Execute. Đăng nhập bằng POST /api/auth/login trước khi gọi /me hoặc Admin. Cookie được trình duyệt quản lý; nút Authorize không đặt được cookie HttpOnly. Request POST/PATCH thay đổi dữ liệu thật, nên dùng môi trường test. Backend có thể trả lỗi CORS 403 (ORIGIN_NOT_ALLOWED) nếu origin không được phép."
+servers:
+  -
+    url: ".."
+    description: "Backend cùng origin/context với tài liệu"
+tags:
+  -
+    name: "Auth"
+    description: "Đăng ký, đăng nhập, session"
+  -
+    name: "Catalog"
+    description: "Danh mục sản phẩm public"
+  -
+    name: "Admin products"
+    description: "Chỉ ADMIN. DELETE trả 405; dùng PATCH status HIDDEN để ẩn."
+paths:
+  "/api/auth/register":
+    post:
+      tags:
+        - "Auth"
+      operationId: "register"
+      summary: "Đăng ký tài khoản CUSTOMER"
+      description: "Email được trim/chuyển chữ thường. Đăng ký không tự đăng nhập."
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: "Đã tạo tài khoản"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AuthResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "409":
+          description: "Email trùng (EMAIL_ALREADY_EXISTS)"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+  "/api/auth/login":
+    post:
+      tags:
+        - "Auth"
+      operationId: "login"
+      summary: "Đăng nhập và tạo session"
+      description: "Dùng tài khoản test của bạn. Trình duyệt tự lưu JSESSIONID HttpOnly; không nhập cookie vào nút Authorize."
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: "Đăng nhập thành công"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AuthResponse"
+          headers:
+            "Set-Cookie":
+              description: "JSESSIONID do Tomcat quản lý; HttpOnly; SameSite=Lax; Path=/"
+              schema:
+                type: "string"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+  "/api/auth/logout":
+    post:
+      tags:
+        - "Auth"
+      operationId: "logout"
+      summary: "Đăng xuất"
+      security:
+        -
+          sessionCookie: []
+      responses:
+        "204":
+          description: "Session đã hủy; không có response body"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+  "/api/auth/me":
+    get:
+      tags:
+        - "Auth"
+      operationId: "currentUser"
+      summary: "Thông tin tài khoản hiện tại"
+      security:
+        -
+          sessionCookie: []
+      responses:
+        "200":
+          description: "Thông tin công khai"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AuthResponse"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+  "/api/products":
+    get:
+      tags:
+        - "Catalog"
+      operationId: "listProducts"
+      summary: "Tìm kiếm và phân trang sản phẩm"
+      description: "Chỉ trả sản phẩm ACTIVE, category/brand ACTIVE và tồn khả dụng > 0. Các bộ lọc kết hợp AND; sắp xếp productId tăng dần. q tìm tên không phân biệt hoa thường."
+      parameters:
+        -
+          name: "q"
+          in: "query"
+          schema:
+            type: "string"
+        -
+          name: "categoryId"
+          in: "query"
+          schema:
+            type: "integer"
+            format: "int32"
+        -
+          name: "brandId"
+          in: "query"
+          schema:
+            type: "integer"
+            format: "int32"
+        -
+          name: "minPrice"
+          in: "query"
+          schema:
+            type: "number"
+            minimum: 0
+        -
+          name: "maxPrice"
+          in: "query"
+          description: "Phải >= minPrice"
+          schema:
+            type: "number"
+            minimum: 0
+        -
+          name: "page"
+          in: "query"
+          schema:
+            type: "integer"
+            format: "int32"
+            minimum: 0
+            default: 0
+        -
+          name: "size"
+          in: "query"
+          schema:
+            type: "integer"
+            format: "int32"
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: "Trang sản phẩm; items có thể rỗng"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ProductPageResponse"
+        "400":
+          description: "Query sai (INVALID_QUERY)"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/products/{id}":
+    parameters:
+      -
+        name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: "integer"
+          format: "int32"
+          minimum: 1
+        description: "ID sản phẩm"
+    get:
+      tags:
+        - "Catalog"
+      operationId: "getProduct"
+      summary: "Chi tiết sản phẩm public"
+      description: "Cùng chính sách hiển thị với danh sách; sản phẩm ẩn/hết tồn trả 404."
+      responses:
+        "200":
+          description: "Sản phẩm"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ProductResponse"
+        "400":
+          description: "ID sai (INVALID_ID)"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "404":
+          description: "PRODUCT_NOT_FOUND"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/categories":
+    get:
+      tags:
+        - "Catalog"
+      operationId: "listCategories"
+      summary: "Danh mục ACTIVE"
+      responses:
+        "200":
+          description: "Sắp xếp theo tên rồi ID"
+          content:
+            "application/json":
+              schema:
+                type: "array"
+                items:
+                  "$ref": "#/components/schemas/CategoryResponse"
+  "/api/brands":
+    get:
+      tags:
+        - "Catalog"
+      operationId: "listBrands"
+      summary: "Thương hiệu ACTIVE"
+      responses:
+        "200":
+          description: "Sắp xếp theo tên rồi ID"
+          content:
+            "application/json":
+              schema:
+                type: "array"
+                items:
+                  "$ref": "#/components/schemas/BrandResponse"
+  "/api/admin/products":
+    post:
+      tags:
+        - "Admin products"
+      operationId: "createProduct"
+      summary: "Tạo sản phẩm và tồn kho (ADMIN)"
+      security:
+        -
+          sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/CreateProductRequest"
+      responses:
+        "201":
+          description: "Sản phẩm mới; reservedQuantity = 0"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AdminProductResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/admin/products/{id}":
+    parameters:
+      -
+        name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: "integer"
+          format: "int32"
+          minimum: 1
+        description: "ID sản phẩm"
+    patch:
+      tags:
+        - "Admin products"
+      operationId: "updateProduct"
+      summary: "Cập nhật hoặc ẩn sản phẩm (ADMIN)"
+      security:
+        -
+          sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/UpdateProductRequest"
+      responses:
+        "200":
+          description: "Sản phẩm đã cập nhật"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AdminProductResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/admin/products/{id}/inventory":
+    parameters:
+      -
+        name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: "integer"
+          format: "int32"
+          minimum: 1
+        description: "ID sản phẩm"
+    patch:
+      tags:
+        - "Admin products"
+      operationId: "updateInventory"
+      summary: "Cập nhật tồn thực tế (ADMIN)"
+      security:
+        -
+          sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/UpdateInventoryRequest"
+      responses:
+        "200":
+          description: "Tồn kho đã cập nhật"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AdminProductResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          description: "INVENTORY_CONFLICT: tồn mới nhỏ hơn lượng giữ chỗ"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+components:
+  securitySchemes:
+    sessionCookie:
+      type: "apiKey"
+      in: "cookie"
+      name: "JSESSIONID"
+      description: "Gọi login để trình duyệt nhận cookie; không dán cookie vào Authorize."
+  responses:
+    BadRequest:
+      description: "Dữ liệu/JSON không hợp lệ; xem code và message"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: "Chưa đăng nhập, session hết hạn hoặc thông tin đăng nhập sai"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: "Không có quyền ADMIN"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: "Sản phẩm, tồn kho, category hoặc brand không tồn tại"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    InternalError:
+      description: "Lỗi máy chủ"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+  schemas:
+    ErrorResponse:
+      type: "object"
+      required:
+        - "code"
+        - "message"
+      properties:
+        code:
+          type: "string"
+        message:
+          type: "string"
+    RegisterRequest:
+      type: "object"
+      required:
+        - "fullName"
+        - "email"
+        - "password"
+      properties:
+        fullName:
+          type: "string"
+          minLength: 1
+          maxLength: 255
+        email:
+          type: "string"
+          format: "email"
+          maxLength: 254
+        password:
+          type: "string"
+          format: "password"
+          minLength: 8
+          maxLength: 128
+          writeOnly: true
+        phone:
+          type: "string"
+          maxLength: 32
+          nullable: true
+    LoginRequest:
+      type: "object"
+      required:
+        - "email"
+        - "password"
+      properties:
+        email:
+          type: "string"
+        password:
+          type: "string"
+          format: "password"
+          writeOnly: true
+    AuthResponse:
+      type: "object"
+      required:
+        - "userId"
+        - "fullName"
+        - "email"
+        - "role"
+      properties:
+        userId:
+          type: "integer"
+          format: "int32"
+        fullName:
+          type: "string"
+        email:
+          type: "string"
+        phone:
+          type: "string"
+          nullable: true
+        role:
+          type: "string"
+          enum:
+            - "CUSTOMER"
+            - "ADMIN"
+    ProductStatus:
+      type: "string"
+      enum:
+        - "ACTIVE"
+        - "INACTIVE"
+        - "DRAFT"
+        - "OUT_OF_STOCK"
+        - "DISCONTINUED"
+        - "HIDDEN"
+    Money:
+      type: "number"
+      minimum: 0
+      multipleOf: 1
+      description: "VND nguyên đồng; backend dùng BigDecimal/NUMERIC(19,0)."
+      example: 1500000
+    CategoryResponse:
+      type: "object"
+      properties:
+        categoryId:
+          type: "integer"
+          format: "int32"
+        name:
+          type: "string"
+        description:
+          type: "string"
+          nullable: true
+        componentType:
+          type: "string"
+          nullable: true
+    BrandResponse:
+      type: "object"
+      properties:
+        brandId:
+          type: "integer"
+          format: "int32"
+        name:
+          type: "string"
+        description:
+          type: "string"
+          nullable: true
+        logoUrl:
+          type: "string"
+          nullable: true
+    ProductCategory:
+      type: "object"
+      properties:
+        categoryId:
+          type: "integer"
+          format: "int32"
+        name:
+          type: "string"
+        componentType:
+          type: "string"
+          nullable: true
+    ProductBrand:
+      type: "object"
+      properties:
+        brandId:
+          type: "integer"
+          format: "int32"
+        name:
+          type: "string"
+        logoUrl:
+          type: "string"
+          nullable: true
+    ProductResponse:
+      type: "object"
+      properties:
+        productId:
+          type: "integer"
+          format: "int32"
+        name:
+          type: "string"
+        description:
+          type: "string"
+          nullable: true
+        price:
+          "$ref": "#/components/schemas/Money"
+        status:
+          "$ref": "#/components/schemas/ProductStatus"
+        category:
+          "$ref": "#/components/schemas/ProductCategory"
+        brand:
+          "$ref": "#/components/schemas/ProductBrand"
+        imageUrls:
+          type: "array"
+          items:
+            type: "string"
+        availableQuantity:
+          type: "integer"
+          format: "int32"
+        inStock:
+          type: "boolean"
+    ProductPageResponse:
+      type: "object"
+      required:
+        - "items"
+        - "page"
+        - "size"
+        - "totalItems"
+        - "totalPages"
+      properties:
+        items:
+          type: "array"
+          items:
+            "$ref": "#/components/schemas/ProductResponse"
+        page:
+          type: "integer"
+          format: "int32"
+        size:
+          type: "integer"
+          format: "int32"
+        totalItems:
+          type: "integer"
+          format: "int64"
+        totalPages:
+          type: "integer"
+          format: "int32"
+    CreateProductRequest:
+      type: "object"
+      required:
+        - "name"
+        - "price"
+        - "categoryId"
+        - "brandId"
+        - "quantityOnHand"
+      properties:
+        name:
+          type: "string"
+          minLength: 1
+          maxLength: 255
+        description:
+          type: "string"
+          nullable: true
+        price:
+          "$ref": "#/components/schemas/Money"
+        categoryId:
+          type: "integer"
+          format: "int32"
+          minimum: 1
+        brandId:
+          type: "integer"
+          format: "int32"
+          minimum: 1
+        status:
+          allOf:
+            -
+              "$ref": "#/components/schemas/ProductStatus"
+          default: "DRAFT"
+        quantityOnHand:
+          type: "integer"
+          format: "int32"
+          minimum: 0
+    UpdateProductRequest:
+      type: "object"
+      properties:
+        name:
+          type: "string"
+          minLength: 1
+          maxLength: 255
+          nullable: true
+        description:
+          type: "string"
+          nullable: true
+        price:
+          allOf:
+            -
+              "$ref": "#/components/schemas/Money"
+          nullable: true
+        categoryId:
+          type: "integer"
+          format: "int32"
+          minimum: 1
+          nullable: true
+        brandId:
+          type: "integer"
+          format: "int32"
+          minimum: 1
+          nullable: true
+        status:
+          allOf:
+            -
+              "$ref": "#/components/schemas/ProductStatus"
+          nullable: true
+      description: "Phải có ít nhất một trường khác null. Trường null/bỏ qua không thay đổi. description rỗng xóa mô tả. status HIDDEN ẩn sản phẩm, không xóa cứng."
+      minProperties: 1
+    UpdateInventoryRequest:
+      type: "object"
+      required:
+        - "quantityOnHand"
+      properties:
+        quantityOnHand:
+          type: "integer"
+          format: "int32"
+          minimum: 0
+          description: "Tồn thực tế mới; phải >= reservedQuantity. Không tự đổi status sản phẩm."
+    AdminProductResponse:
+      type: "object"
+      properties:
+        productId:
+          type: "integer"
+          format: "int32"
+        name:
+          type: "string"
+        description:
+          type: "string"
+          nullable: true
+        price:
+          "$ref": "#/components/schemas/Money"
+        status:
+          "$ref": "#/components/schemas/ProductStatus"
+        categoryId:
+          type: "integer"
+          format: "int32"
+        categoryName:
+          type: "string"
+        brandId:
+          type: "integer"
+          format: "int32"
+        brandName:
+          type: "string"
+        quantityOnHand:
+          type: "integer"
+          format: "int32"
+        reservedQuantity:
+          type: "integer"
+          format: "int32"
+        availableQuantity:
+          type: "integer"
+          format: "int32"
