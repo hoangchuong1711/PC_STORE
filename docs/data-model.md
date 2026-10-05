@@ -424,8 +424,10 @@ UNIQUE(cart_id, product_id); CHECK quantity > 0. Giá hiện tại được tín
 | `shippingPhone` | `shipping_phone` | `VARCHAR(32)` | NN |
 | `shippingAddressText` | `shipping_address_text` | `TEXT` | NN |
 | `deliveredAt` | `delivered_at` | `TIMESTAMP WITHOUT TIME ZONE` | NULL |
+| `checkoutIdempotencyKey` | `checkout_idempotency_key` | `VARCHAR(128)` | NULL; unique theo User khi có giá trị |
+| `checkoutRequestHash` | `checkout_request_hash` | `VARCHAR(64)` | NULL; SHA-256 chữ thường |
 
-DEFAULT status = PENDING; total_amount >= 0. CHECK (status = DELIVERED AND delivered_at IS NOT NULL) OR (status <> DELIVERED AND delivered_at IS NULL). Đơn sau checkout có ít nhất một dòng và đúng một Payment; Service bảo đảm trong transaction.
+DEFAULT status = PENDING; total_amount >= 0. CHECK (status = DELIVERED AND delivered_at IS NOT NULL) OR (status <> DELIVERED AND delivered_at IS NULL). Hai cột idempotency cùng NULL cho dữ liệu lịch sử hoặc cùng có giá trị cho đơn tạo qua API; partial UNIQUE `(user_id, checkout_idempotency_key)` ngăn một user tạo hai đơn bằng cùng khóa. Đơn sau checkout có ít nhất một dòng và đúng một Payment; Service bảo đảm trong transaction.
 
 #### OrderItem → `order_items`
 

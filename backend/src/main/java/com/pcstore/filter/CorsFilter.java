@@ -33,7 +33,8 @@ public class CorsFilter implements Filter {
         if (origin != null && allowedOrigins.contains(origin)) {
             res.setHeader("Access-Control-Allow-Origin", origin);
             res.setHeader("Access-Control-Allow-Credentials", "true");
-            res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token");
+            res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token, Idempotency-Key");
+            res.setHeader("Access-Control-Expose-Headers", "Idempotent-Replayed");
             res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
             res.addHeader("Vary", "Origin");
         }

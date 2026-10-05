@@ -58,7 +58,7 @@ class FeatureMigrationIT {
         flyway("latest").migrate();
         for (String table : TABLES) assertEquals(1, scalar("SELECT count(*) FROM information_schema.tables WHERE table_schema='"
                 + schema + "' AND table_name='" + table + "'"), table);
-        assertEquals(3, scalar("SELECT count(*) FROM flyway_schema_history WHERE success AND version IS NOT NULL"));
+        assertEquals(4, scalar("SELECT count(*) FROM flyway_schema_history WHERE success AND version IS NOT NULL"));
         assertEquals(0, flyway("latest").migrate().migrationsExecuted);
         flyway("latest").validate();
     }
@@ -66,7 +66,7 @@ class FeatureMigrationIT {
     @Test void upgradesPopulatedT03WithoutChangingCoreData() throws Exception {
         flyway("2").migrate();
         coreFixture();
-        assertEquals(1, flyway("latest").migrate().migrationsExecuted);
+        assertEquals(2, flyway("latest").migrate().migrationsExecuted);
         assertEquals(2, scalar("SELECT count(*) FROM users"));
         assertEquals(1000000, scalar("SELECT total_amount FROM orders WHERE order_id=1"));
         assertEquals(1, scalar("SELECT user_id FROM orders WHERE order_id=1"));
@@ -75,7 +75,8 @@ class FeatureMigrationIT {
     }
 
     @Test void rollsBackOnlyT10AndCanMigrateUpAgain() throws Exception {
-        fixture();
+        flyway("3").migrate();
+        coreFixture();
         featureFixture();
         String rollback = Files.readString(Path.of("src/main/resources/db/rollback/V3__drop_builder_review_setup.sql"));
         execute("SET pcstore.allow_t10_rollback = 'on'");
@@ -85,13 +86,14 @@ class FeatureMigrationIT {
         assertEquals(2, scalar("SELECT count(*) FROM flyway_schema_history WHERE success AND version IS NOT NULL"));
         assertEquals(2, scalar("SELECT count(*) FROM users"));
         assertEquals(1, scalar("SELECT count(*) FROM order_items WHERE product_id=1 AND quantity=2"));
-        assertEquals(1, flyway("latest").migrate().migrationsExecuted);
+        assertEquals(2, flyway("latest").migrate().migrationsExecuted);
         flyway("latest").validate();
         assertEquals(0, scalar("SELECT count(*) FROM product_reviews"));
     }
 
     @Test void rollbackRequiresOptInAndRefusesLaterMigrations() throws Exception {
-        fixture();
+        flyway("3").migrate();
+        coreFixture();
         String rollback = Files.readString(Path.of("src/main/resources/db/rollback/V3__drop_builder_review_setup.sql"));
         rejects("P0001", rollback);
         execute("ROLLBACK");

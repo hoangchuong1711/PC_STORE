@@ -42,6 +42,12 @@ public class Order {
     @Column(name = "delivered_at")
     private LocalDateTime deliveredAt;
 
+    @Column(name = "checkout_idempotency_key", length = 128)
+    private String checkoutIdempotencyKey;
+
+    @Column(name = "checkout_request_hash", length = 64)
+    private String checkoutRequestHash;
+
     @OneToMany(mappedBy = "order")
     private List<OrderItem> items = new ArrayList<>();
 
@@ -65,5 +71,9 @@ public class Order {
     public void setShippingAddressText(String shippingAddressText) { this.shippingAddressText = shippingAddressText; }
     public LocalDateTime getDeliveredAt() { return deliveredAt; }
     public void setDeliveredAt(LocalDateTime deliveredAt) { this.deliveredAt = deliveredAt; }
+    public String getCheckoutIdempotencyKey() { return checkoutIdempotencyKey; }
+    public void setCheckoutIdempotencyKey(String checkoutIdempotencyKey) { this.checkoutIdempotencyKey = checkoutIdempotencyKey; }
+    public String getCheckoutRequestHash() { return checkoutRequestHash; }
+    public void setCheckoutRequestHash(String checkoutRequestHash) { this.checkoutRequestHash = checkoutRequestHash; }
     public List<OrderItem> getItems() { return items; }
 }
