@@ -9,18 +9,20 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Map;
 
-@WebFilter(urlPatterns = {"/api/auth/*", "/api/admin/*", "/api/customer/*"})
+@WebFilter(urlPatterns = {"/api/auth/*", "/api/admin/*", "/api/customer/*", "/api/orders", "/api/orders/*"})
 public class AuthenticationFilter implements Filter {
     @Override public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
         HttpServletRequest req = (HttpServletRequest) request;
         String path = req.getRequestURI().substring(req.getContextPath().length());
+        boolean orderRoute = path.equals("/api/orders") || path.startsWith("/api/orders/");
         boolean protectedRoute = path.equals("/api/auth/me") || path.equals("/api/auth/logout")
-                || path.startsWith("/api/admin/") || path.startsWith("/api/customer/");
+                || path.startsWith("/api/admin/") || path.startsWith("/api/customer/") || orderRoute;
         if (protectedRoute && SessionUtil.userId(req) == null) {
             JsonUtil.write((HttpServletResponse) response, 401, Map.of("code", "UNAUTHORIZED", "message", "Bạn cần đăng nhập."));
             return;
         }
-        if (path.startsWith("/api/customer/") && !"CUSTOMER".equals(req.getSession(false).getAttribute(SessionUtil.USER_ROLE))) {
+        if ((path.startsWith("/api/customer/") || orderRoute)
+                && !"CUSTOMER".equals(req.getSession(false).getAttribute(SessionUtil.USER_ROLE))) {
             JsonUtil.write((HttpServletResponse) response, 403, Map.of("code", "FORBIDDEN", "message", "Chỉ khách hàng được truy cập."));
             return;
         }
