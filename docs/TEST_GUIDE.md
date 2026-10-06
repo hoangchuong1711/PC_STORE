@@ -7,19 +7,19 @@ Cập nhật: 06/10/2026. Phạm vi: toàn bộ test tự động đang có tron
 | Nhóm | Số ca thực thi | Kết quả |
 | --- | ---: | --- |
 | Backend unit/contract — Surefire | 33 | 33 đạt |
-| Backend integration — Failsafe | 95 | 93 đạt, 2 lỗi thiếu file rollback |
-| Frontend — Node test runner | 18 | 18 đạt |
-| Tổng | 146 | 144 đạt, 2 lỗi, không bỏ qua ca |
+| Backend integration — Failsafe | 95 | 95 đạt |
+| Frontend — Node test runner | 23 | 23 đạt |
+| Tổng | 151 | 151 đạt, không bỏ qua ca |
 
-Đây là kết quả lượt chạy 06/10/2026, không phải cam kết mọi lần chạy sau đều đạt. Backend gồm 13 lớp, frontend gồm 5 file. Test tham số được tính theo số bộ dữ liệu; vòng lặp assertion bên trong một test không được tính thành nhiều ca riêng.
+Đây là kết quả lượt chạy 06/10/2026 trên nhánh T20 sau khi bổ sung rollback, không phải cam kết mọi lần chạy sau đều đạt. Backend gồm 13 lớp, frontend gồm 6 file (đã có thêm admin.test.mjs). Build WAR và `npm run build` cũng đạt. Test tham số được tính theo số bộ dữ liệu; vòng lặp assertion bên trong một test không được tính thành nhiều ca riêng.
 
 63 ca mới của T19 đều đạt: 31 ca bổ sung vào OrderServiceIT, 14 ca OrderValidationTest và 18 ca CoreHttpIT. OrderServiceIT có tổng cộng 36 ca, gồm 5 ca đã có.
 
-Hai lỗi hiện tại thuộc FeatureMigrationIT:
+Hai lỗi nền đã tái hiện và sửa trong FeatureMigrationIT:
 - `rollsBackOnlyT10AndCanMigrateUpAgain`
 - `rollbackRequiresOptInAndRefusesLaterMigrations`
 
-Cùng nguyên nhân: thiếu `backend/src/main/resources/db/rollback/V3__drop_builder_review_setup.sql`. Lệnh chạy toàn bộ backend hiện trả **BUILD FAILURE** do hai lỗi này. Không bỏ qua chúng để gọi bộ test là đạt toàn bộ.
+Cùng nguyên nhân: thiếu `backend/src/main/resources/db/rollback/V3__drop_builder_review_setup.sql`. Đã bổ sung script và chạy lại toàn bộ `mvn -B -Pdb-test verify`: **BUILD SUCCESS**, 33 unit/contract + 95 integration đạt. Script yêu cầu opt-in, chỉ cho phép V3 là migration cuối, không dùng CASCADE và không chạy trên database ứng dụng. Xem [hướng dẫn rollback](../backend/T10_MIGRATION.md). Kết quả này chưa chứng minh các tính năng tích hợp T20/VNPAY đã hoàn thành.
 
 ## 2. Chuẩn bị môi trường (PowerShell)
 
@@ -332,8 +332,8 @@ mvn -B -Pdb-test "-Dit.test=FeatureMigrationIT" verify
 | --- | --- | --- |
 | `migratesFreshDatabaseAndCanRunAgain` | Migration FEATURE schema mới và chạy lại. | `mvn -B -Pdb-test "-Dit.test=FeatureMigrationIT#migratesFreshDatabaseAndCanRunAgain" verify` |
 | `upgradesPopulatedT03WithoutChangingCoreData` | Nâng từ T03 có dữ liệu, giữ dữ liệu CORE. | `mvn -B -Pdb-test "-Dit.test=FeatureMigrationIT#upgradesPopulatedT03WithoutChangingCoreData" verify` |
-| `rollsBackOnlyT10AndCanMigrateUpAgain` | Rollback T10 và migrate lại. **Đang lỗi: thiếu file rollback V3.** | `mvn -B -Pdb-test "-Dit.test=FeatureMigrationIT#rollsBackOnlyT10AndCanMigrateUpAgain" verify` |
-| `rollbackRequiresOptInAndRefusesLaterMigrations` | Rollback yêu cầu opt-in và từ chối khi có migration mới hơn. **Đang lỗi: thiếu file rollback V3.** | `mvn -B -Pdb-test "-Dit.test=FeatureMigrationIT#rollbackRequiresOptInAndRefusesLaterMigrations" verify` |
+| `rollsBackOnlyT10AndCanMigrateUpAgain` | Rollback T10, giữ dữ liệu CORE và migrate lại. | `mvn -B -Pdb-test "-Dit.test=FeatureMigrationIT#rollsBackOnlyT10AndCanMigrateUpAgain" verify` |
+| `rollbackRequiresOptInAndRefusesLaterMigrations` | Rollback yêu cầu opt-in và từ chối khi có migration mới hơn. | `mvn -B -Pdb-test "-Dit.test=FeatureMigrationIT#rollbackRequiresOptInAndRefusesLaterMigrations" verify` |
 | `enforcesOneReviewPerOrderItemEvenAfterSoftDeleteAndOneLikePerUser` | Một review/OrderItem kể cả xóa mềm; một like/user. | `mvn -B -Pdb-test "-Dit.test=FeatureMigrationIT#enforcesOneReviewPerOrderItemEvenAfterSoftDeleteAndOneLikePerUser" verify` |
 | `preservesOwnershipPathsAndRejectsOrphanReferences` | FK xác định chủ sở hữu và chặn tham chiếu mồ côi. | `mvn -B -Pdb-test "-Dit.test=FeatureMigrationIT#preservesOwnershipPathsAndRejectsOrphanReferences" verify` |
 | `validatesReviewMediaAndModerationStates` | Ràng buộc media review và trạng thái kiểm duyệt. | `mvn -B -Pdb-test "-Dit.test=FeatureMigrationIT#validatesReviewMediaAndModerationStates" verify` |
@@ -527,6 +527,6 @@ node --experimental-strip-types --test lib/reviews.test.mjs
 - Checkout hiện chỉ hỗ trợ COD. BANK_TRANSFER và API xác nhận thanh toán chưa hoàn tất; test bankTransferRequiresPaymentBeforeShipping chỉ chuẩn bị đơn chuyển khoản bằng fixture DB để kiểm tra quy tắc xuất/giao hàng.
 - CoreHttpIT kiểm tra Tomcat nhúng và đăng ký servlet/filter theo annotation; không thay thế kiểm thử WAR triển khai lên môi trường thật hoặc routing qua Next.js.
 - Test schema/FK của FEATURE không chứng minh quyền API Review/Community/Builder. Test fixture frontend cũng không chứng minh quy tắc người mua thật.
-- Hai test rollback FEATURE đang lỗi vì thiếu file SQL đã nêu ở phần 1. Không sửa migration đã merge hoặc tự bỏ qua test để làm báo cáo xanh.
+- Hai test rollback FEATURE đã đạt sau khi bổ sung script thiếu. Rollback chỉ dùng trên database test riêng; không sửa migration đã merge hoặc bỏ qua test.
 - Mỗi lần thay code cần chạy lại các test liên quan; tổng ca trong tài liệu là ảnh chụp tại ngày cập nhật.
 
