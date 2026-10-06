@@ -28,7 +28,7 @@ class OpenApiContractTest {
             assertNotNull(op.getOperationId());
             assertTrue(ids.add(op.getOperationId()), "Duplicate operationId");
             assertFalse(op.getResponses().isEmpty());
-            if (path.startsWith("/api/admin/") || path.endsWith("/me") || path.endsWith("/logout")) {
+            if (path.startsWith("/api/admin/") || path.startsWith("/api/customer/") || path.startsWith("/api/orders") || path.endsWith("/me") || path.endsWith("/logout")) {
                 assertNotNull(op.getSecurity(), path);
                 assertTrue(op.getSecurity().stream().anyMatch(s -> s.containsKey("sessionCookie")), path);
             }
@@ -36,7 +36,11 @@ class OpenApiContractTest {
         assertEquals(Set.of("POST /api/auth/register", "POST /api/auth/login", "POST /api/auth/logout",
                 "GET /api/auth/me", "GET /api/products", "GET /api/products/{id}",
                 "GET /api/categories", "GET /api/brands", "POST /api/admin/products",
-                "PATCH /api/admin/products/{id}", "PATCH /api/admin/products/{id}/inventory"), operations);
+                "PATCH /api/admin/products/{id}", "PATCH /api/admin/products/{id}/inventory",
+                "GET /api/customer/cart", "POST /api/customer/cart/items",
+                "PATCH /api/customer/cart/items/{id}", "DELETE /api/customer/cart/items/{id}",
+                "POST /api/orders", "GET /api/orders", "GET /api/orders/{id}", "POST /api/orders/{id}/cancel",
+                "GET /api/admin/orders", "GET /api/admin/orders/{id}", "PUT /api/admin/orders/{id}/status"), operations);
         assertEquals("JSESSIONID", api.getComponents().getSecuritySchemes().get("sessionCookie").getName());
         assertEquals("cookie", api.getComponents().getSecuritySchemes().get("sessionCookie").getIn().toString());
     }
