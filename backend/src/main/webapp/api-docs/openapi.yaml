@@ -367,6 +367,381 @@ paths:
                 "$ref": "#/components/schemas/ErrorResponse"
         "500":
           "$ref": "#/components/responses/InternalError"
+  "/api/customer/cart":
+    "get":
+      "tags":
+        - "Cart"
+      "operationId": "getCart"
+      "summary": "Giỏ của Customer hiện tại"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/CartResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+  "/api/customer/cart/items":
+    "post":
+      "tags":
+        - "Cart"
+      "operationId": "addCartItem"
+      "summary": "Thêm/gộp sản phẩm, không giữ tồn"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/CartResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/AddCartItemRequest"
+  "/api/customer/cart/items/{id}":
+    "parameters":
+      -
+        "name": "id"
+        "in": "path"
+        "required": true
+        "schema":
+          "type": "integer"
+          "minimum": 1
+    "patch":
+      "tags":
+        - "Cart"
+      "operationId": "updateCartItem"
+      "summary": "Thay số lượng; 0 xóa dòng"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/CartResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/UpdateCartItemRequest"
+    "delete":
+      "tags":
+        - "Cart"
+      "operationId": "deleteCartItem"
+      "summary": "Xóa dòng giỏ của Customer"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "204":
+          "description": "Đã xóa"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+  "/api/orders":
+    "post":
+      "tags":
+        - "Orders"
+      "operationId": "checkoutOrder"
+      "summary": "Checkout COD; replay cùng key/nội dung trả lại đơn"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Replay đơn đã tạo"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/OrderResponse"
+          "headers":
+            "Idempotent-Replayed":
+              "description": "true khi replay, false khi tạo mới"
+              "schema":
+                "type": "boolean"
+        "201":
+          "description": "Đơn mới"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/OrderResponse"
+          "headers":
+            "Idempotent-Replayed":
+              "description": "true khi replay, false khi tạo mới"
+              "schema":
+                "type": "boolean"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/CheckoutRequest"
+      "description": "Implementation hiện nhận COD. BANK_TRANSFER đã được chốt trong hướng dẫn nghiệp vụ nhưng checkout/confirm-payment chưa triển khai. Cùng key khác nội dung trả 409 IDEMPOTENCY_KEY_REUSED."
+      "parameters":
+        -
+          "in": "header"
+          "name": "Idempotency-Key"
+          "required": true
+          "schema":
+            "type": "string"
+            "minLength": 8
+            "maxLength": 128
+            "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+    "get":
+      "tags":
+        - "Orders"
+      "operationId": "listOwnedOrders"
+      "summary": "Chỉ đơn của Customer hiện tại"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "type": "array"
+                "items":
+                  "$ref": "#/components/schemas/OrderResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+  "/api/orders/{id}":
+    "parameters":
+      -
+        "name": "id"
+        "in": "path"
+        "required": true
+        "schema":
+          "type": "integer"
+          "minimum": 1
+    "get":
+      "tags":
+        - "Orders"
+      "operationId": "getOwnedOrder"
+      "summary": "Đơn không thuộc Customer trả 404"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/OrderResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+  "/api/orders/{id}/cancel":
+    "parameters":
+      -
+        "name": "id"
+        "in": "path"
+        "required": true
+        "schema":
+          "type": "integer"
+          "minimum": 1
+    "post":
+      "tags":
+        - "Orders"
+      "operationId": "cancelOwnedOrder"
+      "summary": "Customer hủy PENDING chưa PAID; hủy lặp không đổi kho"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/OrderResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+  "/api/admin/orders":
+    "get":
+      "tags":
+        - "Admin orders"
+      "operationId": "listAdminOrders"
+      "summary": "Admin xem đơn"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "type": "array"
+                "items":
+                  "$ref": "#/components/schemas/OrderResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+  "/api/admin/orders/{id}":
+    "parameters":
+      -
+        "name": "id"
+        "in": "path"
+        "required": true
+        "schema":
+          "type": "integer"
+          "minimum": 1
+    "get":
+      "tags":
+        - "Admin orders"
+      "operationId": "getAdminOrder"
+      "summary": "Admin xem chi tiết đơn"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/OrderResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+  "/api/admin/orders/{id}/status":
+    "parameters":
+      -
+        "name": "id"
+        "in": "path"
+        "required": true
+        "schema":
+          "type": "integer"
+          "minimum": 1
+    "put":
+      "tags":
+        - "Admin orders"
+      "operationId": "updateOrderStatus"
+      "summary": "PENDING → CONFIRMED → SHIPPING → DELIVERED; hủy trước xuất hàng và chưa PAID"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/OrderResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/OrderStatusUpdateRequest"
 components:
   securitySchemes:
     sessionCookie:
@@ -375,6 +750,12 @@ components:
       name: "JSESSIONID"
       description: "Gọi login để trình duyệt nhận cookie; không dán cookie vào Authorize."
   responses:
+    Conflict:
+      description: "Xung đột kho, trạng thái, thanh toán hoặc idempotency; xem code/message"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     BadRequest:
       description: "Dữ liệu/JSON không hợp lệ; xem code và message"
       content:
@@ -406,6 +787,207 @@ components:
           schema:
             "$ref": "#/components/schemas/ErrorResponse"
   schemas:
+    AddCartItemRequest:
+      "type": "object"
+      "required":
+        - "productId"
+        - "quantity"
+      "properties":
+        "productId":
+          "type": "integer"
+          "minimum": 1
+        "quantity":
+          "type": "integer"
+          "minimum": 1
+      "additionalProperties": false
+    UpdateCartItemRequest:
+      "type": "object"
+      "required":
+        - "quantity"
+      "properties":
+        "quantity":
+          "type": "integer"
+          "minimum": 0
+      "additionalProperties": false
+    CartResponse:
+      "type": "object"
+      "required":
+        - "cartId"
+        - "items"
+        - "totalAmount"
+      "properties":
+        "cartId":
+          "type": "integer"
+          "nullable": true
+        "items":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/CartItemResponse"
+        "totalAmount":
+          "type": "number"
+          "minimum": 0
+    CartItemResponse:
+      "type": "object"
+      "required":
+        - "cartItemId"
+        - "productId"
+        - "name"
+        - "quantity"
+        - "unitPrice"
+        - "lineTotal"
+        - "availableQuantity"
+        - "available"
+      "properties":
+        "cartItemId":
+          "type": "integer"
+        "productId":
+          "type": "integer"
+        "name":
+          "type": "string"
+        "quantity":
+          "type": "integer"
+        "unitPrice":
+          "type": "number"
+          "minimum": 0
+        "lineTotal":
+          "type": "number"
+          "minimum": 0
+        "availableQuantity":
+          "type": "integer"
+        "available":
+          "type": "boolean"
+    CheckoutRequest:
+      "type": "object"
+      "required":
+        - "shippingName"
+        - "shippingPhone"
+        - "shippingAddressText"
+        - "paymentMethod"
+      "properties":
+        "shippingName":
+          "type": "string"
+          "maxLength": 255
+        "shippingPhone":
+          "type": "string"
+          "maxLength": 32
+        "shippingAddressText":
+          "type": "string"
+        "paymentMethod":
+          "type": "string"
+          "enum":
+            - "COD"
+      "additionalProperties": false
+    OrderStatusUpdateRequest:
+      "type": "object"
+      "required":
+        - "status"
+      "properties":
+        "status":
+          "type": "string"
+          "enum":
+            - "PENDING"
+            - "CONFIRMED"
+            - "SHIPPING"
+            - "DELIVERED"
+            - "CANCELLED"
+    OrderResponse:
+      "type": "object"
+      "required":
+        - "orderId"
+        - "orderDate"
+        - "status"
+        - "totalAmount"
+        - "shippingName"
+        - "shippingPhone"
+        - "shippingAddressText"
+        - "deliveredAt"
+        - "items"
+        - "payment"
+      "properties":
+        "orderId":
+          "type": "integer"
+        "orderDate":
+          "type": "string"
+          "nullable": true
+          "description": "LocalDateTime ISO-8601 không có timezone"
+        "status":
+          "type": "string"
+        "totalAmount":
+          "type": "number"
+          "minimum": 0
+        "shippingName":
+          "type": "string"
+        "shippingPhone":
+          "type": "string"
+        "shippingAddressText":
+          "type": "string"
+        "deliveredAt":
+          "type": "string"
+          "nullable": true
+          "description": "LocalDateTime ISO-8601 không có timezone"
+        "items":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/OrderItemResponse"
+        "payment":
+          "$ref": "#/components/schemas/OrderPaymentResponse"
+    OrderItemResponse:
+      "type": "object"
+      "required":
+        - "orderItemId"
+        - "productId"
+        - "productName"
+        - "quantity"
+        - "baseUnitPrice"
+        - "unitPrice"
+        - "lineTotal"
+      "properties":
+        "orderItemId":
+          "type": "integer"
+        "productId":
+          "type": "integer"
+        "productName":
+          "type": "string"
+        "quantity":
+          "type": "integer"
+        "baseUnitPrice":
+          "type": "number"
+          "minimum": 0
+        "unitPrice":
+          "type": "number"
+          "minimum": 0
+        "lineTotal":
+          "type": "number"
+          "minimum": 0
+    OrderPaymentResponse:
+      "type": "object"
+      "required":
+        - "paymentId"
+        - "method"
+        - "status"
+        - "amount"
+        - "paidAt"
+      "properties":
+        "paymentId":
+          "type": "integer"
+        "method":
+          "type": "string"
+          "enum":
+            - "COD"
+            - "BANK_TRANSFER"
+        "status":
+          "type": "string"
+          "enum":
+            - "PENDING"
+            - "PAID"
+            - "FAILED"
+        "amount":
+          "type": "number"
+          "minimum": 0
+        "paidAt":
+          "type": "string"
+          "nullable": true
+          "description": "LocalDateTime ISO-8601 không có timezone"
     ErrorResponse:
       type: "object"
       required:
