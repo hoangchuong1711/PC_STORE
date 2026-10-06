@@ -27,9 +27,17 @@ test("filters admin products by query, status and stock", () => {
     filterAdminProducts(products, { query: "", status: "ACTIVE", stock: "LOW" }).map((product) => product.id),
     ["p1"],
   );
+  assert.deepEqual(
+    filterAdminProducts(products, { query: "", category: "Linh kiện", brand: "ALL", status: "ALL", stock: "ALL" }).map((product) => product.id),
+    ["p3"],
+  );
+  assert.deepEqual(
+    filterAdminProducts(products, { query: "", category: "ALL", brand: "ASUS", status: "ALL", stock: "ALL" }).map((product) => product.id),
+    ["p2"],
+  );
 });
 
-test("filters admin orders by query and status", () => {
+test("filters admin orders by query, status and dateRange", () => {
   assert.deepEqual(
     filterAdminOrders(orders, { query: "lan", status: "SHIPPING", paymentStatus: "ALL" }).map((order) => order.id),
     ["o2"],
@@ -38,7 +46,14 @@ test("filters admin orders by query and status", () => {
     filterAdminOrders(orders, { query: "", status: "ALL", paymentStatus: "PENDING" }).map((order) => order.id),
     ["o1"],
   );
+  assert.deepEqual(
+    filterAdminOrders(orders, { query: "", status: "ALL", paymentStatus: "ALL", dateRange: "7DAYS" }).map((order) => order.id),
+    ["o1", "o2"],
+  );
 });
+
+import { filterAdminReviews } from "./admin-reviews.ts";
+import { filterAdminUsers } from "./admin-users.ts";
 
 test("returns only valid next statuses for an admin order", () => {
   assert.deepEqual(getNextOrderStatuses("PENDING"), ["CONFIRMED", "CANCELLED"]);
@@ -47,3 +62,50 @@ test("returns only valid next statuses for an admin order", () => {
   assert.deepEqual(getNextOrderStatuses("DELIVERED"), []);
   assert.deepEqual(getNextOrderStatuses("CANCELLED"), []);
 });
+
+test("filters admin reviews by query, rating, status, and media", () => {
+  const reviews = [
+    { id: "r1", productName: "ROG Strix", userName: "Tuấn", content: "Máy chạy êm", rating: 5, status: "PUBLISHED", images: ["img1.jpg"] },
+    { id: "r2", productName: "RTX 4070", userName: "Bình", content: "Card mạnh nhưng hơi nóng", rating: 3, status: "HIDDEN", images: [] },
+  ];
+
+  assert.deepEqual(
+    filterAdminReviews(reviews, { query: "4070", rating: "ALL", status: "ALL", hasMedia: "ALL" }).map((r) => r.id),
+    ["r2"],
+  );
+  assert.deepEqual(
+    filterAdminReviews(reviews, { query: "", rating: 5, status: "ALL", hasMedia: "ALL" }).map((r) => r.id),
+    ["r1"],
+  );
+  assert.deepEqual(
+    filterAdminReviews(reviews, { query: "", rating: "ALL", status: "PUBLISHED", hasMedia: "YES" }).map((r) => r.id),
+    ["r1"],
+  );
+  assert.deepEqual(
+    filterAdminReviews(reviews, { query: "", rating: "ALL", status: "ALL", hasMedia: "NO" }).map((r) => r.id),
+    ["r2"],
+  );
+});
+
+test("filters admin users by query, role, and status", () => {
+  const users = [
+    { id: "u1", name: "Minh Anh", email: "admin@pcstore.vn", phone: "0903999888", role: "ADMIN", status: "ACTIVE" },
+    { id: "u2", name: "Trần Đức", email: "duc@example.com", phone: "0909123456", role: "CUSTOMER", status: "ACTIVE" },
+    { id: "u3", name: "Vũ Nam", email: "nam@gmail.com", phone: "0933112233", role: "CUSTOMER", status: "BANNED" },
+  ];
+
+  assert.deepEqual(
+    filterAdminUsers(users, { query: "0909", role: "ALL", status: "ALL" }).map((u) => u.id),
+    ["u2"],
+  );
+  assert.deepEqual(
+    filterAdminUsers(users, { query: "", role: "ADMIN", status: "ALL" }).map((u) => u.id),
+    ["u1"],
+  );
+  assert.deepEqual(
+    filterAdminUsers(users, { query: "", role: "ALL", status: "BANNED" }).map((u) => u.id),
+    ["u3"],
+  );
+});
+
+

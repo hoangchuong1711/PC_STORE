@@ -1,3 +1,15 @@
+export const adminCategories = ["Laptop", "PC Gaming", "Linh kiện", "Phụ kiện"] as const;
+export const adminBrands = [
+  "ASUS",
+  "PC Store",
+  "GIGABYTE",
+  "Kingston",
+  "Samsung",
+  "Keychron",
+  "LG",
+  "Corsair",
+] as const;
+
 export const adminProductStatuses = [
   "ACTIVE",
   "DRAFT",
@@ -9,6 +21,22 @@ export const adminProductStatuses = [
 export type AdminProductStatus = (typeof adminProductStatuses)[number];
 export type AdminProductStockFilter = "ALL" | "LOW" | "OUT";
 
+export type AdminProductSpecs = {
+  slot?: "cpu" | "motherboard" | "ram" | "gpu" | "storage" | "psu" | "case" | "cooler";
+  socket?: string;
+  formFactor?: string;
+  ramType?: string;
+  ramSlots?: number;
+  capacityGb?: number;
+  tdpWatts?: number;
+  vramGb?: number;
+  recommendedPsuW?: number;
+  wattage?: number;
+  efficiency?: string;
+  maxGpuLengthMm?: number;
+  coolerType?: string;
+};
+
 export type AdminProduct = {
   id: string;
   sku: string;
@@ -19,12 +47,17 @@ export type AdminProduct = {
   stock: number;
   status: AdminProductStatus;
   imageUrl: string;
+  images?: string[];
+  description?: string;
   imageColor: string;
   updatedAt: string;
+  builderSpecs?: AdminProductSpecs;
 };
 
 export type AdminProductFilters = {
   query: string;
+  category?: "ALL" | string;
+  brand?: "ALL" | string;
   status: "ALL" | AdminProductStatus;
   stock: AdminProductStockFilter;
 };
@@ -40,6 +73,14 @@ export const adminOrderStatuses = [
 export type AdminOrderStatus = (typeof adminOrderStatuses)[number];
 export type AdminPaymentMethod = "COD" | "BANK_TRANSFER";
 export type AdminPaymentStatus = "PENDING" | "PAID";
+export type AdminOrderDateFilter = "ALL" | "TODAY" | "7DAYS" | "30DAYS";
+
+export const orderDateFilterLabels: Record<AdminOrderDateFilter, string> = {
+  ALL: "Tất cả thời gian",
+  TODAY: "Hôm nay",
+  "7DAYS": "7 ngày qua",
+  "30DAYS": "30 ngày qua",
+};
 
 export type AdminOrderLine = {
   productName: string;
@@ -61,34 +102,61 @@ export type AdminOrder = {
   paymentStatus: AdminPaymentStatus;
   itemCount: number;
   lines: AdminOrderLine[];
+  staffNotes?: string;
+  cancellationReason?: string;
 };
 
 export type AdminOrderFilters = {
   query: string;
   status: "ALL" | AdminOrderStatus;
   paymentStatus: "ALL" | AdminPaymentStatus;
+  dateRange?: AdminOrderDateFilter;
+};
+
+export type AdminNotification = {
+  id: string;
+  title: string;
+  message: string;
+  time: string;
+  type: "order" | "stock" | "community";
+  unread: boolean;
+  href: string;
+};
+
+export type DashboardChartPoint = {
+  label: string;
+  fullDate: string;
+  revenue: number;
+  orders: number;
 };
 
 type ProductFilterable = Pick<AdminProduct, "name" | "brand" | "category" | "status" | "stock">;
-type OrderFilterable = Pick<AdminOrder, "code" | "customerName" | "customerEmail" | "status" | "paymentStatus">;
+type OrderFilterable = Pick<AdminOrder, "code" | "customerName" | "customerEmail" | "status" | "paymentStatus"> & {
+  createdAt?: string;
+};
 
 export function filterAdminProducts<T extends ProductFilterable>(
   items: readonly T[],
   filters: AdminProductFilters,
 ) {
   const query = filters.query.trim().toLowerCase();
+  const category = filters.category ?? "ALL";
+  const brand = filters.brand ?? "ALL";
+
   return items.filter((product) => {
     const matchesQuery =
       !query ||
       product.name.toLowerCase().includes(query) ||
       product.brand.toLowerCase().includes(query) ||
       product.category.toLowerCase().includes(query);
+    const matchesCategory = category === "ALL" || product.category === category;
+    const matchesBrand = brand === "ALL" || product.brand === brand;
     const matchesStatus = filters.status === "ALL" || product.status === filters.status;
     const matchesStock =
       filters.stock === "ALL" ||
       (filters.stock === "LOW" && product.stock > 0 && product.stock <= 5) ||
       (filters.stock === "OUT" && product.stock === 0);
-    return matchesQuery && matchesStatus && matchesStock;
+    return matchesQuery && matchesCategory && matchesBrand && matchesStatus && matchesStock;
   });
 }
 
@@ -97,6 +165,9 @@ export function filterAdminOrders<T extends OrderFilterable>(
   filters: AdminOrderFilters,
 ) {
   const query = filters.query.trim().toLowerCase();
+  const dateRange = filters.dateRange ?? "ALL";
+  const now = new Date("2026-10-06T12:00:00+07:00");
+
   return items.filter((order) => {
     const matchesQuery =
       !query ||
@@ -106,7 +177,21 @@ export function filterAdminOrders<T extends OrderFilterable>(
     const matchesStatus = filters.status === "ALL" || order.status === filters.status;
     const matchesPayment =
       filters.paymentStatus === "ALL" || order.paymentStatus === filters.paymentStatus;
-    return matchesQuery && matchesStatus && matchesPayment;
+
+    let matchesDate = true;
+    if (dateRange !== "ALL" && order.createdAt) {
+      const orderTime = new Date(order.createdAt).getTime();
+      const diffDays = Math.max(0, (now.getTime() - orderTime) / (1000 * 60 * 60 * 24));
+      if (dateRange === "TODAY") {
+        matchesDate = diffDays <= 1;
+      } else if (dateRange === "7DAYS") {
+        matchesDate = diffDays <= 7;
+      } else if (dateRange === "30DAYS") {
+        matchesDate = diffDays <= 30;
+      }
+    }
+
+    return matchesQuery && matchesStatus && matchesPayment && matchesDate;
   });
 }
 
@@ -147,12 +232,12 @@ export const initialAdminProducts: AdminProduct[] = [
   { id: "p1", sku: "PCS-LAP-001", name: "ROG Strix G16 2025", brand: "ASUS", category: "Laptop", price: 38_990_000, stock: 8, status: "ACTIVE", imageUrl: "/admin/products/laptop.svg", imageColor: "#dfe7ff", updatedAt: "2026-10-02" },
   { id: "p2", sku: "PCS-LAP-002", name: "TUF Gaming A15", brand: "ASUS", category: "Laptop", price: 24_990_000, stock: 5, status: "ACTIVE", imageUrl: "/admin/products/laptop.svg", imageColor: "#e6eef4", updatedAt: "2026-09-28" },
   { id: "p3", sku: "PCS-PC-001", name: "PC Creator Pro X", brand: "PC Store", category: "PC Gaming", price: 52_990_000, stock: 3, status: "ACTIVE", imageUrl: "/admin/products/pc.svg", imageColor: "#eee5dc", updatedAt: "2026-09-25" },
-  { id: "p4", sku: "PCS-GPU-001", name: "RTX 4070 Super Dual", brand: "GIGABYTE", category: "Linh kiện", price: 16_990_000, stock: 0, status: "OUT_OF_STOCK", imageUrl: "/admin/products/gpu.svg", imageColor: "#e8e6f4", updatedAt: "2026-09-23" },
-  { id: "p5", sku: "PCS-RAM-001", name: "Kingston Fury 32GB", brand: "Kingston", category: "Linh kiện", price: 2_190_000, stock: 18, status: "ACTIVE", imageUrl: "/admin/products/ram.svg", imageColor: "#e2eee4", updatedAt: "2026-09-21" },
-  { id: "p6", sku: "PCS-SSD-001", name: "Samsung 990 Pro 2TB", brand: "Samsung", category: "Linh kiện", price: 4_590_000, stock: 2, status: "ACTIVE", imageUrl: "/admin/products/ssd.svg", imageColor: "#e6edf2", updatedAt: "2026-09-19" },
+  { id: "p4", sku: "PCS-GPU-001", name: "RTX 4070 Super Dual", brand: "GIGABYTE", category: "Linh kiện", price: 16_990_000, stock: 0, status: "OUT_OF_STOCK", imageUrl: "/admin/products/gpu.svg", imageColor: "#e8e6f4", updatedAt: "2026-09-23", builderSpecs: { slot: "gpu", vramGb: 12, recommendedPsuW: 650, maxGpuLengthMm: 269 } },
+  { id: "p5", sku: "PCS-RAM-001", name: "Kingston Fury 32GB", brand: "Kingston", category: "Linh kiện", price: 2_190_000, stock: 18, status: "ACTIVE", imageUrl: "/admin/products/ram.svg", imageColor: "#e2eee4", updatedAt: "2026-09-21", builderSpecs: { slot: "ram", ramType: "DDR5", capacityGb: 32 } },
+  { id: "p6", sku: "PCS-SSD-001", name: "Samsung 990 Pro 2TB", brand: "Samsung", category: "Linh kiện", price: 4_590_000, stock: 2, status: "ACTIVE", imageUrl: "/admin/products/ssd.svg", imageColor: "#e6edf2", updatedAt: "2026-09-19", builderSpecs: { slot: "storage", capacityGb: 2000 } },
   { id: "p7", sku: "PCS-KEY-001", name: "Mechanical Keyboard K75", brand: "Keychron", category: "Phụ kiện", price: 2_890_000, stock: 12, status: "DRAFT", imageUrl: "/admin/products/keyboard.svg", imageColor: "#eee8df", updatedAt: "2026-09-16" },
   { id: "p8", sku: "PCS-MON-001", name: "Ultrawide Monitor 34", brand: "LG", category: "Phụ kiện", price: 11_990_000, stock: 4, status: "ACTIVE", imageUrl: "/admin/products/monitor.svg", imageColor: "#e4e8f2", updatedAt: "2026-09-12" },
-  { id: "p9", sku: "PCS-PSU-001", name: "RM850x Gold", brand: "Corsair", category: "Linh kiện", price: 3_990_000, stock: 0, status: "HIDDEN", imageUrl: "/admin/products/psu.svg", imageColor: "#e8e8e8", updatedAt: "2026-09-08" },
+  { id: "p9", sku: "PCS-PSU-001", name: "RM850x Gold", brand: "Corsair", category: "Linh kiện", price: 3_990_000, stock: 0, status: "HIDDEN", imageUrl: "/admin/products/psu.svg", imageColor: "#e8e8e8", updatedAt: "2026-09-08", builderSpecs: { slot: "psu", wattage: 850, efficiency: "80 Plus Gold" } },
 ];
 
 export const initialAdminOrders: AdminOrder[] = [
@@ -256,3 +341,44 @@ export function formatAdminDate(value: string) {
     minute: "2-digit",
   }).format(new Date(value));
 }
+
+export const initialAdminNotifications: AdminNotification[] = [
+  {
+    id: "notif-1",
+    title: "Đơn hàng mới cần xử lý",
+    message: "Đơn #PCS-261001-01 (41.880.000₫) đang chờ kiểm tra.",
+    time: "10 phút trước",
+    type: "order",
+    unread: true,
+    href: "/admin/orders",
+  },
+  {
+    id: "notif-2",
+    title: "Cảnh báo hết hàng",
+    message: "RTX 4070 Super Dual và RM850x Gold đã về mức 0.",
+    time: "1 giờ trước",
+    type: "stock",
+    unread: true,
+    href: "/admin/products",
+  },
+  {
+    id: "notif-3",
+    title: "Bài setup cộng đồng mới",
+    message: "Minh Anh vừa đăng bài setup phong cách Tối giản.",
+    time: "3 giờ trước",
+    type: "community",
+    unread: false,
+    href: "/admin/community",
+  },
+];
+
+export const dashboardRevenueTrend: DashboardChartPoint[] = [
+  { label: "25/09", fullDate: "25 Tháng 9", revenue: 52_990_000, orders: 1 },
+  { label: "26/09", fullDate: "26 Tháng 9", revenue: 0, orders: 0 },
+  { label: "27/09", fullDate: "27 Tháng 9", revenue: 18_500_000, orders: 2 },
+  { label: "28/09", fullDate: "28 Tháng 9", revenue: 16_370_000, orders: 1 },
+  { label: "29/09", fullDate: "29 Tháng 9", revenue: 9_490_000, orders: 1 },
+  { label: "30/09", fullDate: "30 Tháng 9", revenue: 16_990_000, orders: 1 },
+  { label: "01/10", fullDate: "01 Tháng 10", revenue: 41_880_000, orders: 2 },
+];
+

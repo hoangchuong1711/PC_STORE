@@ -1,7 +1,19 @@
 "use client";
 
 import Image from "next/image";
-import { Check, ChevronLeft, ChevronRight, Eye, EyeOff, ImageIcon, RotateCcw, Search, X } from "lucide-react";
+import Link from "next/link";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  ImageIcon,
+  RotateCcw,
+  Search,
+  X,
+} from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import {
   adminCommunityStatuses,
@@ -32,10 +44,11 @@ function communityStyleLabel(style: SetupStyle) {
 }
 
 export function AdminCommunity() {
-  const [items, setItems] = useState(initialAdminCommunityPosts);
+  const [items, setItems] = useState<AdminCommunityPost[]>(initialAdminCommunityPosts);
   const [filters, setFilters] = useState<AdminCommunityFilters>({ query: "", status: "ALL", style: "ALL" });
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedPost, setSelectedPost] = useState<AdminCommunityPost | null>(null);
+  const [activePhoto, setActivePhoto] = useState<string>("");
   const [hideReason, setHideReason] = useState("");
   const [showHideForm, setShowHideForm] = useState(false);
   const [feedback, setFeedback] = useState("");
@@ -58,12 +71,14 @@ export function AdminCommunity() {
 
   function openPost(post: AdminCommunityPost) {
     setSelectedPost({ ...post });
+    setActivePhoto(post.coverImage);
     setHideReason("");
     setShowHideForm(false);
   }
 
   function closePost() {
     setSelectedPost(null);
+    setActivePhoto("");
     setHideReason("");
     setShowHideForm(false);
   }
@@ -73,7 +88,7 @@ export function AdminCommunity() {
     const updated = { ...selectedPost, status: "PUBLISHED" as const };
     setItems((current) => current.map((post) => (post.id === updated.id ? updated : post)));
     setSelectedPost(updated);
-    setFeedback("Đã khôi phục bài setup và cho phép hiển thị lại.");
+    setFeedback("Đã khôi phục bài setup và cho phép hiển thị lại trên trang cộng đồng.");
   }
 
   function hidePost(event: FormEvent<HTMLFormElement>) {
@@ -90,7 +105,7 @@ export function AdminCommunity() {
     setSelectedPost(updated);
     setShowHideForm(false);
     setHideReason("");
-    setFeedback("Đã ẩn bài setup và lưu lý do kiểm duyệt.");
+    setFeedback("Đã ẩn bài setup khỏi bảng tin và lưu lý do kiểm duyệt.");
   }
 
   return (
@@ -99,7 +114,7 @@ export function AdminCommunity() {
         <div>
           <span className="admin-eyebrow">Nội dung cộng đồng</span>
           <h1>Setup Community</h1>
-          <p>Kiểm duyệt các bài chia sẻ góc máy, ảnh setup và sản phẩm được gắn.</p>
+          <p>Kiểm duyệt các bài chia sẻ góc máy, ảnh setup và sản phẩm được gắn từ khách hàng.</p>
         </div>
         <div className="admin-heading-summary">
           <span><strong>{publishedCount}</strong> đang hiển thị</span>
@@ -111,7 +126,9 @@ export function AdminCommunity() {
         <div className="admin-feedback" role="status">
           <Check size={16} />
           <span>{feedback}</span>
-          <button type="button" aria-label="Đóng thông báo" onClick={() => setFeedback("")}><X size={15} /></button>
+          <button type="button" aria-label="Đóng thông báo" onClick={() => setFeedback("")}>
+            <X size={15} />
+          </button>
         </div>
       )}
 
@@ -127,15 +144,34 @@ export function AdminCommunity() {
               onChange={(event) => updateFilter("query", event.target.value)}
             />
           </label>
-          <select aria-label="Lọc trạng thái bài setup" value={filters.status} onChange={(event) => updateFilter("status", event.target.value as AdminCommunityFilters["status"])}>
+          <select
+            aria-label="Lọc trạng thái bài setup"
+            value={filters.status}
+            onChange={(event) => updateFilter("status", event.target.value as AdminCommunityFilters["status"])}
+          >
             <option value="ALL">Tất cả trạng thái</option>
-            {adminCommunityStatuses.map((status) => <option key={status} value={status}>{communityStatusLabels[status]}</option>)}
+            {adminCommunityStatuses.map((status) => (
+              <option key={status} value={status}>
+                {communityStatusLabels[status]}
+              </option>
+            ))}
           </select>
-          <select aria-label="Lọc phong cách setup" value={filters.style} onChange={(event) => updateFilter("style", event.target.value as AdminCommunityFilters["style"])}>
+          <select
+            aria-label="Lọc phong cách setup"
+            value={filters.style}
+            onChange={(event) => updateFilter("style", event.target.value as AdminCommunityFilters["style"])}
+          >
             <option value="ALL">Tất cả phong cách</option>
-            {Object.entries(communityStyleLabels).map(([style, label]) => <option key={style} value={style}>{label}</option>)}
+            {Object.entries(communityStyleLabels).map(([style, label]) => (
+              <option key={style} value={style}>
+                {label}
+              </option>
+            ))}
           </select>
-          <button type="button" className="admin-filter-reset" onClick={resetFilters}><RotateCcw size={15} />Đặt lại</button>
+          <button type="button" className="admin-filter-reset" onClick={resetFilters}>
+            <RotateCcw size={15} />
+            Đặt lại
+          </button>
         </div>
 
         <div className="admin-table-wrap">
@@ -157,28 +193,67 @@ export function AdminCommunity() {
                   <td>
                     <div className="admin-community-table-cell">
                       <Image className="admin-community-cover" src={post.coverImage} alt="" width={58} height={58} unoptimized />
-                      <span className="admin-community-title"><strong className="admin-table-primary">{post.title}</strong><small className="admin-table-secondary">{post.components.length} sản phẩm được gắn</small></span>
+                      <span className="admin-community-title">
+                        <strong className="admin-table-primary">{post.title}</strong>
+                        <small className="admin-table-secondary">
+                          {post.images ? `${post.images.length} ảnh` : "1 ảnh"} · {post.components.length} linh kiện gắn
+                        </small>
+                      </span>
                     </div>
                   </td>
-                  <td><span className="admin-table-primary">{post.author.name}</span><small className="admin-table-secondary">{post.author.handle}</small></td>
+                  <td>
+                    <span className="admin-table-primary">{post.author.name}</span>
+                    <small className="admin-table-secondary">{post.author.handle}</small>
+                  </td>
                   <td><span className="admin-community-style">{communityStyleLabel(post.style)}</span></td>
-                  <td><div className="admin-community-metrics"><span>♡ {formatCompactNumber(post.likesCount)}</span><span>◉ {formatCompactNumber(post.viewsCount)}</span></div></td>
+                  <td>
+                    <div className="admin-community-metrics">
+                      <span>♡ {formatCompactNumber(post.likesCount)}</span>
+                      <span>◉ {formatCompactNumber(post.viewsCount)}</span>
+                    </div>
+                  </td>
                   <td><span className={`admin-status-pill ${statusTone[post.status]}`}>{communityStatusLabels[post.status]}</span></td>
                   <td><span className="admin-table-secondary">{formatAdminDate(post.moderatedAt || post.createdAt)}</span></td>
-                  <td className="align-right"><button type="button" className="admin-table-action" onClick={() => openPost(post)}><Eye size={15} />Xem</button></td>
+                  <td className="align-right">
+                    <button type="button" className="admin-table-action" onClick={() => openPost(post)}>
+                      <Eye size={15} /> Xem
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {visiblePosts.length === 0 && <div className="admin-empty-state"><ImageIcon size={22} /><strong>Không tìm thấy bài setup</strong><span>Thử thay đổi từ khóa hoặc điều kiện lọc.</span></div>}
+          {visiblePosts.length === 0 && (
+            <div className="admin-empty-state">
+              <ImageIcon size={22} />
+              <strong>Không tìm thấy bài setup</strong>
+              <span>Thử thay đổi từ khóa hoặc điều kiện lọc.</span>
+            </div>
+          )}
         </div>
 
         <div className="admin-table-footer">
           <span>Hiển thị <strong>{visiblePosts.length}</strong> trên <strong>{filteredPosts.length}</strong> bài setup</span>
           <div className="admin-pagination">
-            <button type="button" className="admin-pagination-button" aria-label="Trang trước" disabled={currentPage === 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}><ChevronLeft size={16} /></button>
+            <button
+              type="button"
+              className="admin-pagination-button"
+              aria-label="Trang trước"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            >
+              <ChevronLeft size={16} />
+            </button>
             <span>Trang <strong>{currentPage}</strong> / {totalPages}</span>
-            <button type="button" className="admin-pagination-button" aria-label="Trang sau" disabled={currentPage === totalPages} onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}><ChevronRight size={16} /></button>
+            <button
+              type="button"
+              className="admin-pagination-button"
+              aria-label="Trang sau"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+            >
+              <ChevronRight size={16} />
+            </button>
           </div>
         </div>
       </section>
@@ -188,42 +263,141 @@ export function AdminCommunity() {
           <button type="button" className="admin-drawer-overlay" aria-label="Đóng chi tiết bài setup" onClick={closePost} />
           <aside className="admin-drawer admin-community-drawer" aria-label="Chi tiết bài setup">
             <div className="admin-drawer-heading">
-              <div><span className="admin-panel-kicker">Kiểm duyệt nội dung</span><h2>Chi tiết bài setup</h2></div>
-              <button type="button" className="admin-icon-button" aria-label="Đóng chi tiết" onClick={closePost}><X size={18} /></button>
+              <div>
+                <span className="admin-panel-kicker">Kiểm duyệt nội dung</span>
+                <h2>Chi tiết bài setup</h2>
+              </div>
+              <div className="admin-drawer-heading-actions">
+                <Link
+                  href="/community"
+                  target="_blank"
+                  className="admin-icon-button"
+                  title="Mở trên trang cộng đồng khách hàng"
+                >
+                  <ExternalLink size={16} />
+                </Link>
+                <button type="button" className="admin-icon-button" aria-label="Đóng chi tiết" onClick={closePost}>
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
             <div className="admin-community-preview">
-              <div className="admin-community-preview-image"><Image src={selectedPost.coverImage} alt={selectedPost.title} fill sizes="440px" unoptimized /></div>
-              <div className="admin-community-preview-copy"><span className="admin-status-pill is-info">{communityStyleLabel(selectedPost.style)}</span><h3>{selectedPost.title}</h3><p>{selectedPost.description}</p></div>
+              <div className="admin-community-preview-image">
+                <Image src={activePhoto || selectedPost.coverImage} alt={selectedPost.title} fill sizes="440px" unoptimized />
+              </div>
+
+              {selectedPost.images && selectedPost.images.length > 1 && (
+                <div className="admin-community-gallery-strip">
+                  {selectedPost.images.map((img, idx) => (
+                    <button
+                      type="button"
+                      key={`${selectedPost.id}-img-${idx}`}
+                      className={`admin-gallery-thumb ${activePhoto === img ? "is-active" : ""}`}
+                      onClick={() => setActivePhoto(img)}
+                      aria-label={`Xem ảnh góc ${idx + 1}`}
+                    >
+                      <Image src={img} alt="" fill sizes="56px" unoptimized />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="admin-community-preview-copy">
+                <span className="admin-status-pill is-info">{communityStyleLabel(selectedPost.style)}</span>
+                <h3>{selectedPost.title}</h3>
+                <p>{selectedPost.description}</p>
+              </div>
             </div>
 
             <div className="admin-drawer-section">
-              <div className="admin-drawer-section-heading"><h3>Tác giả</h3><span>{formatAdminDate(selectedPost.createdAt)}</span></div>
-              <div className="admin-community-author"><Image src={selectedPost.author.avatar} alt="" width={38} height={38} unoptimized /><div><strong>{selectedPost.author.name}</strong><span>{selectedPost.author.handle} · {selectedPost.author.role}</span></div></div>
+              <div className="admin-drawer-section-heading">
+                <h3>Tác giả bài đăng</h3>
+                <span>{formatAdminDate(selectedPost.createdAt)}</span>
+              </div>
+              <div className="admin-community-author">
+                <Image src={selectedPost.author.avatar} alt="" width={38} height={38} unoptimized />
+                <div>
+                  <strong>{selectedPost.author.name}</strong>
+                  <span>{selectedPost.author.handle} · {selectedPost.author.role}</span>
+                </div>
+              </div>
             </div>
 
             <div className="admin-drawer-section">
-              <div className="admin-drawer-section-heading"><h3>Sản phẩm được gắn</h3><span>{selectedPost.components.length} sản phẩm</span></div>
-              <div className="admin-community-products">{selectedPost.components.map((component) => <span className="admin-community-product-chip" key={`${selectedPost.id}-${component.name}`}>{component.name}</span>)}</div>
+              <div className="admin-drawer-section-heading">
+                <h3>Sản phẩm được gắn</h3>
+                <span>{selectedPost.components.length} linh kiện</span>
+              </div>
+              <div className="admin-community-products">
+                {selectedPost.components.map((component) => (
+                  <span className="admin-community-product-chip" key={`${selectedPost.id}-${component.name}`}>
+                    {component.name}
+                  </span>
+                ))}
+              </div>
             </div>
 
             <div className="admin-drawer-section">
-              <div className="admin-drawer-section-heading"><h3>Trạng thái kiểm duyệt</h3><span className={`admin-status-pill ${statusTone[selectedPost.status]}`}>{communityStatusLabels[selectedPost.status]}</span></div>
-              {selectedPost.status === "HIDDEN" && <div className="admin-community-moderation"><strong>Lý do ẩn</strong><span>{selectedPost.moderationReason || "Chưa có lý do"}</span><small>Kiểm duyệt bởi {selectedPost.moderatedBy || "Admin"} · {selectedPost.moderatedAt ? formatAdminDate(selectedPost.moderatedAt) : "-"}</small></div>}
+              <div className="admin-drawer-section-heading">
+                <h3>Trạng thái kiểm duyệt</h3>
+                <span className={`admin-status-pill ${statusTone[selectedPost.status]}`}>
+                  {communityStatusLabels[selectedPost.status]}
+                </span>
+              </div>
+              {selectedPost.status === "HIDDEN" && (
+                <div className="admin-community-moderation">
+                  <strong>Lý do ẩn</strong>
+                  <span>{selectedPost.moderationReason || "Chưa có lý do"}</span>
+                  <small>
+                    Kiểm duyệt bởi {selectedPost.moderatedBy || "Admin"} ·{" "}
+                    {selectedPost.moderatedAt ? formatAdminDate(selectedPost.moderatedAt) : "-"}
+                  </small>
+                </div>
+              )}
             </div>
 
             <div className="admin-drawer-actions admin-community-actions">
-              {selectedPost.status === "HIDDEN" ? <button type="button" className="admin-button admin-button-secondary" onClick={restorePost}><Eye size={16} />Khôi phục hiển thị</button> : <button type="button" className="admin-button admin-button-danger" onClick={() => setShowHideForm(true)}><EyeOff size={16} />Ẩn bài setup</button>}
+              {selectedPost.status === "HIDDEN" ? (
+                <button type="button" className="admin-button admin-button-secondary" onClick={restorePost}>
+                  <Eye size={16} />
+                  Khôi phục hiển thị
+                </button>
+              ) : (
+                <button type="button" className="admin-button admin-button-danger" onClick={() => setShowHideForm(true)}>
+                  <EyeOff size={16} />
+                  Ẩn bài setup
+                </button>
+              )}
             </div>
 
             {showHideForm && selectedPost.status === "PUBLISHED" && (
               <form className="admin-community-moderation-form" onSubmit={hidePost}>
-                <label>Lý do ẩn bài<textarea required value={hideReason} onChange={(event) => setHideReason(event.target.value)} placeholder="Ví dụ: Ảnh không phù hợp với tiêu chuẩn cộng đồng..." /></label>
-                <div className="admin-drawer-actions"><button type="button" className="admin-button admin-button-secondary" onClick={() => setShowHideForm(false)}>Hủy</button><button type="submit" className="admin-button admin-button-danger"><EyeOff size={16} />Xác nhận ẩn</button></div>
+                <label>
+                  Lý do ẩn bài
+                  <textarea
+                    required
+                    value={hideReason}
+                    onChange={(event) => setHideReason(event.target.value)}
+                    placeholder="Ví dụ: Hình ảnh vi phạm quy chuẩn cộng đồng, có quảng cáo rác..."
+                  />
+                </label>
+                <div className="admin-drawer-actions">
+                  <button type="button" className="admin-button admin-button-secondary" onClick={() => setShowHideForm(false)}>
+                    Hủy
+                  </button>
+                  <button type="submit" className="admin-button admin-button-danger">
+                    <EyeOff size={16} />
+                    Xác nhận ẩn
+                  </button>
+                </div>
               </form>
             )}
 
-            <div className="admin-form-note"><ImageIcon size={16} /><span>Dữ liệu đang ở chế độ mẫu. Thao tác kiểm duyệt chỉ tồn tại trong phiên xem này.</span></div>
+            <div className="admin-form-note">
+              <ImageIcon size={16} />
+              <span>Dữ liệu lưu tạm trong phiên xem. Thao tác kiểm duyệt có hiệu lực ngay lập tức.</span>
+            </div>
           </aside>
         </div>
       )}
