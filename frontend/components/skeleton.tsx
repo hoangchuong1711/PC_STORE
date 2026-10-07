@@ -1,26 +1,16 @@
-import "./account.css";
-
 export function ProductCardSkeleton() {
   return (
     <div
-      style={{
-        background: "#fff",
-        border: "1px solid var(--line)",
-        borderRadius: 18,
-        padding: 20,
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-      }}
+      className="bg-white border border-[#e0e0e0] rounded-[18px] p-5 flex flex-col gap-3"
       aria-hidden="true"
     >
-      <div className="skeleton-box" style={{ height: 180, width: "100%" }} />
-      <div className="skeleton-box" style={{ height: 14, width: "40%" }} />
-      <div className="skeleton-box" style={{ height: 20, width: "85%" }} />
-      <div className="skeleton-box" style={{ height: 16, width: "60%" }} />
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
-        <div className="skeleton-box" style={{ height: 24, width: "45%" }} />
-        <div className="skeleton-box" style={{ height: 32, width: 32, borderRadius: 8 }} />
+      <div className="h-[180px] w-full bg-slate-200 animate-pulse rounded-lg" />
+      <div className="h-3.5 w-2/5 bg-slate-200 animate-pulse rounded-md" />
+      <div className="h-5 w-[85%] bg-slate-200 animate-pulse rounded-md" />
+      <div className="h-4 w-3/5 bg-slate-200 animate-pulse rounded-md" />
+      <div className="flex justify-between items-center mt-2">
+        <div className="h-6 w-[45%] bg-slate-200 animate-pulse rounded-md" />
+        <div className="h-8 w-8 bg-slate-200 animate-pulse rounded-lg" />
       </div>
     </div>
   );
@@ -29,26 +19,19 @@ export function ProductCardSkeleton() {
 export function SetupCardSkeleton() {
   return (
     <div
-      style={{
-        background: "#fff",
-        border: "1px solid var(--line)",
-        borderRadius: 18,
-        overflow: "hidden",
-        display: "flex",
-        flexDirection: "column",
-      }}
+      className="bg-white border border-[#e0e0e0] rounded-[18px] overflow-hidden flex flex-col"
       aria-hidden="true"
     >
-      <div className="skeleton-box" style={{ height: 220, width: "100%", borderRadius: 0 }} />
-      <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
-        <div className="skeleton-box" style={{ height: 20, width: "80%" }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div className="skeleton-box" style={{ width: 28, height: 28, borderRadius: "50%" }} />
-          <div className="skeleton-box" style={{ height: 14, width: "50%" }} />
+      <div className="h-[220px] w-full bg-slate-200 animate-pulse rounded-none" />
+      <div className="p-5 flex flex-col gap-3">
+        <div className="h-5 w-4/5 bg-slate-200 animate-pulse rounded-md" />
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-full bg-slate-200 animate-pulse" />
+          <div className="h-3.5 w-1/2 bg-slate-200 animate-pulse rounded-md" />
         </div>
-        <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-          <div className="skeleton-box" style={{ height: 20, width: 60 }} />
-          <div className="skeleton-box" style={{ height: 20, width: 70 }} />
+        <div className="flex gap-1.5 mt-2">
+          <div className="h-5 w-[60px] bg-slate-200 animate-pulse rounded-md" />
+          <div className="h-5 w-[70px] bg-slate-200 animate-pulse rounded-md" />
         </div>
       </div>
     </div>
