@@ -134,6 +134,14 @@ Với `COD`, Payment giữ `PENDING` sau checkout; Admin chỉ đánh dấu `PAI
 
 Admin thêm/sửa/ẩn sản phẩm, điều chỉnh kho theo quy tắc một nguồn Inventory, xem đơn và chuyển trạng thái hợp lệ. Không xóa cứng Product đã được OrderItem tham chiếu. Customer không gọi được API admin dù ẩn nút trong giao diện.
 
+#### T20 — quản trị danh mục/hãng
+
+Đã thêm `GET/POST /api/admin/categories`, `GET/POST /api/admin/brands`, `PUT /api/admin/{categories|brands}/{id}` và `PUT /api/admin/{categories|brands}/{id}/status`. Tất cả yêu cầu session ADMIN. GET trả cả ACTIVE/INACTIVE cùng số sản phẩm liên kết; POST trả 201, PUT trả 200 sau commit. Không hỗ trợ DELETE. Response dùng DTO `{id,name,description,status,componentType,logoUrl,productCount}`; trường không áp dụng là null.
+
+PUT form là thay thế đầy đủ: tên (trim, 1–255), mô tả nullable, trạng thái ACTIVE/INACTIVE; category có componentType nullable theo enum; brand có logoUrl nullable, tối đa 2048, chỉ HTTP(S) và không userinfo. Endpoint `/status` chỉ nhận `{status}` để không ghi đè các trường khác. Không đổi componentType của category đã có sản phẩm (409 CATEGORY_IN_USE). Slug/icon/xuất xứ/website không nằm trong schema, form T20 không còn nhận các trường này. Không thêm/sửa migration.
+
+Ẩn category/brand giữ nguyên sản phẩm và lịch sử; catalog public tiếp tục lọc theo ACTIVE. API không ép tên duy nhất vì schema hiện tại không có ràng buộc này. Xem Swagger để thử và CoreHttpIT cho test lưu qua phiên mới, phân quyền, input sai và ẩn/hiện.
+
 ### Builder/Compatibility
 
 1. Build lưu user, tên, nguồn tạo, Product và số lượng. Product phải thuộc đúng `ComponentType`; kiểm tra chủ sở hữu trước xem/sửa/xóa.

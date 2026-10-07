@@ -253,8 +253,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <div className="admin-demo-note">
             <span className="admin-status-dot" />
             <div>
-              <strong>Chế độ xem mẫu</strong>
-              <span>Dữ liệu lưu tạm phiên làm việc</span>
+              <strong>{pathname === "/admin/categories" ? "Dữ liệu từ máy chủ" : "Chế độ xem mẫu"}</strong>
+              <span>{pathname === "/admin/categories" ? "Danh mục/hãng được lưu vào database" : "Dữ liệu lưu tạm phiên làm việc"}</span>
             </div>
           </div>
           <div className="admin-sidebar-version">PC Store admin · 0.2</div>
