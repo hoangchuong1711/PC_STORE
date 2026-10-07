@@ -238,7 +238,11 @@ export function AdminProducts() {
       if (draftRaw) {
         const draft = JSON.parse(draftRaw);
         if (draft && typeof draft === "object" && typeof draft.name === "string") {
-          setEditingProduct(draft);
+          setEditingProduct({
+            ...draft,
+            price: draft.price === 0 || draft.price === "0" ? "" : draft.price,
+            stock: draft.stock === 0 || draft.stock === "0" ? "" : draft.stock,
+          });
         }
       }
     } catch {
@@ -1000,13 +1004,14 @@ export function AdminProducts() {
                         <input
                           type="number"
                           placeholder="125"
-                          value={editingProduct.builderSpecs?.tdpWatts || ""}
-                          onChange={(e) =>
+                          value={editingProduct.builderSpecs?.tdpWatts ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
                             setEditingProduct({
                               ...editingProduct,
-                              builderSpecs: { ...editingProduct.builderSpecs, tdpWatts: Number(e.target.value) },
-                            })
-                          }
+                              builderSpecs: { ...editingProduct.builderSpecs, tdpWatts: val === "" ? undefined : Number(val) },
+                            });
+                          }}
                         />
                       </label>
                     )}
@@ -1018,13 +1023,14 @@ export function AdminProducts() {
                           <input
                             type="number"
                             placeholder="12"
-                            value={editingProduct.builderSpecs?.vramGb || ""}
-                            onChange={(e) =>
+                            value={editingProduct.builderSpecs?.vramGb ?? ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
                               setEditingProduct({
                                 ...editingProduct,
-                                builderSpecs: { ...editingProduct.builderSpecs, vramGb: Number(e.target.value) },
-                              })
-                            }
+                                builderSpecs: { ...editingProduct.builderSpecs, vramGb: val === "" ? undefined : Number(val) },
+                              });
+                            }}
                           />
                         </label>
                         <label>
@@ -1032,13 +1038,14 @@ export function AdminProducts() {
                           <input
                             type="number"
                             placeholder="650"
-                            value={editingProduct.builderSpecs?.recommendedPsuW || ""}
-                            onChange={(e) =>
+                            value={editingProduct.builderSpecs?.recommendedPsuW ?? ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
                               setEditingProduct({
                                 ...editingProduct,
-                                builderSpecs: { ...editingProduct.builderSpecs, recommendedPsuW: Number(e.target.value) },
-                              })
-                            }
+                                builderSpecs: { ...editingProduct.builderSpecs, recommendedPsuW: val === "" ? undefined : Number(val) },
+                              });
+                            }}
                           />
                         </label>
                         <label>
@@ -1046,13 +1053,14 @@ export function AdminProducts() {
                           <input
                             type="number"
                             placeholder="269"
-                            value={editingProduct.builderSpecs?.maxGpuLengthMm || ""}
-                            onChange={(e) =>
+                            value={editingProduct.builderSpecs?.maxGpuLengthMm ?? ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
                               setEditingProduct({
                                 ...editingProduct,
-                                builderSpecs: { ...editingProduct.builderSpecs, maxGpuLengthMm: Number(e.target.value) },
-                              })
-                            }
+                                builderSpecs: { ...editingProduct.builderSpecs, maxGpuLengthMm: val === "" ? undefined : Number(val) },
+                              });
+                            }}
                           />
                         </label>
                       </>
@@ -1065,13 +1073,14 @@ export function AdminProducts() {
                           <input
                             type="number"
                             placeholder="850"
-                            value={editingProduct.builderSpecs?.wattage || ""}
-                            onChange={(e) =>
+                            value={editingProduct.builderSpecs?.wattage ?? ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
                               setEditingProduct({
                                 ...editingProduct,
-                                builderSpecs: { ...editingProduct.builderSpecs, wattage: Number(e.target.value) },
-                              })
-                            }
+                                builderSpecs: { ...editingProduct.builderSpecs, wattage: val === "" ? undefined : Number(val) },
+                              });
+                            }}
                           />
                         </label>
                         <label>
@@ -1096,13 +1105,14 @@ export function AdminProducts() {
                         <input
                           type="number"
                           placeholder="1000"
-                          value={editingProduct.builderSpecs?.capacityGb || ""}
-                          onChange={(e) =>
+                          value={editingProduct.builderSpecs?.capacityGb ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
                             setEditingProduct({
                               ...editingProduct,
-                              builderSpecs: { ...editingProduct.builderSpecs, capacityGb: Number(e.target.value) },
-                            })
-                          }
+                              builderSpecs: { ...editingProduct.builderSpecs, capacityGb: val === "" ? undefined : Number(val) },
+                            });
+                          }}
                         />
                       </label>
                     )}
