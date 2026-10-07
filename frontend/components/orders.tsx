@@ -39,7 +39,6 @@ import {
   type OrderFilter,
   type OrderStatus,
 } from "../lib/orders";
-import "./orders.css";
 
 const filters: { value: OrderFilter; label: string }[] = [
   { value: "ALL", label: "Tất cả" },
@@ -61,8 +60,20 @@ const progressSteps: {
 ];
 
 function StatusBadge({ status }: { status: OrderStatus }) {
+  const colorMap: Record<OrderStatus, string> = {
+    PENDING: "bg-amber-100 text-amber-800 border-amber-200",
+    CONFIRMED: "bg-sky-100 text-sky-800 border-sky-200",
+    SHIPPING: "bg-indigo-100 text-indigo-800 border-indigo-200",
+    DELIVERED: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    CANCELLED: "bg-red-100 text-red-800 border-red-200",
+  };
+
   return (
-    <span className={`order-status status-${status.toLowerCase()}`}>
+    <span
+      className={`inline-flex items-center justify-center px-2.5 py-1 rounded-md font-specs text-[11px] font-bold tracking-wider uppercase border ${
+        colorMap[status] || "bg-slate-100 text-slate-700 border-slate-200"
+      }`}
+    >
       {orderStatusLabels[status]}
     </span>
   );
@@ -78,34 +89,38 @@ function OrderRow({
   const itemCount = order.lines.reduce((sum, line) => sum + line.quantity, 0);
 
   return (
-    <article className="order-row">
-      <div className="order-row-number">
-        <span>Mã đơn hàng</span>
-        <strong>{order.code}</strong>
-        <small>{formatOrderDate(order.createdAt)}</small>
+    <article className="grid grid-cols-1 md:grid-cols-[1.1fr_1.6fr_1fr_1fr_1.1fr] items-center gap-5 py-6 border-t border-[#e0e0e0]">
+      <div className="font-specs text-sm font-bold text-ink tracking-wide flex flex-col">
+        <span className="text-[11px] font-sans font-normal text-muted">Mã đơn hàng</span>
+        <strong className="text-base text-ink">{order.code}</strong>
+        <small className="text-xs font-normal text-muted">{formatOrderDate(order.createdAt)}</small>
       </div>
 
-      <div className="order-row-products">
-        <span>{itemCount} sản phẩm</span>
-        <strong>{order.lines.map((line) => line.name).join(" · ")}</strong>
+      <div className="flex flex-col">
+        <span className="text-[11px] text-muted">{itemCount} sản phẩm</span>
+        <strong className="text-sm text-slate-800 font-semibold truncate">
+          {order.lines.map((line) => line.name).join(" · ")}
+        </strong>
       </div>
 
-      <div className="order-row-status-col">
+      <div className="flex flex-col gap-1 items-start">
         <StatusBadge status={order.status} />
-        <small className="order-payment-method-tag">
+        <small className="text-[11px] text-slate-500 font-semibold">
           {order.paymentMethod === "BANK_TRANSFER" ? "VietQR 24/7" : "COD"}
         </small>
       </div>
 
-      <div className="order-row-total">
-        <span>Tổng thanh toán</span>
-        <strong>{formatPrice(order.total)}</strong>
+      <div className="text-left md:text-right flex flex-col">
+        <span className="text-[11px] text-muted">Tổng thanh toán</span>
+        <strong className="font-specs text-base font-bold text-ink">
+          {formatPrice(order.total)}
+        </strong>
       </div>
 
-      <div className="order-row-actions">
+      <div className="flex items-center justify-end gap-3">
         <button
           type="button"
-          className="order-row-reorder-btn"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-900 hover:text-white rounded-lg text-xs font-semibold text-slate-700 transition-colors cursor-pointer border border-slate-200"
           onClick={() => onReorder(order)}
           title="Thêm lại sản phẩm vào giỏ"
         >
@@ -113,7 +128,7 @@ function OrderRow({
         </button>
         <Link
           href={`/orders/${order.id}`}
-          className="order-row-link"
+          className="inline-flex items-center gap-1 text-[#006ce1] font-bold text-xs md:text-sm hover:underline"
           aria-label={`Xem chi tiết đơn ${order.code}`}
         >
           Chi tiết <ChevronRight size={17} />
@@ -176,22 +191,30 @@ export function OrdersPage() {
   return (
     <>
       <Header />
-      <main className="container orders-page">
-        <div className="orders-heading">
+      <main className="container py-12 pb-28 min-h-[72vh]">
+        <div className="flex items-end justify-between gap-7 flex-wrap">
           <div>
-            <span className="eyebrow">Tài khoản · Quản lý mua sắm</span>
-            <h1>Đơn hàng của tôi.</h1>
-            <p>
+            <span className="text-xs font-bold uppercase tracking-wider text-[#006ce1] block mb-1">
+              Tài khoản · Quản lý mua sắm
+            </span>
+            <h1 className="font-heading m-0 mb-2.5 text-3xl md:text-5xl font-extrabold tracking-tight text-ink">
+              Đơn hàng của tôi.
+            </h1>
+            <p className="font-sans m-0 text-sm md:text-base text-muted">
               Theo dõi lộ trình giao hàng, kiểm tra chi tiết linh kiện và thanh toán trực tiếp từ máy chủ.
             </p>
           </div>
         </div>
 
-        <div className="order-filters" role="group" aria-label="Lọc đơn hàng">
+        <div className="flex gap-2 my-8 pb-3 overflow-x-auto border-b border-[#e0e0e0]" role="group" aria-label="Lọc đơn hàng">
           {filters.map((item) => (
             <button
               key={item.value}
-              className={filter === item.value ? "active" : ""}
+              className={`shrink-0 px-4 py-2 rounded-xl font-nav text-xs md:text-sm font-semibold transition-all cursor-pointer ${
+                filter === item.value
+                  ? "bg-[#006ce1] text-white shadow-sm"
+                  : "bg-transparent text-muted hover:bg-slate-100 hover:text-[#006ce1]"
+              }`}
               onClick={() => setFilter(item.value)}
               aria-pressed={filter === item.value}
             >
@@ -201,33 +224,37 @@ export function OrdersPage() {
         </div>
 
         {!user && !authLoading ? (
-          <section className="orders-message" role="alert">
-            <PackageOpen size={48} aria-hidden="true" />
-            <h2>Vui lòng đăng nhập</h2>
-            <p>Đăng nhập vào tài khoản của bạn để xem và theo dõi lịch sử đơn hàng.</p>
-            <Link className="button button-primary" href="/account">
+          <section className="grid place-items-center py-16 px-6 border border-[#e0e0e0] rounded-2xl bg-white text-center" role="alert">
+            <PackageOpen size={48} className="text-[#006ce1] mb-5" aria-hidden="true" />
+            <h2 className="text-2xl font-bold text-ink m-0 mb-2">Vui lòng đăng nhập</h2>
+            <p className="text-sm text-muted max-w-md m-0 mb-5">Đăng nhập vào tài khoản của bạn để xem và theo dõi lịch sử đơn hàng.</p>
+            <Link
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm"
+              href="/account"
+            >
               Đăng nhập tài khoản
             </Link>
           </section>
         ) : error ? (
-          <section className="orders-message" role="alert">
-            <AlertCircle size={38} aria-hidden="true" />
-            <h2>Không thể tải danh sách đơn hàng</h2>
-            <p>{error}</p>
+          <section className="grid place-items-center py-16 px-6 border border-[#e0e0e0] rounded-2xl bg-white text-center" role="alert">
+            <AlertCircle size={40} className="text-red-500 mb-4" aria-hidden="true" />
+            <h2 className="text-2xl font-bold text-ink m-0 mb-2">Không thể tải danh sách đơn hàng</h2>
+            <p className="text-sm text-muted max-w-md m-0 mb-5">{error}</p>
             <button
-              className="button button-primary"
+              type="button"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm cursor-pointer"
               onClick={() => void fetchOrders()}
             >
               Thử tải lại
             </button>
           </section>
         ) : loading ? (
-          <div style={{ minHeight: "300px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Loader2 size={36} className="animate-spin text-muted-foreground" />
+          <div className="min-h-[300px] flex items-center justify-center">
+            <Loader2 size={36} className="animate-spin text-muted" />
           </div>
         ) : visibleOrders.length ? (
-          <section className="order-list" aria-label="Danh sách đơn hàng">
-            <div className="order-list-caption">
+          <section className="border-t-2 border-ink" aria-label="Danh sách đơn hàng">
+            <div className="flex justify-between gap-5 py-3.5 text-xs text-muted">
               <span>Hiển thị {visibleOrders.length} đơn hàng</span>
               <span>Cập nhật tự động · Thời gian thực</span>
             </div>
@@ -236,11 +263,14 @@ export function OrdersPage() {
             ))}
           </section>
         ) : (
-          <section className="orders-message">
-            <PackageOpen size={48} aria-hidden="true" />
-            <h2>Chưa có đơn hàng nào ở mục này</h2>
-            <p>Không tìm thấy đơn hàng nào ở trạng thái đã chọn.</p>
-            <Link className="button button-primary" href="/products">
+          <section className="grid place-items-center py-16 px-6 border border-[#e0e0e0] rounded-2xl bg-white text-center">
+            <PackageOpen size={48} className="text-[#006ce1] mb-5" aria-hidden="true" />
+            <h2 className="text-2xl font-bold text-ink m-0 mb-2">Chưa có đơn hàng nào ở mục này</h2>
+            <p className="text-sm text-muted max-w-md m-0 mb-5">Không tìm thấy đơn hàng nào ở trạng thái đã chọn.</p>
+            <Link
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm"
+              href="/products"
+            >
               Khám phá linh kiện ngay
             </Link>
           </section>
@@ -357,22 +387,10 @@ export function OrderDetail({
     return (
       <>
         <Header />
-        <main
-          className="container order-detail-page"
-          style={{
-            minHeight: "60vh",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div style={{ textAlign: "center", padding: "4rem 0" }}>
-            <Loader2
-              size={40}
-              className="animate-spin text-muted-foreground"
-              style={{ margin: "0 auto 1rem" }}
-            />
-            <p>Đang tải thông tin đơn hàng từ máy chủ...</p>
+        <main className="container min-h-[60vh] flex items-center justify-center py-16">
+          <div className="text-center">
+            <Loader2 size={40} className="animate-spin text-muted mx-auto mb-4" />
+            <p className="text-sm text-muted">Đang tải thông tin đơn hàng từ máy chủ...</p>
           </div>
         </main>
         <Footer />
@@ -384,28 +402,20 @@ export function OrderDetail({
     return (
       <>
         <Header />
-        <main
-          className="container order-detail-page"
-          style={{ minHeight: "60vh", padding: "4rem 1rem" }}
-        >
+        <main className="container min-h-[60vh] py-16 px-4">
           <div
             role="alert"
-            style={{
-              maxWidth: "600px",
-              margin: "0 auto",
-              textAlign: "center",
-              padding: "3rem",
-              background: "#fee2e2",
-              color: "#b91c1c",
-              borderRadius: "16px",
-            }}
+            className="max-w-[600px] mx-auto text-center p-12 bg-red-100 text-red-800 rounded-2xl"
           >
-            <AlertCircle size={48} style={{ margin: "0 auto 1rem" }} />
-            <h2 style={{ marginBottom: "0.5rem" }}>Không tìm thấy đơn hàng</h2>
-            <p style={{ marginBottom: "1.5rem" }}>
+            <AlertCircle size={48} className="mx-auto mb-4" />
+            <h2 className="text-xl font-bold mb-2">Không tìm thấy đơn hàng</h2>
+            <p className="text-sm mb-6">
               {error ?? "Đơn hàng không tồn tại hoặc bạn không có quyền xem đơn hàng này."}
             </p>
-            <Link href="/orders" className="button button-primary">
+            <Link
+              href="/orders"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm"
+            >
               ← Danh sách đơn hàng
             </Link>
           </div>
@@ -418,27 +428,29 @@ export function OrderDetail({
   return (
     <>
       <Header />
-      <main className="container order-detail-page">
-        <nav className="breadcrumb" aria-label="Đường dẫn">
-          <Link href="/">Trang chủ</Link>
+      <main className="container py-12 pb-28 min-h-[72vh]">
+        <nav className="flex items-center gap-2 text-xs md:text-sm text-muted mb-8" aria-label="Đường dẫn">
+          <Link href="/" className="hover:text-ink">Trang chủ</Link>
           <span>/</span>
-          <Link href="/orders">Đơn hàng của tôi</Link>
+          <Link href="/orders" className="hover:text-ink">Đơn hàng của tôi</Link>
           <span>/</span>
-          <span>{order.code}</span>
+          <span className="text-ink font-semibold">{order.code}</span>
         </nav>
 
-        <div className="order-detail-heading">
+        <div className="flex items-start md:items-center justify-between gap-6 flex-wrap pb-6 border-b-2 border-ink mb-8">
           <div>
-            <span className="eyebrow">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#006ce1] block mb-1">
               Thời gian đặt: {formatOrderDate(order.createdAt)}
             </span>
-            <h1>Đơn hàng #{order.code}</h1>
+            <h1 className="font-heading m-0 text-2xl md:text-4xl font-extrabold tracking-tight text-ink">
+              Đơn hàng #{order.code}
+            </h1>
           </div>
-          <div className="order-detail-header-actions">
+          <div className="flex items-center gap-3 flex-wrap">
             <StatusBadge status={order.status} />
             <button
               type="button"
-              className="button button-outline detail-reorder-btn"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs md:text-sm font-semibold text-ink border border-[#e0e0e0] hover:border-slate-400 bg-white transition-colors cursor-pointer"
               onClick={handleReorder}
             >
               <RotateCcw size={15} /> Mua lại
@@ -446,7 +458,7 @@ export function OrderDetail({
             {order.status === "PENDING" && (
               <button
                 type="button"
-                className="cancel-order-btn"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-100 hover:bg-red-600 hover:text-white border border-red-300 rounded-xl text-red-800 text-xs md:text-sm font-semibold cursor-pointer transition-colors"
                 onClick={() => setCancelModalOpen(true)}
               >
                 <XCircle size={15} /> Hủy đơn hàng
@@ -457,63 +469,76 @@ export function OrderDetail({
 
         {/* Cancelled Alert or Progress Tracker */}
         {order.status === "CANCELLED" ? (
-          <section className="cancelled-note" role="alert">
-            <AlertCircle size={28} className="cancelled-alert-icon" />
+          <section className="flex items-start gap-4 my-7 p-5 border border-red-200 bg-red-50 rounded-2xl text-red-900" role="alert">
+            <AlertCircle size={28} className="shrink-0 mt-0.5 text-red-600" />
             <div>
-              <strong>Đơn hàng đã được hủy</strong>
-              <p>
+              <strong className="block text-base mb-1">Đơn hàng đã được hủy</strong>
+              <p className="m-0 text-sm">
                 Lý do: {order.cancelReason || "Người mua yêu cầu hủy đơn."}.
                 Tồn kho linh kiện đã được giải phóng tự động.
               </p>
             </div>
           </section>
         ) : (
-          <ol className="order-progress" aria-label="Tiến trình đơn hàng">
+          <ol className="grid grid-cols-1 sm:grid-cols-4 gap-4 sm:gap-0 py-8 mb-8 list-none p-0" aria-label="Tiến trình đơn hàng">
             {progressSteps.map((step) => {
               const reached = progress.includes(step.value);
               const Icon = step.icon;
               return (
-                <li key={step.value} className={reached ? "reached" : ""}>
-                  <span className="progress-icon">
+                <li
+                  key={step.value}
+                  className={`flex sm:flex-col items-center sm:text-center gap-3 sm:gap-2.5 relative ${
+                    reached ? "text-ink font-semibold" : "text-slate-400 font-normal"
+                  }`}
+                >
+                  <span
+                    className={`z-10 grid place-items-center w-11 h-11 rounded-full border-2 transition-colors ${
+                      reached
+                        ? "border-[#006ce1] bg-[#006ce1] text-white"
+                        : "border-slate-300 bg-white text-slate-400"
+                    }`}
+                  >
                     <Icon size={19} aria-hidden="true" />
                   </span>
-                  <span className="progress-step-label">{step.label}</span>
+                  <span className="text-xs md:text-sm font-semibold">{step.label}</span>
                 </li>
               );
             })}
           </ol>
         )}
 
-        <div className="order-detail-grid">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.8fr)] gap-8 items-start">
           {/* Products Panel */}
-          <section className="order-products-panel">
-            <div className="panel-heading">
-              <h2>Danh sách linh kiện trong đơn</h2>
-              <span>{order.lines.length} sản phẩm</span>
+          <section className="border border-[#e0e0e0] rounded-2xl bg-white overflow-hidden">
+            <div className="flex items-center justify-between p-5 md:p-6 border-b border-[#e0e0e0]">
+              <h2 className="m-0 text-lg font-bold text-ink">Danh sách linh kiện trong đơn</h2>
+              <span className="text-xs text-muted">{order.lines.length} sản phẩm</span>
             </div>
 
             {order.lines.map((line) => (
-              <article className="ordered-product" key={line.productId}>
-                <div className="ordered-product-mark" aria-hidden="true">
+              <article className="grid grid-cols-[60px_minmax(0,1fr)_auto] items-center gap-4.5 p-5 md:p-6 border-b border-[#e0e0e0]" key={line.productId}>
+                <div className="grid place-items-center aspect-square bg-blue-50 text-[#006ce1] text-2xl font-extrabold rounded-xl" aria-hidden="true">
                   {line.name.slice(0, 1)}
                 </div>
-                <div className="ordered-product-info">
-                  <span className="ordered-cat">{line.category}</span>
-                  <h3>
-                    <Link href={`/products/${line.slug}`}>{line.name}</Link>
+                <div>
+                  <span className="text-[11px] font-bold uppercase text-muted block mb-0.5">{line.category}</span>
+                  <h3 className="m-0 mb-1 text-sm md:text-base font-bold text-ink">
+                    <Link href={`/products/${line.slug}`} className="hover:text-[#006ce1] transition-colors">
+                      {line.name}
+                    </Link>
                   </h3>
-                  <p>
+                  <p className="m-0 mb-2 text-xs md:text-sm text-muted">
                     Đơn giá: {formatPrice(line.unitPrice)} · Số lượng: <b>{line.quantity}</b>
                   </p>
                   {order.status === "DELIVERED" && (
                     hasUserReviewedProduct(line.slug, order.id) ? (
-                      <span className="line-reviewed-badge">
+                      <span className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold px-2.5 py-1 rounded-lg">
                         <CheckCircle2 size={13} /> Đã đánh giá linh kiện
                       </span>
                     ) : (
                       <button
                         type="button"
-                        className="line-review-btn"
+                        className="inline-flex items-center gap-1.5 bg-slate-50 border border-[#e0e0e0] text-ink text-xs font-semibold px-3 py-1.5 rounded-lg hover:border-amber-400 hover:text-amber-700 transition-colors cursor-pointer"
                         onClick={() =>
                           setReviewProduct({ slug: line.slug, name: line.name })
                         }
@@ -523,65 +548,73 @@ export function OrderDetail({
                     )
                   )}
                 </div>
-                <strong className="ordered-line-total">
+                <strong className="text-sm md:text-base text-ink font-specs font-bold">
                   {formatPrice(line.unitPrice * line.quantity)}
                 </strong>
               </article>
             ))}
 
-            <dl className="order-total">
-              <div>
-                <dt>Phí vận chuyển</dt>
-                <dd>Miễn phí</dd>
+            <dl className="m-0 p-5 md:p-6 text-sm">
+              <div className="flex justify-between py-1.5">
+                <dt className="text-muted">Phí vận chuyển</dt>
+                <dd className="m-0 font-semibold text-ink">Miễn phí</dd>
               </div>
-              <div>
-                <dt>Phương thức thanh toán</dt>
-                <dd>{paymentMethodLabels[order.paymentMethod]}</dd>
+              <div className="flex justify-between py-1.5">
+                <dt className="text-muted">Phương thức thanh toán</dt>
+                <dd className="m-0 font-semibold text-ink">{paymentMethodLabels[order.paymentMethod]}</dd>
               </div>
-              <div className="order-total-sum">
+              <div className="flex justify-between pt-4 mt-2 border-t border-[#e0e0e0] text-lg font-extrabold text-ink font-specs">
                 <dt>Tổng cộng</dt>
-                <dd>{formatPrice(order.total)}</dd>
+                <dd className="m-0">{formatPrice(order.total)}</dd>
               </div>
             </dl>
           </section>
 
           {/* Recipient & Payment Panel */}
-          <aside className="recipient-panel">
-            <div className="panel-sub-card">
-              <span className="eyebrow">Địa chỉ nhận hàng</span>
-              <h2>{order.recipient.name}</h2>
-              <p className="recipient-phone">{order.recipient.phone}</p>
-              <p className="recipient-address">{order.recipient.address}</p>
+          <aside className="flex flex-col gap-5">
+            <div className="border border-[#e0e0e0] rounded-2xl bg-white p-6">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#006ce1] block mb-1">
+                Địa chỉ nhận hàng
+              </span>
+              <h2 className="m-0 mb-1 text-lg font-bold text-ink">{order.recipient.name}</h2>
+              <p className="m-0 mb-1 text-sm font-semibold text-ink">{order.recipient.phone}</p>
+              <p className="m-0 text-xs md:text-sm text-slate-600 leading-relaxed">{order.recipient.address}</p>
             </div>
 
-            <div className="panel-sub-card payment-detail-card">
-              <span className="eyebrow">Chi tiết thanh toán</span>
-              <div className="payment-type-row">
-                <CreditCard size={18} />
-                <strong>{paymentMethodLabels[order.paymentMethod]}</strong>
+            <div className="border border-[#e0e0e0] rounded-2xl bg-white p-6 flex flex-col gap-3">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#006ce1] block">
+                Chi tiết thanh toán
+              </span>
+              <div className="flex items-center gap-2 text-sm">
+                <CreditCard size={18} className="text-muted" />
+                <strong className="text-ink">{paymentMethodLabels[order.paymentMethod]}</strong>
               </div>
 
-              <div className="payment-status-row">
+              <div className="flex justify-between items-center text-xs md:text-sm text-muted">
                 <span>Trạng thái tiền:</span>
                 <span
-                  className={`payment-pill ${order.paymentStatus === "PAID" ? "paid" : "pending"}`}
+                  className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                    order.paymentStatus === "PAID"
+                      ? "bg-emerald-100 text-emerald-800"
+                      : "bg-amber-100 text-amber-800"
+                  }`}
                 >
                   {paymentStatusLabels[order.paymentStatus]}
                 </span>
               </div>
 
               {order.paymentMethod === "BANK_TRANSFER" && (
-                <div className="bank-action-box">
+                <div className="mt-2">
                   {order.paymentStatus === "PENDING" && order.status !== "CANCELLED" ? (
                     <button
                       type="button"
-                      className="button button-outline view-qr-btn"
+                      className="w-full inline-flex items-center justify-center gap-2 p-2.5 rounded-xl text-xs md:text-sm font-bold text-ink border border-[#e0e0e0] hover:border-slate-400 bg-white transition-colors cursor-pointer"
                       onClick={() => setQrModalOpen(true)}
                     >
                       <QrCode size={16} /> Quét mã VietQR chuyển khoản
                     </button>
                   ) : (
-                    <div className="paid-check-badge">
+                    <div className="flex items-center gap-1.5 text-emerald-600 text-xs md:text-sm font-bold bg-emerald-50 p-2.5 rounded-xl">
                       <CheckCircle2 size={16} /> Đã nhận được thanh toán
                     </div>
                   )}
@@ -589,9 +622,9 @@ export function OrderDetail({
               )}
             </div>
 
-            <div className="support-card">
-              <strong>Cần hỗ trợ về đơn hàng này?</strong>
-              <p>Hotline CSKH: 1900 6868 hoặc nhắn qua Zalo hỗ trợ kỹ thuật.</p>
+            <div className="border border-[#e0e0e0] rounded-2xl bg-slate-50 p-5 text-xs md:text-sm">
+              <strong className="block mb-1 text-ink font-bold">Cần hỗ trợ về đơn hàng này?</strong>
+              <p className="m-0 text-muted">Hotline CSKH: 1900 6868 hoặc nhắn qua Zalo hỗ trợ kỹ thuật.</p>
             </div>
           </aside>
         </div>
@@ -599,28 +632,30 @@ export function OrderDetail({
         {/* Cancel Confirmation Modal */}
         {cancelModalOpen && (
           <div
-            className="modal-overlay"
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 grid place-items-center p-5"
             onClick={() => setCancelModalOpen(false)}
           >
             <div
-              className="modal-content"
+              className="bg-white rounded-2xl p-7 md:p-8 max-w-[480px] w-full shadow-2xl"
               role="dialog"
               aria-modal="true"
               aria-labelledby="cancel-title"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 id="cancel-title">Xác nhận hủy đơn hàng</h2>
-              <p>
+              <h2 id="cancel-title" className="m-0 mb-2.5 text-xl font-bold text-ink tracking-tight">
+                Xác nhận hủy đơn hàng
+              </h2>
+              <p className="m-0 mb-4 text-sm text-slate-600">
                 Bạn có chắc chắn muốn hủy đơn hàng <b>{order.code}</b> không?
               </p>
-              <label htmlFor="cancelReasonSelect" className="cancel-reason-label">
+              <label htmlFor="cancelReasonSelect" className="block text-xs font-semibold text-ink mb-1.5">
                 Lý do hủy đơn:
               </label>
               <select
                 id="cancelReasonSelect"
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
-                className="cancel-select"
+                className="w-full p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none mb-6"
               >
                 <option value="Đổi ý không muốn mua nữa">Đổi ý không muốn mua nữa</option>
                 <option value="Muốn thay đổi địa chỉ nhận hàng">Muốn thay đổi địa chỉ nhận hàng</option>
@@ -629,17 +664,17 @@ export function OrderDetail({
                 <option value="Khác">Khác...</option>
               </select>
 
-              <div className="modal-actions">
+              <div className="flex justify-end gap-3">
                 <button
                   type="button"
-                  className="button button-outline"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-ink border border-[#e0e0e0] hover:border-slate-400 bg-white transition-colors cursor-pointer"
                   onClick={() => setCancelModalOpen(false)}
                 >
                   Không, giữ lại đơn
                 </button>
                 <button
                   type="button"
-                  className="button button-danger"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors shadow-sm cursor-pointer"
                   onClick={handleConfirmCancel}
                 >
                   Xác nhận hủy đơn
@@ -651,28 +686,28 @@ export function OrderDetail({
 
         {/* VietQR View Modal */}
         {qrModalOpen && (
-          <div className="modal-overlay" onClick={() => setQrModalOpen(false)}>
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 grid place-items-center p-5" onClick={() => setQrModalOpen(false)}>
             <div
-              className="modal-content qr-modal"
+              className="bg-white rounded-2xl p-7 md:p-8 max-w-[400px] w-full shadow-2xl text-center"
               role="dialog"
               aria-modal="true"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2>Mã QR chuyển khoản đơn {order.code}</h2>
-              <div className="qr-preview-box">
-                <QrCode size={140} />
-                <span className="qr-scan-badge">VietQR 24/7</span>
+              <h2 className="text-xl font-bold text-ink mb-4">Mã QR chuyển khoản đơn {order.code}</h2>
+              <div className="grid place-items-center p-6 bg-slate-50 border border-slate-200 rounded-2xl mb-4 relative">
+                <QrCode size={140} className="text-ink" />
+                <span className="mt-2 font-specs text-xs font-bold uppercase text-[#006ce1]">VietQR 24/7</span>
               </div>
-              <div className="qr-modal-details">
-                <p>Ngân hàng: <b>MB Bank</b></p>
-                <p>STK: <b>090123456789</b></p>
-                <p>Chủ tài khoản: <b>CONG TY TNHH PC STORE VIET NAM</b></p>
-                <p>Số tiền: <b>{formatPrice(order.total)}</b></p>
-                <p>Nội dung: <b>{order.code}</b></p>
+              <div className="bg-slate-50 border border-[#e0e0e0] rounded-xl p-4 mb-6 text-left text-xs md:text-sm">
+                <p className="my-1.5 flex justify-between"><span>Ngân hàng:</span> <b>MB Bank</b></p>
+                <p className="my-1.5 flex justify-between"><span>STK:</span> <b>090123456789</b></p>
+                <p className="my-1.5 flex justify-between"><span>Chủ tài khoản:</span> <b>PC STORE VIET NAM</b></p>
+                <p className="my-1.5 flex justify-between"><span>Số tiền:</span> <b>{formatPrice(order.total)}</b></p>
+                <p className="my-1.5 flex justify-between"><span>Nội dung:</span> <b>{order.code}</b></p>
               </div>
               <button
                 type="button"
-                className="button button-primary"
+                className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm cursor-pointer"
                 onClick={() => setQrModalOpen(false)}
               >
                 Đã hiểu, đóng cửa sổ
