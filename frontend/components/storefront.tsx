@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart } from "./cart-provider";
+import { useAuth } from "./auth-provider";
 import { useToast } from "./toast";
 import { QuickSearch } from "./quick-search";
 import { ProductReviewsSection } from "./reviews";
@@ -30,6 +31,13 @@ import {
 } from "lucide-react";
 
 export function Header() {
+  const { user, loading, error: sessionError, logout } = useAuth();
+  const [logoutError, setLogoutError] = useState("");
+  const router = useRouter();
+  async function handleLogout() {
+    try { await logout(); setLogoutError(""); router.replace("/auth/login"); }
+    catch (cause) { setLogoutError((cause as Error).message); }
+  }
   const { items, openCart } = useCart();
   const count = items.reduce((sum, item) => sum + item.quantity, 0);
   const [open, setOpen] = useState(false);
@@ -82,10 +90,12 @@ export function Header() {
                   onClick={() => setUserDropdown(false)}
                 >
                   <div className="user-menu-header">
-                    <strong>Nguyễn Minh Anh</strong>
-                    <small>minhanh@example.com</small>
+                    <strong>{loading ? "Đang kiểm tra phiên…" : user?.fullName ?? "Khách"}</strong>
+                    <small>{user?.email ?? "Chưa đăng nhập"}</small>
                   </div>
                   <div className="user-menu-divider" />
+                  {user?.role === "ADMIN" && <Link href="/admin" className="user-menu-item">Quản trị cửa hàng</Link>}
+                  {user && <button type="button" className="user-menu-item" onClick={() => void handleLogout()}>Đăng xuất</button>}
                   <Link href="/account" className="user-menu-item">
                     Hồ sơ tài khoản
                   </Link>
@@ -159,6 +169,7 @@ export function Header() {
           </nav>
         )}
       </header>
+      {(logoutError || sessionError) && <p role="alert">{logoutError || sessionError}</p>}
 
       <QuickSearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
     </>

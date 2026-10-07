@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  AlertTriangle,
   Bell,
   CheckCheck,
   ChevronDown,
@@ -11,11 +12,13 @@ import {
   ExternalLink,
   FolderTree,
   LayoutDashboard,
+  Lock,
   LogOut,
   Menu,
   MessageCircle,
   Package,
-  Settings,
+  RotateCcw,
+  ShieldAlert,
   ShoppingBag,
   Star,
   Store,
@@ -24,6 +27,8 @@ import {
   X,
 } from "lucide-react";
 import { initialAdminNotifications, type AdminNotification } from "../../lib/admin";
+import { useAuth } from "../auth-provider";
+import "./admin.css";
 
 const navigation = [
   { href: "/admin", label: "Tổng quan", icon: LayoutDashboard },
@@ -38,6 +43,8 @@ const navigation = [
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { user, loading, error, refresh, logout } = useAuth();
+  const [logoutError, setLogoutError] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -65,9 +72,131 @@ export function AdminShell({ children }: { children: ReactNode }) {
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
   }
 
-  function handleLogout() {
+  async function handleLogout() {
     setProfileOpen(false);
-    router.push("/auth?mode=login");
+    try { await logout(); router.replace("/auth/login"); }
+    catch (cause) { setLogoutError((cause as Error).message); }
+  }
+
+  if (loading) {
+    return (
+      <main className="admin-guard-page">
+        <div className="admin-guard-card">
+          <div className="admin-guard-brand">
+            <span className="admin-guard-brand-mark">P</span>
+            <span>
+              PC <strong>STORE</strong> ADMIN
+            </span>
+          </div>
+          <div className="admin-guard-spinner" />
+          <p role="status" className="admin-guard-text">
+            Đang kiểm tra phiên đăng nhập…
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (error) {
+    return (
+      <main className="admin-guard-page">
+        <div className="admin-guard-card">
+          <div className="admin-guard-brand">
+            <span className="admin-guard-brand-mark">P</span>
+            <span>
+              PC <strong>STORE</strong> ADMIN
+            </span>
+          </div>
+          <div className="admin-guard-icon-wrap admin-guard-icon-warning">
+            <AlertTriangle size={32} />
+          </div>
+          <span className="admin-guard-badge admin-guard-badge-warning">LỖI XÁC THỰC</span>
+          <p role="alert" className="admin-guard-error-msg">
+            {error}
+          </p>
+          <div className="admin-guard-actions">
+            <button
+              type="button"
+              onClick={() => void refresh()}
+              className="admin-guard-btn admin-guard-btn-primary"
+            >
+              <RotateCcw size={15} /> Thử lại
+            </button>
+            <Link href="/" className="admin-guard-btn admin-guard-btn-secondary">
+              <Store size={15} /> Về trang chủ
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return (
+      <main className="admin-guard-page">
+        <div className="admin-guard-card">
+          <div className="admin-guard-brand">
+            <span className="admin-guard-brand-mark">P</span>
+            <span>
+              PC <strong>STORE</strong> ADMIN
+            </span>
+          </div>
+          <div className="admin-guard-icon-wrap admin-guard-icon-info">
+            <Lock size={32} />
+          </div>
+          <span className="admin-guard-badge admin-guard-badge-info">XÁC THỰC BẮT BUỘC · 401</span>
+          <h2 className="admin-guard-heading">Yêu cầu quyền quản trị</h2>
+          <p className="admin-guard-desc">
+            Bạn cần đăng nhập để vào Admin. Khu vực này chỉ dành cho ban quản trị và nhân viên điều hành hệ thống.
+          </p>
+          <div className="admin-guard-actions">
+            <Link href="/auth/login" className="admin-guard-btn admin-guard-btn-primary">
+              Đăng nhập
+            </Link>
+            <Link href="/" className="admin-guard-btn admin-guard-btn-secondary">
+              <Store size={15} /> Về cửa hàng
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (user.role !== "ADMIN") {
+    return (
+      <main className="admin-guard-page">
+        <div className="admin-guard-card">
+          <div className="admin-guard-brand">
+            <span className="admin-guard-brand-mark">P</span>
+            <span>
+              PC <strong>STORE</strong> ADMIN
+            </span>
+          </div>
+          <div className="admin-guard-icon-wrap admin-guard-icon-danger">
+            <ShieldAlert size={34} />
+          </div>
+          <span className="admin-guard-badge admin-guard-badge-danger">
+            TRUY CẬP BỊ TỪ CHỐI · 403 FORBIDDEN
+          </span>
+          <h1>Không có quyền truy cập Admin</h1>
+          <p className="admin-guard-desc">
+            Tài khoản <strong>{user.email}</strong> không có đặc quyền quản trị viên. Trang quản trị chỉ dành cho tài khoản có vai trò ADMIN.
+          </p>
+          <div className="admin-guard-actions">
+            <Link href="/" className="admin-guard-btn admin-guard-btn-primary">
+              <Store size={15} /> Về cửa hàng
+            </Link>
+            <button
+              type="button"
+              onClick={() => void handleLogout()}
+              className="admin-guard-btn admin-guard-btn-secondary"
+            >
+              <LogOut size={15} /> Đổi tài khoản khác
+            </button>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -225,7 +354,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               >
                 <span className="admin-avatar">MA</span>
                 <span className="admin-profile-copy">
-                  <strong>Minh Anh</strong>
+                  <strong>{user.fullName}</strong>
                   <small>Quản trị viên</small>
                 </span>
                 <ChevronDown size={15} className={profileOpen ? "rotate-180" : ""} />
@@ -236,8 +365,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
                   <div className="admin-profile-dropdown-user">
                     <span className="admin-avatar is-large">MA</span>
                     <div>
-                      <strong>Nguyễn Minh Anh</strong>
-                      <small>minhanh@pcstore.vn</small>
+                      <strong>{user.fullName}</strong>
+                      <small>{user.email}</small>
                       <span className="admin-role-badge">Quản trị hệ thống</span>
                     </div>
                   </div>
@@ -273,7 +402,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="admin-content">{children}</main>
+        <main className="admin-content">{logoutError && <p role="alert">{logoutError}</p>}{children}</main>
       </div>
     </div>
   );
