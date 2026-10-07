@@ -101,14 +101,19 @@ function fromAdminProductItem(p: AdminProductItem): AdminProduct {
 
 const itemsPerPage = 6;
 
-const emptyProduct = (): AdminProduct => ({
+export type AdminProductFormState = Omit<AdminProduct, "price" | "stock"> & {
+  price: number | "";
+  stock: number | "";
+};
+
+const emptyProduct = (): AdminProductFormState => ({
   id: `p-${Date.now()}`,
   sku: `PCS-${Date.now().toString().slice(-4)}`,
   name: "",
   brand: "ASUS",
   category: "Laptop",
-  price: 0,
-  stock: 0,
+  price: "",
+  stock: "",
   status: "ACTIVE",
   imageUrl: "/admin/products/laptop.svg",
   imageColor: "#e6e9ef",
@@ -140,7 +145,7 @@ export function AdminProducts() {
     stock: "ALL",
   });
   const [currentPage, setCurrentPage] = useState(1);
-  const [editingProduct, setEditingProduct] = useState<AdminProduct | null>(null);
+  const [editingProduct, setEditingProduct] = useState<AdminProductFormState | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<AdminProductStatus>("ACTIVE");
   const [feedback, setFeedback] = useState("");
@@ -337,7 +342,11 @@ export function AdminProducts() {
   function openEdit(product: AdminProduct) {
     setFeedback("");
     setDrawerError(null);
-    setEditingProduct({ ...product });
+    setEditingProduct({
+      ...product,
+      price: product.price === 0 ? "" : product.price,
+      stock: product.stock === 0 ? "" : product.stock,
+    });
   }
 
   function closeDrawer() {
@@ -383,11 +392,15 @@ export function AdminProducts() {
       setDrawerError("Vui lòng nhập tên sản phẩm.");
       return;
     }
-    if (editingProduct.price < 0) {
+
+    const priceNum = editingProduct.price === "" ? 0 : Number(editingProduct.price);
+    const stockNum = editingProduct.stock === "" ? 0 : Number(editingProduct.stock);
+
+    if (isNaN(priceNum) || priceNum < 0) {
       setDrawerError("Giá bán không được âm.");
       return;
     }
-    if (editingProduct.stock < 0) {
+    if (isNaN(stockNum) || stockNum < 0) {
       setDrawerError("Số lượng tồn kho không được âm.");
       return;
     }
@@ -406,13 +419,13 @@ export function AdminProducts() {
           await adminProductApi.update(numId, {
             name: trimmedName,
             description: editingProduct.description || null,
-            price: editingProduct.price,
+            price: priceNum,
             categoryId: cat?.categoryId ?? 1,
             brandId: br?.brandId ?? 1,
             status: editingProduct.status,
           });
           await adminProductApi.updateInventory(numId, {
-            quantityOnHand: editingProduct.stock,
+            quantityOnHand: stockNum,
           });
         } catch (backendErr) {
           console.warn("Backend update error, saving locally:", backendErr);
@@ -421,6 +434,8 @@ export function AdminProducts() {
         savedProduct = {
           ...editingProduct,
           name: trimmedName,
+          price: priceNum,
+          stock: stockNum,
           updatedAt: new Date().toISOString(),
         };
 
@@ -437,11 +452,11 @@ export function AdminProducts() {
           const created = await adminProductApi.create({
             name: trimmedName,
             description: editingProduct.description || null,
-            price: editingProduct.price,
+            price: priceNum,
             categoryId: cat?.categoryId ?? 1,
             brandId: br?.brandId ?? 1,
             status: editingProduct.status,
-            quantityOnHand: editingProduct.stock,
+            quantityOnHand: stockNum,
           });
           createdId = created.productId;
           serverSuccess = true;
@@ -454,6 +469,8 @@ export function AdminProducts() {
           id: String(createdId),
           sku: editingProduct.sku.trim() || `PCS-${createdId.toString().slice(-4)}`,
           name: trimmedName,
+          price: priceNum,
+          stock: stockNum,
           updatedAt: new Date().toISOString(),
         };
 
@@ -854,8 +871,15 @@ export function AdminProducts() {
                     type="number"
                     min="0"
                     step="1000"
+                    placeholder="0"
                     value={editingProduct.price}
-                    onChange={(event) => setEditingProduct({ ...editingProduct, price: Number(event.target.value) })}
+                    onChange={(event) => {
+                      const val = event.target.value;
+                      setEditingProduct({
+                        ...editingProduct,
+                        price: val === "" ? "" : Number(val),
+                      });
+                    }}
                   />
                 </label>
                 <label>
@@ -865,8 +889,15 @@ export function AdminProducts() {
                     type="number"
                     min="0"
                     step="1"
+                    placeholder="0"
                     value={editingProduct.stock}
-                    onChange={(event) => setEditingProduct({ ...editingProduct, stock: Number(event.target.value) })}
+                    onChange={(event) => {
+                      const val = event.target.value;
+                      setEditingProduct({
+                        ...editingProduct,
+                        stock: val === "" ? "" : Number(val),
+                      });
+                    }}
                   />
                 </label>
               </div>
