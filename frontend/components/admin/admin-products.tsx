@@ -122,11 +122,11 @@ const emptyProduct = (): AdminProductFormState => ({
 });
 
 const statusTone: Record<AdminProductStatus, string> = {
-  ACTIVE: "is-success",
-  DRAFT: "is-warning",
-  HIDDEN: "is-muted",
-  OUT_OF_STOCK: "is-danger",
-  DISCONTINUED: "is-muted",
+  ACTIVE: "bg-admin-green-soft text-admin-green border-admin-green/20",
+  DRAFT: "bg-admin-amber-soft text-admin-amber border-admin-amber/20",
+  HIDDEN: "bg-gray-100 text-gray-600 border-gray-200",
+  OUT_OF_STOCK: "bg-admin-red-soft text-admin-red border-admin-red/20",
+  DISCONTINUED: "bg-gray-100 text-gray-500 border-gray-200",
 };
 
 export function AdminProducts() {
@@ -508,56 +508,67 @@ export function AdminProducts() {
   }
 
   return (
-    <div className="admin-page">
-      <div className="admin-page-heading">
+    <div className="max-w-[1250px] mx-auto font-sans">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-7">
         <div>
-          <span className="admin-eyebrow">Danh mục và tồn kho</span>
-          <h1>Sản phẩm</h1>
-          <p>Quản lý danh mục hàng hóa, phân loại linh kiện và số lượng tồn sẵn sàng bán.</p>
+          <span className="block text-[10px] font-bold text-admin-soft tracking-wider uppercase">Danh mục và tồn kho</span>
+          <h1 className="text-2xl sm:text-3xl lg:text-[34px] font-extrabold text-admin-ink tracking-tight mt-1 mb-1.5 leading-tight">Sản phẩm</h1>
+          <p className="text-sm text-admin-muted max-w-[570px] m-0">Quản lý danh mục hàng hóa, phân loại linh kiện và số lượng tồn sẵn sàng bán.</p>
         </div>
-        <button type="button" className="admin-button admin-button-primary" onClick={openCreate}>
+        <button
+          type="button"
+          className="inline-flex items-center justify-center gap-2 min-h-[38px] px-4 rounded-lg bg-admin-accent-dark hover:bg-black text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+          onClick={openCreate}
+        >
           <Plus size={16} />
           Thêm sản phẩm
         </button>
       </div>
 
       {error && (
-        <div className="admin-feedback is-danger" role="alert" style={{ background: "#fee2e2", color: "#b91c1c", marginBottom: "1rem", padding: "1rem", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 flex items-center justify-between text-xs font-semibold" role="alert">
+          <div className="flex items-center gap-2">
             <AlertCircle size={18} />
             <span>{error}</span>
           </div>
-          <button type="button" className="admin-button admin-button-secondary admin-btn-sm" onClick={() => void fetchData()}>
+          <button
+            type="button"
+            className="inline-flex items-center justify-center min-h-[32px] px-3 rounded-lg border border-red-300 bg-white hover:bg-red-50 text-red-800 transition-colors cursor-pointer"
+            onClick={() => void fetchData()}
+          >
             Tải lại
           </button>
         </div>
       )}
 
       {feedback && (
-        <div className="admin-feedback" role="status">
-          <Check size={16} />
-          <span>{feedback}</span>
-          <button type="button" aria-label="Đóng thông báo" onClick={() => setFeedback("")}>
+        <div className="flex items-center justify-between gap-2.5 p-3 rounded-lg bg-admin-green-soft border border-admin-green/20 text-xs font-semibold text-admin-green mb-5" role="status">
+          <div className="flex items-center gap-2">
+            <Check size={16} />
+            <span>{feedback}</span>
+          </div>
+          <button type="button" aria-label="Đóng thông báo" className="cursor-pointer text-admin-green/70 hover:text-admin-green" onClick={() => setFeedback("")}>
             <X size={15} />
           </button>
         </div>
       )}
 
       {selectedIds.size > 0 && (
-        <div className="admin-bulk-toolbar" role="region" aria-label="Thao tác hàng loạt">
-          <div className="admin-bulk-info">
-            <Layers size={16} />
+        <div className="mb-4 p-3 px-4 rounded-xl border border-admin-blue/30 bg-admin-blue-soft flex flex-wrap items-center justify-between gap-3 text-xs" role="region" aria-label="Thao tác hàng loạt">
+          <div className="flex items-center gap-2 text-admin-ink font-medium">
+            <Layers size={16} className="text-admin-blue" />
             <span>
-              Đã chọn <strong>{selectedIds.size}</strong> sản phẩm
+              Đã chọn <strong className="font-bold">{selectedIds.size}</strong> sản phẩm
             </span>
           </div>
-          <div className="admin-bulk-actions">
-            <label className="admin-bulk-select-label">
+          <div className="flex items-center gap-2.5">
+            <label className="flex items-center gap-1.5 text-admin-muted font-medium">
               <span>Đổi trạng thái:</span>
               <select
                 value={bulkStatus}
                 onChange={(e) => setBulkStatus(e.target.value as AdminProductStatus)}
                 aria-label="Chọn trạng thái hàng loạt"
+                className="h-8 px-2.5 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue cursor-pointer"
               >
                 {adminProductStatuses.map((st) => (
                   <option key={st} value={st}>
@@ -566,32 +577,42 @@ export function AdminProducts() {
                 ))}
               </select>
             </label>
-            <button type="button" className="admin-button admin-button-secondary admin-btn-sm" onClick={applyBulkStatus}>
+            <button
+              type="button"
+              className="inline-flex items-center justify-center h-8 px-3 rounded-lg border border-admin-line bg-white hover:bg-admin-bg text-admin-ink text-xs font-bold transition-colors cursor-pointer shadow-xs"
+              onClick={applyBulkStatus}
+            >
               Áp dụng
             </button>
-            <button type="button" className="admin-text-action" onClick={() => setSelectedIds(new Set())}>
+            <button
+              type="button"
+              className="text-xs font-semibold text-admin-muted hover:text-admin-red transition-colors cursor-pointer underline ml-1"
+              onClick={() => setSelectedIds(new Set())}
+            >
               Bỏ chọn
             </button>
           </div>
         </div>
       )}
 
-      <section className="admin-panel admin-list-panel">
-        <div className="admin-list-toolbar admin-toolbar-wrap">
-          <label className="admin-search-field">
-            <Search size={16} />
+      <section className="rounded-xl border border-admin-line bg-admin-surface overflow-hidden">
+        <div className="p-3.5 border-b border-admin-line bg-white flex flex-wrap items-center gap-2.5">
+          <label className="relative flex items-center flex-1 min-w-[220px] max-w-sm">
+            <Search size={16} className="absolute left-3 text-admin-soft pointer-events-none" />
             <span className="sr-only">Tìm sản phẩm</span>
             <input
               type="search"
               value={filters.query}
               placeholder="Tìm theo tên, SKU, thương hiệu..."
               onChange={(event) => updateFilter("query", event.target.value)}
+              className="w-full h-9 pl-9 pr-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink placeholder:text-admin-soft focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
             />
           </label>
           <select
             aria-label="Lọc danh mục"
             value={filters.category ?? "ALL"}
             onChange={(event) => updateFilter("category", event.target.value)}
+            className="h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue cursor-pointer max-w-[170px]"
           >
             <option value="ALL">Tất cả danh mục</option>
             {availableCategories.map((cat) => (
@@ -604,6 +625,7 @@ export function AdminProducts() {
             aria-label="Lọc thương hiệu"
             value={filters.brand ?? "ALL"}
             onChange={(event) => updateFilter("brand", event.target.value)}
+            className="h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue cursor-pointer max-w-[170px]"
           >
             <option value="ALL">Tất cả thương hiệu</option>
             {availableBrands.map((b) => (
@@ -616,6 +638,7 @@ export function AdminProducts() {
             aria-label="Lọc trạng thái"
             value={filters.status}
             onChange={(event) => updateFilter("status", event.target.value as AdminProductFilters["status"])}
+            className="h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue cursor-pointer max-w-[170px]"
           >
             <option value="ALL">Tất cả trạng thái</option>
             {adminProductStatuses.map((status) => (
@@ -628,151 +651,162 @@ export function AdminProducts() {
             aria-label="Lọc tồn kho"
             value={filters.stock}
             onChange={(event) => updateFilter("stock", event.target.value as AdminProductFilters["stock"])}
+            className="h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue cursor-pointer max-w-[170px]"
           >
             <option value="ALL">Tất cả tồn kho</option>
             <option value="LOW">Sắp hết hàng</option>
             <option value="OUT">Hết hàng</option>
           </select>
-          <button type="button" className="admin-filter-reset" onClick={resetFilters}>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-transparent text-xs font-semibold text-admin-muted hover:text-admin-ink transition-colors cursor-pointer"
+            onClick={resetFilters}
+          >
             <RotateCcw size={15} />
             Đặt lại
           </button>
         </div>
 
-        <div className="admin-table-wrap">
+        <div className="w-full overflow-x-auto">
           {loading ? (
-            <div style={{ minHeight: "260px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Loader2 size={36} className="animate-spin text-muted-foreground" />
+            <div className="min-h-[260px] flex items-center justify-center">
+              <Loader2 size={36} className="animate-spin text-admin-soft" />
             </div>
           ) : (
-          <table className="admin-table admin-products-table">
-            <thead>
-              <tr>
-                <th style={{ width: 40 }} className="align-center">
-                  <button
-                    type="button"
-                    className="admin-checkbox-btn"
-                    onClick={toggleSelectAll}
-                    aria-label={allVisibleSelected ? "Bỏ chọn tất cả trang này" : "Chọn tất cả trang này"}
-                  >
-                    {allVisibleSelected ? <CheckSquare size={16} /> : <Square size={16} />}
-                  </button>
-                </th>
-                <th>Sản phẩm</th>
-                <th>Danh mục</th>
-                <th>Giá bán</th>
-                <th>Tồn kho</th>
-                <th>Trạng thái</th>
-                <th className="align-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleProducts.map((product) => {
-                const isSelected = selectedIds.has(product.id);
-                return (
-                  <tr key={product.id} className={isSelected ? "is-selected-row" : ""}>
-                    <td className="align-center">
-                      <button
-                        type="button"
-                        className="admin-checkbox-btn"
-                        onClick={() => toggleSelectOne(product.id)}
-                        aria-label={`Chọn ${product.name}`}
-                      >
-                        {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
-                      </button>
-                    </td>
-                    <td>
-                      <div className="admin-product-table-cell">
-                        <span className="admin-product-avatar" style={{ backgroundColor: product.imageColor }}>
-                          <Image src={product.imageUrl} alt="" width={34} height={34} unoptimized />
+            <table className="w-full border-collapse text-left text-xs">
+              <thead>
+                <tr>
+                  <th className="w-10 py-3 px-3 border-b border-admin-line text-center bg-admin-bg/30">
+                    <button
+                      type="button"
+                      className="text-admin-soft hover:text-admin-ink cursor-pointer inline-flex items-center justify-center"
+                      onClick={toggleSelectAll}
+                      aria-label={allVisibleSelected ? "Bỏ chọn tất cả trang này" : "Chọn tất cả trang này"}
+                    >
+                      {allVisibleSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+                    </button>
+                  </th>
+                  <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">Sản phẩm</th>
+                  <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">Danh mục</th>
+                  <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">Giá bán</th>
+                  <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">Tồn kho</th>
+                  <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">Trạng thái</th>
+                  <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30 text-right">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleProducts.map((product) => {
+                  const isSelected = selectedIds.has(product.id);
+                  return (
+                    <tr key={product.id} className={`hover:bg-admin-bg/40 transition-colors ${isSelected ? "bg-admin-blue-soft/40" : ""}`}>
+                      <td className="py-3 px-3 border-b border-[#edf0f2] text-center align-middle">
+                        <button
+                          type="button"
+                          className="text-admin-soft hover:text-admin-ink cursor-pointer inline-flex items-center justify-center"
+                          onClick={() => toggleSelectOne(product.id)}
+                          aria-label={`Chọn ${product.name}`}
+                        >
+                          {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+                        </button>
+                      </td>
+                      <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle">
+                        <div className="flex items-center gap-2.5 min-w-[230px]">
+                          <span className="grid w-[34px] h-[34px] shrink-0 place-items-center rounded-lg overflow-hidden border border-admin-line/50" style={{ backgroundColor: product.imageColor }}>
+                            <Image src={product.imageUrl} alt="" width={34} height={34} className="w-full h-full object-cover" unoptimized />
+                          </span>
+                          <span>
+                            <strong className="block text-xs font-bold text-admin-ink leading-snug">{product.name}</strong>
+                            <small className="block mt-0.5 text-[10px] text-admin-soft">
+                              {product.sku} · {product.brand}
+                              {product.builderSpecs?.slot && (
+                                <span className="inline-block ml-1.5 px-1.5 py-0.5 bg-sky-50 text-sky-700 border border-sky-200 rounded text-[9px] font-bold uppercase">
+                                  {product.builderSpecs.slot.toUpperCase()}
+                                  {product.builderSpecs.socket ? ` · ${product.builderSpecs.socket}` : ""}
+                                  {product.builderSpecs.vramGb ? ` · ${product.builderSpecs.vramGb}GB` : ""}
+                                  {product.builderSpecs.wattage ? ` · ${product.builderSpecs.wattage}W` : ""}
+                                  {product.builderSpecs.capacityGb ? ` · ${product.builderSpecs.capacityGb >= 1000 ? `${product.builderSpecs.capacityGb / 1000}TB` : `${product.builderSpecs.capacityGb}GB`}` : ""}
+                                </span>
+                              )}
+                            </small>
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle text-admin-muted text-xs">
+                        {product.category}
+                      </td>
+                      <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle text-admin-ink font-bold whitespace-nowrap text-xs">
+                        {formatAdminPrice(product.price)}
+                      </td>
+                      <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle whitespace-nowrap text-xs">
+                        <span
+                          className={`font-bold ${
+                            product.stock === 0 ? "text-admin-red" : product.stock <= 5 ? "text-admin-amber" : "text-admin-green"
+                          }`}
+                        >
+                          {product.stock === 0 ? "Hết hàng" : `${product.stock} sản phẩm`}
                         </span>
-                        <span>
-                          <strong className="admin-table-primary">{product.name}</strong>
-                          <small className="admin-table-secondary">
-                            {product.sku} · {product.brand}
-                            {product.builderSpecs?.slot && (
-                              <span className="admin-builder-spec-pill">
-                                {product.builderSpecs.slot.toUpperCase()}
-                                {product.builderSpecs.socket ? ` · ${product.builderSpecs.socket}` : ""}
-                                {product.builderSpecs.vramGb ? ` · ${product.builderSpecs.vramGb}GB` : ""}
-                                {product.builderSpecs.wattage ? ` · ${product.builderSpecs.wattage}W` : ""}
-                                {product.builderSpecs.capacityGb ? ` · ${product.builderSpecs.capacityGb >= 1000 ? `${product.builderSpecs.capacityGb / 1000}TB` : `${product.builderSpecs.capacityGb}GB`}` : ""}
-                              </span>
-                            )}
-                          </small>
-                        </span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="admin-category-label">{product.category}</span>
-                    </td>
-                    <td className="admin-price-cell">{formatAdminPrice(product.price)}</td>
-                    <td>
-                      <span
-                        className={`admin-stock-value ${
-                          product.stock === 0 ? "is-empty" : product.stock <= 5 ? "is-low" : ""
-                        }`}
-                      >
-                        {product.stock === 0 ? "Hết hàng" : `${product.stock} sản phẩm`}
-                      </span>
-                    </td>
-                    <td>
-                      <select
-                        className={`admin-inline-status ${statusTone[product.status]}`}
-                        aria-label={`Trạng thái ${product.name}`}
-                        value={product.status}
-                        onChange={(event) =>
-                          updateProductStatus(product.id, event.target.value as AdminProductStatus)
-                        }
-                      >
-                        {adminProductStatuses.map((status) => (
-                          <option key={status} value={status}>
-                            {productStatusLabels[status]}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="align-right">
-                      <button type="button" className="admin-table-action" onClick={() => openEdit(product)}>
-                        <Edit3 size={15} />
-                        Sửa
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      </td>
+                      <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle">
+                        <select
+                          className={`min-h-[26px] px-2.5 py-0.5 rounded border text-[10px] font-bold cursor-pointer focus:outline-hidden ${statusTone[product.status]}`}
+                          aria-label={`Trạng thái ${product.name}`}
+                          value={product.status}
+                          onChange={(event) =>
+                            updateProductStatus(product.id, event.target.value as AdminProductStatus)
+                          }
+                        >
+                          {adminProductStatuses.map((status) => (
+                            <option key={status} value={status}>
+                              {productStatusLabels[status]}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle text-right">
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded border border-admin-line bg-white hover:bg-admin-bg hover:border-admin-soft text-admin-muted hover:text-admin-ink text-[11px] font-semibold transition-colors cursor-pointer shadow-2xs"
+                          onClick={() => openEdit(product)}
+                        >
+                          <Edit3 size={13} />
+                          Sửa
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           )}
           {!loading && visibleProducts.length === 0 && (
-            <div className="admin-empty-state">
-              <Package size={22} />
-              <strong>Không tìm thấy sản phẩm</strong>
-              <span>Thử thay đổi từ khóa hoặc điều kiện lọc.</span>
+            <div className="flex flex-col items-center gap-1.5 py-16 px-4 text-admin-soft text-center">
+              <Package size={28} className="text-admin-soft mb-1" />
+              <strong className="text-admin-ink text-sm font-bold">Không tìm thấy sản phẩm</strong>
+              <span className="text-xs">Thử thay đổi từ khóa hoặc điều kiện lọc.</span>
             </div>
           )}
         </div>
 
-        <div className="admin-table-footer">
+        <div className="p-3.5 px-4 border-t border-admin-line flex items-center justify-between gap-3 text-xs text-admin-soft">
           <span>
-            Hiển thị <strong>{visibleProducts.length}</strong> trên <strong>{filteredProducts.length}</strong> sản phẩm
+            Hiển thị <strong className="text-admin-ink font-bold">{visibleProducts.length}</strong> trên <strong className="text-admin-ink font-bold">{filteredProducts.length}</strong> sản phẩm
           </span>
-          <div className="admin-pagination">
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              className="admin-pagination-button"
+              className="grid w-7 h-7 place-items-center rounded-md border border-admin-line bg-white text-admin-muted hover:text-admin-ink hover:border-admin-soft disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
               aria-label="Trang trước"
               disabled={currentPage === 1}
               onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
             >
               <ChevronLeft size={16} />
             </button>
-            <span>
-              Trang <strong>{currentPage}</strong> / {totalPages}
+            <span className="text-xs">
+              Trang <strong className="text-admin-ink font-bold">{currentPage}</strong> / {totalPages}
             </span>
             <button
               type="button"
-              className="admin-pagination-button"
+              className="grid w-7 h-7 place-items-center rounded-md border border-admin-line bg-white text-admin-muted hover:text-admin-ink hover:border-admin-soft disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
               aria-label="Trang sau"
               disabled={currentPage === totalPages}
               onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
@@ -784,48 +818,58 @@ export function AdminProducts() {
       </section>
 
       {editingProduct && (
-        <div className="admin-drawer-layer">
+        <div className="fixed inset-0 z-50 flex justify-end">
           <button
             type="button"
-            className="admin-drawer-overlay"
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity cursor-pointer border-0"
             aria-label="Đóng form sản phẩm"
             onClick={closeDrawer}
           />
-          <aside className="admin-drawer" aria-label="Form sản phẩm">
-            <div className="admin-drawer-heading">
+          <aside className="relative z-10 w-full max-w-lg bg-white h-full shadow-2xl flex flex-col overflow-y-auto p-6 sm:p-7" aria-label="Form sản phẩm">
+            <div className="flex items-start justify-between gap-4 pb-5 border-b border-admin-line">
               <div>
-                <span className="admin-panel-kicker">Thông tin catalog</span>
-                <h2>{items.some((item) => item.id === editingProduct.id) ? "Chỉnh sửa sản phẩm" : "Thêm sản phẩm"}</h2>
+                <span className="block text-[10px] font-bold text-admin-soft tracking-wider uppercase">Thông tin catalog</span>
+                <h2 className="text-lg sm:text-xl font-bold text-admin-ink tracking-tight mt-1">
+                  {items.some((item) => item.id === editingProduct.id) ? "Chỉnh sửa sản phẩm" : "Thêm sản phẩm"}
+                </h2>
               </div>
-              <button type="button" className="admin-icon-button" aria-label="Đóng form" onClick={closeDrawer}>
+              <button
+                type="button"
+                className="grid w-8 h-8 place-items-center rounded-lg border border-transparent hover:border-admin-line hover:bg-admin-bg text-admin-muted hover:text-admin-ink transition-colors cursor-pointer"
+                aria-label="Đóng form"
+                onClick={closeDrawer}
+              >
                 <X size={18} />
               </button>
             </div>
-            <form className="admin-form" onSubmit={saveProduct}>
-              <label>
+            <form className="flex flex-col gap-4.5 pt-5 flex-1" onSubmit={saveProduct}>
+              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
                 Tên sản phẩm
                 <input
                   required
                   value={editingProduct.name}
                   onChange={(event) => setEditingProduct({ ...editingProduct, name: event.target.value })}
                   placeholder="Ví dụ: ROG Strix G16 2025"
+                  className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
                 />
               </label>
 
-              <div className="admin-form-grid">
-                <label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
                   Mã SKU
                   <input
                     required
                     value={editingProduct.sku}
                     onChange={(event) => setEditingProduct({ ...editingProduct, sku: event.target.value })}
+                    className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
                   />
                 </label>
-                <label>
+                <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
                   Thương hiệu
                   <select
                     value={editingProduct.brand}
                     onChange={(event) => setEditingProduct({ ...editingProduct, brand: event.target.value })}
+                    className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors cursor-pointer"
                   >
                     {availableBrands.map((brand) => (
                       <option key={brand} value={brand}>
@@ -836,12 +880,13 @@ export function AdminProducts() {
                 </label>
               </div>
 
-              <div className="admin-form-grid">
-                <label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
                   Danh mục
                   <select
                     value={editingProduct.category}
                     onChange={(event) => setEditingProduct({ ...editingProduct, category: event.target.value })}
+                    className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors cursor-pointer"
                   >
                     {availableCategories.map((category) => (
                       <option key={category} value={category}>
@@ -850,13 +895,14 @@ export function AdminProducts() {
                     ))}
                   </select>
                 </label>
-                <label>
+                <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
                   Trạng thái
                   <select
                     value={editingProduct.status}
                     onChange={(event) =>
                       setEditingProduct({ ...editingProduct, status: event.target.value as AdminProductStatus })
                     }
+                    className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors cursor-pointer"
                   >
                     {adminProductStatuses.map((status) => (
                       <option key={status} value={status}>
@@ -867,8 +913,8 @@ export function AdminProducts() {
                 </label>
               </div>
 
-              <div className="admin-form-grid">
-                <label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
                   Giá bán (VNĐ)
                   <input
                     required
@@ -884,9 +930,10 @@ export function AdminProducts() {
                         price: val === "" ? "" : Number(val),
                       });
                     }}
+                    className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
                   />
                 </label>
-                <label>
+                <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
                   Tồn kho sẵn sàng
                   <input
                     required
@@ -902,31 +949,32 @@ export function AdminProducts() {
                         stock: val === "" ? "" : Number(val),
                       });
                     }}
+                    className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
                   />
                 </label>
               </div>
 
-              <label>
+              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
                 Mô tả tóm tắt
                 <textarea
-                  className="admin-form-textarea"
                   rows={2}
                   value={editingProduct.description ?? ""}
                   placeholder="Thông số chính, chế độ bảo hành..."
                   onChange={(event) => setEditingProduct({ ...editingProduct, description: event.target.value })}
+                  className="w-full p-2.5 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors resize-y"
                 />
               </label>
 
               {(editingProduct.category === "Linh kiện" || editingProduct.builderSpecs?.slot) && (
-                <div className="admin-builder-specs-box">
-                  <div className="admin-builder-specs-header">
-                    <Cpu size={15} />
+                <div className="rounded-lg border border-slate-300 bg-slate-50/70 p-3.5 my-1">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-800 pb-2.5 mb-3 border-b border-slate-200">
+                    <Cpu size={15} className="text-blue-600" />
                     <strong>Thông số kỹ thuật PC Builder</strong>
-                    <small>(Phục vụ kiểm tra tương thích tự động)</small>
+                    <small className="font-normal text-slate-500">(Phục vụ kiểm tra tương thích tự động)</small>
                   </div>
 
-                  <div className="admin-form-grid" style={{ marginBottom: "10px" }}>
-                    <label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
+                    <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
                       Loại linh kiện PC
                       <select
                         value={editingProduct.builderSpecs?.slot || ""}
@@ -937,6 +985,7 @@ export function AdminProducts() {
                             builderSpecs: { ...editingProduct.builderSpecs, slot },
                           });
                         }}
+                        className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors cursor-pointer"
                       >
                         <option value="">-- Chọn linh kiện ráp PC --</option>
                         <option value="cpu">Bộ vi xử lý (CPU)</option>
@@ -951,7 +1000,7 @@ export function AdminProducts() {
                     </label>
 
                     {(editingProduct.builderSpecs?.slot === "cpu" || editingProduct.builderSpecs?.slot === "motherboard") && (
-                      <label>
+                      <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
                         Chuẩn Socket
                         <input
                           placeholder="LGA1700, AM5, AM4..."
@@ -962,12 +1011,13 @@ export function AdminProducts() {
                               builderSpecs: { ...editingProduct.builderSpecs, socket: e.target.value },
                             })
                           }
+                          className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
                         />
                       </label>
                     )}
 
                     {(editingProduct.builderSpecs?.slot === "motherboard" || editingProduct.builderSpecs?.slot === "case") && (
-                      <label>
+                      <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
                         Kích thước Form Factor
                         <input
                           placeholder="ATX, Micro-ATX, Mini-ITX..."
@@ -978,12 +1028,13 @@ export function AdminProducts() {
                               builderSpecs: { ...editingProduct.builderSpecs, formFactor: e.target.value },
                             })
                           }
+                          className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
                         />
                       </label>
                     )}
 
                     {(editingProduct.builderSpecs?.slot === "ram" || editingProduct.builderSpecs?.slot === "motherboard") && (
-                      <label>
+                      <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
                         Chuẩn RAM hỗ trợ
                         <input
                           placeholder="DDR5, DDR4..."
@@ -994,12 +1045,13 @@ export function AdminProducts() {
                               builderSpecs: { ...editingProduct.builderSpecs, ramType: e.target.value },
                             })
                           }
+                          className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
                         />
                       </label>
                     )}
 
                     {editingProduct.builderSpecs?.slot === "cpu" && (
-                      <label>
+                      <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
                         Công suất tỏa nhiệt TDP (W)
                         <input
                           type="number"
@@ -1012,13 +1064,14 @@ export function AdminProducts() {
                               builderSpecs: { ...editingProduct.builderSpecs, tdpWatts: val === "" ? undefined : Number(val) },
                             });
                           }}
+                          className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
                         />
                       </label>
                     )}
 
                     {editingProduct.builderSpecs?.slot === "gpu" && (
                       <>
-                        <label>
+                        <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
                           VRAM dung lượng (GB)
                           <input
                             type="number"
@@ -1031,9 +1084,10 @@ export function AdminProducts() {
                                 builderSpecs: { ...editingProduct.builderSpecs, vramGb: val === "" ? undefined : Number(val) },
                               });
                             }}
+                            className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
                           />
                         </label>
-                        <label>
+                        <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
                           Nguồn đề xuất tối thiểu (W)
                           <input
                             type="number"
@@ -1046,9 +1100,10 @@ export function AdminProducts() {
                                 builderSpecs: { ...editingProduct.builderSpecs, recommendedPsuW: val === "" ? undefined : Number(val) },
                               });
                             }}
+                            className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
                           />
                         </label>
-                        <label>
+                        <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
                           Chiều dài VGA tối đa (mm)
                           <input
                             type="number"
@@ -1061,6 +1116,7 @@ export function AdminProducts() {
                                 builderSpecs: { ...editingProduct.builderSpecs, maxGpuLengthMm: val === "" ? undefined : Number(val) },
                               });
                             }}
+                            className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
                           />
                         </label>
                       </>
@@ -1068,7 +1124,7 @@ export function AdminProducts() {
 
                     {editingProduct.builderSpecs?.slot === "psu" && (
                       <>
-                        <label>
+                        <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
                           Công suất danh định (W)
                           <input
                             type="number"
@@ -1081,9 +1137,10 @@ export function AdminProducts() {
                                 builderSpecs: { ...editingProduct.builderSpecs, wattage: val === "" ? undefined : Number(val) },
                               });
                             }}
+                            className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
                           />
                         </label>
-                        <label>
+                        <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
                           Chuẩn hiệu suất
                           <input
                             placeholder="80 Plus Gold..."
@@ -1094,13 +1151,14 @@ export function AdminProducts() {
                                 builderSpecs: { ...editingProduct.builderSpecs, efficiency: e.target.value },
                               })
                             }
+                            className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
                           />
                         </label>
                       </>
                     )}
 
                     {editingProduct.builderSpecs?.slot === "storage" && (
-                      <label>
+                      <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
                         Dung lượng bộ nhớ (GB)
                         <input
                           type="number"
@@ -1113,6 +1171,7 @@ export function AdminProducts() {
                               builderSpecs: { ...editingProduct.builderSpecs, capacityGb: val === "" ? undefined : Number(val) },
                             });
                           }}
+                          className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
                         />
                       </label>
                     )}
@@ -1120,64 +1179,54 @@ export function AdminProducts() {
                 </div>
               )}
 
-              <div className="admin-image-editor">
-                <div className="admin-image-preview">
-                  <Image src={editingProduct.imageUrl} alt={`Xem trước ${editingProduct.name || "sản phẩm"}`} fill unoptimized sizes="116px" />
+              <div className="grid grid-cols-[116px_minmax(0,1fr)] gap-3.5 items-start">
+                <div className="relative w-[116px] h-[84px] rounded-lg border border-admin-line bg-admin-bg overflow-hidden flex items-center justify-center">
+                  <Image src={editingProduct.imageUrl} alt={`Xem trước ${editingProduct.name || "sản phẩm"}`} fill className="object-cover" unoptimized sizes="116px" />
                 </div>
-                <div className="admin-image-fields">
-                  <label>
+                <div className="flex flex-col gap-2 min-w-0">
+                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
                     Ảnh sản phẩm (URL)
                     <input
                       type="text"
                       value={editingProduct.imageUrl}
                       onChange={(event) => setEditingProduct({ ...editingProduct, imageUrl: event.target.value })}
                       placeholder="/admin/products/laptop.svg"
+                      className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
                     />
                   </label>
-                  <label className="admin-file-label">
-                    Chọn ảnh từ máy
-                    <input type="file" accept="image/*" onChange={handleImageUpload} />
+                  <label className="inline-flex flex-col gap-1 text-[11px] font-bold text-admin-muted">
+                    <span>Chọn ảnh từ máy</span>
+                    <input type="file" accept="image/*" onChange={handleImageUpload} className="text-xs text-admin-muted file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border border-admin-line file:bg-white file:text-xs file:font-semibold hover:file:bg-admin-bg cursor-pointer" />
                   </label>
-                  <small>Ảnh chọn từ máy xem được trong phiên demo này.</small>
+                  <small className="text-[10px] text-admin-soft">Ảnh chọn từ máy xem được trong phiên demo này.</small>
                 </div>
               </div>
 
               {editingProduct.status === "DISCONTINUED" && (
-                <div className="admin-form-warning">
+                <div className="p-2.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 text-xs font-medium">
                   Sản phẩm ngừng bán sẽ bị ẩn khỏi trang cửa hàng và không thể thêm vào giỏ.
                 </div>
               )}
 
-              <div className="admin-form-note">
-                <Package size={16} />
+              <div className="flex items-start gap-2 p-2.5 rounded-lg border border-admin-line bg-admin-bg text-admin-muted text-xs leading-relaxed">
+                <Package size={16} className="shrink-0 mt-0.5 text-admin-soft" />
                 <span>Dữ liệu nháp được tự động lưu. Bấm &quot;Lưu sản phẩm&quot; để cập nhật vào bảng quản lý.</span>
               </div>
 
               {drawerError && (
                 <div
-                  className="admin-feedback is-danger"
+                  className="mt-1.5 p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 flex items-center gap-2 text-xs font-semibold"
                   role="alert"
-                  style={{
-                    background: "#fee2e2",
-                    color: "#b91c1c",
-                    padding: "10px 14px",
-                    borderRadius: "6px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    fontSize: "12px",
-                    marginTop: "6px",
-                  }}
                 >
-                  <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                  <AlertCircle size={16} className="shrink-0" />
                   <span>{drawerError}</span>
                 </div>
               )}
 
-              <div className="admin-drawer-actions">
+              <div className="sticky bottom-0 bg-white flex items-center justify-end gap-2.5 pt-3.5 pb-2 -mx-6 -mb-6 px-6 sm:-mx-7 sm:-mb-7 sm:px-7 border-t border-admin-line shadow-xs z-20">
                 <button
                   type="button"
-                  className="admin-button admin-button-secondary"
+                  className="inline-flex items-center justify-center min-h-[38px] px-4 rounded-lg border border-admin-line bg-white hover:bg-admin-bg text-admin-ink text-xs font-bold transition-colors cursor-pointer"
                   disabled={isSubmitting}
                   onClick={closeDrawer}
                 >
@@ -1185,7 +1234,7 @@ export function AdminProducts() {
                 </button>
                 <button
                   type="submit"
-                  className="admin-button admin-button-primary"
+                  className="inline-flex items-center justify-center gap-2 min-h-[38px] px-4 rounded-lg bg-admin-accent-dark hover:bg-black text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (

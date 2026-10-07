@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Edit2, Eye, EyeOff, FolderTree, Plus, RotateCcw, Search, Tag, X } from "lucide-react";
 import { componentTypes, createAdminTaxonomyApi, type ComponentType, type TaxonomyEntry, type TaxonomyInput, type TaxonomyKind, type TaxonomyStatus } from "../../lib/admin-taxonomy-api";
-import "./admin.css";
 
 const api = createAdminTaxonomyApi();
 const emptyForm: TaxonomyInput = { name: "", description: "", status: "ACTIVE", componentType: null, logoUrl: null };
@@ -99,54 +98,314 @@ export function AdminCategories() {
   const filtered = data[activeTab].filter(entry => (entry.name + " " + (entry.description ?? "")).toLocaleLowerCase("vi").includes(query.trim().toLocaleLowerCase("vi")));
   const isCategory = activeTab === "categories";
 
-  return <div className="admin-page">
-    <div className="admin-page-heading">
-      <div><span className="admin-eyebrow">PHÂN LOẠI & ĐỐI TÁC</span><h1>Quản lý Danh mục & Thương hiệu</h1>
-        <p>Dữ liệu được lưu tại máy chủ. Ẩn danh mục/hãng sẽ ẩn các sản phẩm liên quan khỏi catalog công khai.</p></div>
-      <div className="admin-heading-actions">
-        <button type="button" className="admin-button admin-button-secondary" disabled={loading || busy || !!editor} onClick={refresh}><RotateCcw size={16} /> Tải lại</button>
-        <button type="button" className="admin-button admin-button-primary" disabled={loading || busy || !!loadError} onClick={() => open(activeTab, null)}>
-          <Plus size={16} />{isCategory ? "Thêm danh mục" : "Thêm thương hiệu"}</button>
+  return (
+    <div className="max-w-[1250px] mx-auto font-sans">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-7">
+        <div>
+          <span className="block text-[10px] font-bold text-admin-soft tracking-wider uppercase">PHÂN LOẠI & ĐỐI TÁC</span>
+          <h1 className="text-2xl sm:text-3xl lg:text-[34px] font-extrabold text-admin-ink tracking-tight mt-1 mb-1.5 leading-tight">Quản lý Danh mục & Thương hiệu</h1>
+          <p className="text-sm text-admin-muted max-w-[570px] m-0">Dữ liệu được lưu tại máy chủ. Ẩn danh mục/hãng sẽ ẩn các sản phẩm liên quan khỏi catalog công khai.</p>
+        </div>
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            className="inline-flex items-center justify-center gap-2 min-h-[38px] px-3.5 rounded-lg text-xs font-bold border border-admin-line bg-white hover:border-[#bbc3cc] hover:bg-admin-bg text-admin-ink transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            disabled={loading || busy || !!editor}
+            onClick={refresh}
+          >
+            <RotateCcw size={16} /> Tải lại
+          </button>
+          <button
+            type="button"
+            className="inline-flex items-center justify-center gap-2 min-h-[38px] px-3.5 rounded-lg text-xs font-bold bg-admin-accent-dark hover:bg-[#1e252c] text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            disabled={loading || busy || !!loadError}
+            onClick={() => open(activeTab, null)}
+          >
+            <Plus size={16} />{isCategory ? "Thêm danh mục" : "Thêm thương hiệu"}
+          </button>
+        </div>
       </div>
+
+      {notice && (
+        <p role="status" className="mb-4 rounded-lg bg-admin-green-soft border border-admin-green/20 p-3 text-xs font-semibold text-admin-green">
+          {notice}
+        </p>
+      )}
+      {error && !editor && (
+        <p role="alert" className="mb-4 rounded-lg bg-admin-red-soft border border-admin-red/20 p-3 text-xs font-semibold text-admin-red">
+          {error}
+        </p>
+      )}
+      {loadError && (
+        <p role="alert" className="mb-4 rounded-lg bg-admin-red-soft border border-admin-red/20 p-3 text-xs font-semibold text-admin-red flex items-center justify-between">
+          <span>{loadError}</span>
+          <button type="button" onClick={refresh} disabled={loading} className="underline font-bold cursor-pointer">
+            Thử lại
+          </button>
+        </p>
+      )}
+
+      <section className="rounded-xl border border-admin-line bg-admin-surface overflow-hidden" aria-busy={loading}>
+        <div className="flex items-center border-b border-admin-line bg-admin-bg/50 px-3 pt-2 gap-1" role="tablist" aria-label="Loại dữ liệu">
+          <button
+            type="button"
+            role="tab"
+            aria-label="Danh mục"
+            aria-selected={isCategory}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-xs font-semibold transition-colors cursor-pointer ${
+              isCategory
+                ? "bg-white text-admin-ink font-bold border-t-2 border-admin-blue -mb-px shadow-xs"
+                : "text-admin-muted hover:text-admin-ink"
+            }`}
+            onClick={() => { setActiveTab("categories"); setQuery(""); }}
+          >
+            <FolderTree size={16} />
+            Danh mục
+            <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-admin-line text-admin-ink ml-1">
+              {data.categories.length}
+            </span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-label="Thương hiệu"
+            aria-selected={!isCategory}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-xs font-semibold transition-colors cursor-pointer ${
+              !isCategory
+                ? "bg-white text-admin-ink font-bold border-t-2 border-admin-blue -mb-px shadow-xs"
+                : "text-admin-muted hover:text-admin-ink"
+            }`}
+            onClick={() => { setActiveTab("brands"); setQuery(""); }}
+          >
+            <Tag size={16} />
+            Thương hiệu
+            <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-admin-line text-admin-ink ml-1">
+              {data.brands.length}
+            </span>
+          </button>
+        </div>
+
+        <div className="p-3.5 border-b border-admin-line bg-white">
+          <label className="relative flex items-center w-full max-w-sm">
+            <Search size={16} className="absolute left-3 text-admin-soft pointer-events-none" />
+            <span className="sr-only">Tìm kiếm</span>
+            <input
+              type="search"
+              placeholder="Tìm theo tên, mô tả..."
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+              className="w-full h-9 pl-9 pr-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink placeholder:text-admin-soft focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
+            />
+          </label>
+        </div>
+
+        {loading ? (
+          <p role="status" className="p-8 text-center text-xs text-admin-muted">
+            Đang tải dữ liệu…
+          </p>
+        ) : !loadError && (
+          <div className="w-full overflow-x-auto">
+            <table className="w-full border-collapse text-left text-xs">
+              <thead>
+                <tr>
+                  <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">Tên</th>
+                  <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">Mô tả</th>
+                  <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">{isCategory ? "Loại linh kiện" : "URL logo"}</th>
+                  <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">Số sản phẩm</th>
+                  <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">Trạng thái</th>
+                  <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30 text-right">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-xs text-admin-muted">
+                      Chưa có dữ liệu phù hợp.
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map(entry => (
+                    <tr key={entry.id} className="hover:bg-admin-bg/40 transition-colors">
+                      <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle">
+                        <strong className="block text-xs font-bold text-admin-ink">{entry.name}</strong>
+                      </td>
+                      <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle text-admin-muted max-w-xs truncate">
+                        {entry.description || "—"}
+                      </td>
+                      <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle">
+                        {isCategory ? (
+                          entry.componentType ? (
+                            <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-admin-blue-soft text-admin-blue">{entry.componentType}</span>
+                          ) : "Không áp dụng"
+                        ) : (
+                          entry.logoUrl || "—"
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle font-mono">
+                        {entry.productCount}
+                      </td>
+                      <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle">
+                        <span className={`inline-flex items-center min-h-[22px] px-2 rounded text-[10px] font-bold whitespace-nowrap ${
+                          entry.status === "ACTIVE" ? "bg-admin-green-soft text-admin-green" : "bg-slate-100 text-slate-500"
+                        }`}>
+                          {entry.status === "ACTIVE" ? "Hoạt động" : "Đã ẩn"}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle text-right whitespace-nowrap">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold text-admin-blue hover:bg-admin-blue-soft transition-colors cursor-pointer disabled:opacity-50"
+                          onClick={() => open(activeTab, entry)}
+                        >
+                          <Edit2 size={13} /> Sửa
+                        </button>{" "}
+                        <button
+                          type="button"
+                          disabled={busy}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold text-admin-muted hover:bg-admin-bg hover:text-admin-ink transition-colors cursor-pointer disabled:opacity-50"
+                          onClick={() => void toggle(entry)}
+                        >
+                          {entry.status === "ACTIVE" ? (
+                            <><EyeOff size={13} /> Ẩn</>
+                          ) : (
+                            <><Eye size={13} /> Hiện</>
+                          )}
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {editor && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <button
+            type="button"
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs border-0 cursor-pointer"
+            disabled={busy}
+            aria-label="Đóng form"
+            onClick={close}
+          />
+          <aside
+            role="dialog"
+            aria-modal="true"
+            aria-label={editor.kind === "categories" ? "Thông tin danh mục" : "Thông tin thương hiệu"}
+            className="relative z-10 w-full max-w-md bg-white h-full shadow-2xl flex flex-col p-6 overflow-y-auto"
+          >
+            <div className="flex items-center justify-between pb-4 mb-5 border-b border-admin-line">
+              <h2 className="text-base font-bold text-admin-ink">
+                {editor.entry ? "Cập nhật" : "Thêm"} {editor.kind === "categories" ? "danh mục" : "thương hiệu"}
+              </h2>
+              <button
+                type="button"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-transparent text-admin-muted hover:border-admin-line hover:bg-admin-bg hover:text-admin-ink cursor-pointer"
+                aria-label="Đóng"
+                disabled={busy}
+                onClick={close}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <form className="flex flex-col gap-4 text-xs font-semibold text-admin-ink flex-1" onSubmit={save}>
+              {error && (
+                <p role="alert" className="rounded-lg bg-admin-red-soft p-3 text-xs text-admin-red">
+                  {error}
+                </p>
+              )}
+              <label className="flex flex-col gap-1.5">
+                <span>Tên</span>
+                <input
+                  autoFocus
+                  required
+                  maxLength={255}
+                  disabled={busy}
+                  value={form.name}
+                  onChange={event => setForm({ ...form, name: event.target.value })}
+                  className="w-full rounded-lg border border-admin-line p-2.5 text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span>Mô tả</span>
+                <textarea
+                  rows={3}
+                  disabled={busy}
+                  value={form.description ?? ""}
+                  onChange={event => setForm({ ...form, description: event.target.value })}
+                  className="w-full rounded-lg border border-admin-line p-2.5 text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue resize-none"
+                />
+              </label>
+              {editor.kind === "categories" ? (
+                <>
+                  <label className="flex flex-col gap-1.5">
+                    <span>Loại linh kiện</span>
+                    <select
+                      disabled={busy || (editor.entry?.productCount ?? 0) > 0}
+                      value={form.componentType ?? ""}
+                      onChange={event => setForm({ ...form, componentType: event.target.value ? event.target.value as ComponentType : null })}
+                      className="w-full rounded-lg border border-admin-line p-2.5 text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue bg-white"
+                    >
+                      <option value="">Không áp dụng</option>
+                      {componentTypes.map(type => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </label>
+                  {(editor.entry?.productCount ?? 0) > 0 && (
+                    <p className="text-[11px] text-admin-soft font-normal">Không đổi loại linh kiện khi danh mục đã có sản phẩm.</p>
+                  )}
+                </>
+              ) : (
+                <label className="flex flex-col gap-1.5">
+                  <span>URL logo</span>
+                  <input
+                    type="url"
+                    maxLength={2048}
+                    placeholder="https://example.com/logo.png"
+                    disabled={busy}
+                    value={form.logoUrl ?? ""}
+                    onChange={event => setForm({ ...form, logoUrl: event.target.value || null })}
+                    className="w-full rounded-lg border border-admin-line p-2.5 text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue"
+                  />
+                </label>
+              )}
+              <label className="flex flex-col gap-1.5">
+                <span>Trạng thái</span>
+                <select
+                  disabled={busy}
+                  value={form.status}
+                  onChange={event => setForm({ ...form, status: event.target.value as TaxonomyStatus })}
+                  className="w-full rounded-lg border border-admin-line p-2.5 text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue bg-white"
+                >
+                  <option value="ACTIVE">Hoạt động</option>
+                  <option value="INACTIVE">Ẩn</option>
+                </select>
+              </label>
+              <div className="flex items-center justify-end gap-2.5 pt-4 mt-auto border-t border-admin-line">
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center min-h-[38px] px-3.5 rounded-lg text-xs font-bold border border-admin-line bg-white hover:border-[#bbc3cc] hover:bg-admin-bg text-admin-ink transition-colors cursor-pointer"
+                  disabled={busy}
+                  onClick={close}
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center justify-center min-h-[38px] px-3.5 rounded-lg text-xs font-bold bg-admin-accent-dark hover:bg-[#1e252c] text-white transition-colors cursor-pointer disabled:opacity-50"
+                  disabled={busy}
+                >
+                  {busy ? "Đang lưu…" : "Lưu"}
+                </button>
+              </div>
+            </form>
+          </aside>
+        </div>
+      )}
     </div>
-    {notice && <p role="status">{notice}</p>}
-    {error && !editor && <p role="alert">{error}</p>}
-    {loadError && <p role="alert">{loadError} <button type="button" onClick={refresh} disabled={loading}>Thử lại</button></p>}
-    <section className="admin-panel admin-list-panel" aria-busy={loading}>
-      <div className="admin-tabs-bar" role="tablist" aria-label="Loại dữ liệu">
-        <button type="button" role="tab" aria-label="Danh mục" aria-selected={isCategory} className={"admin-tab-item " + (isCategory ? "is-active" : "")} onClick={() => { setActiveTab("categories"); setQuery(""); }}><FolderTree size={16} />Danh mục <span className="admin-tab-count">{data.categories.length}</span></button>
-        <button type="button" role="tab" aria-label="Thương hiệu" aria-selected={!isCategory} className={"admin-tab-item " + (!isCategory ? "is-active" : "")} onClick={() => { setActiveTab("brands"); setQuery(""); }}><Tag size={16} />Thương hiệu <span className="admin-tab-count">{data.brands.length}</span></button>
-      </div>
-      <div className="admin-list-toolbar"><label className="admin-search-field"><Search size={16} /><span className="sr-only">Tìm kiếm</span><input type="search" placeholder="Tìm theo tên, mô tả..." value={query} onChange={event => setQuery(event.target.value)} /></label></div>
-      {loading ? <p role="status">Đang tải dữ liệu…</p> : !loadError && <div className="admin-table-wrap"><table className="admin-table">
-        <thead><tr><th>Tên</th><th>Mô tả</th><th>{isCategory ? "Loại linh kiện" : "URL logo"}</th><th>Số sản phẩm</th><th>Trạng thái</th><th className="align-right">Thao tác</th></tr></thead>
-        <tbody>{filtered.length === 0 ? <tr><td colSpan={6}>Chưa có dữ liệu phù hợp.</td></tr> : filtered.map(entry => <tr key={entry.id}>
-          <td><strong className="admin-table-primary">{entry.name}</strong></td><td>{entry.description || "—"}</td>
-          <td>{isCategory ? entry.componentType || "Không áp dụng" : entry.logoUrl || "—"}</td><td>{entry.productCount}</td>
-          <td><span className={"admin-status-pill " + (entry.status === "ACTIVE" ? "is-success" : "is-muted")}>{entry.status === "ACTIVE" ? "Hoạt động" : "Đã ẩn"}</span></td>
-          <td className="align-right"><button type="button" disabled={busy} className="admin-table-action" onClick={() => open(activeTab, entry)}><Edit2 size={13} /> Sửa</button>{" "}
-            <button type="button" disabled={busy} className="admin-table-action" onClick={() => void toggle(entry)}>{entry.status === "ACTIVE" ? <><EyeOff size={13} /> Ẩn</> : <><Eye size={13} /> Hiện</>}</button></td>
-        </tr>)}</tbody>
-      </table></div>}
-    </section>
-    {editor && <div className="admin-drawer-layer">
-      <button type="button" className="admin-drawer-overlay" disabled={busy} aria-label="Đóng form" onClick={close} />
-      <aside role="dialog" aria-modal="true" aria-label={editor.kind === "categories" ? "Thông tin danh mục" : "Thông tin thương hiệu"} className="admin-drawer">
-        <div className="admin-drawer-heading"><h2>{editor.entry ? "Cập nhật" : "Thêm"} {editor.kind === "categories" ? "danh mục" : "thương hiệu"}</h2><button type="button" className="admin-icon-button" aria-label="Đóng" disabled={busy} onClick={close}><X size={18} /></button></div>
-        <form className="admin-form" onSubmit={save}>
-          {error && <p role="alert">{error}</p>}
-          <label>Tên<input autoFocus required maxLength={255} disabled={busy} value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} /></label>
-          <label>Mô tả<textarea className="admin-form-textarea" rows={3} disabled={busy} value={form.description ?? ""} onChange={event => setForm({ ...form, description: event.target.value })} /></label>
-          {editor.kind === "categories" ? <>
-            <label>Loại linh kiện<select disabled={busy || (editor.entry?.productCount ?? 0) > 0} value={form.componentType ?? ""} onChange={event => setForm({ ...form, componentType: event.target.value ? event.target.value as ComponentType : null })}>
-              <option value="">Không áp dụng</option>{componentTypes.map(type => <option key={type} value={type}>{type}</option>)}
-            </select></label>
-            {(editor.entry?.productCount ?? 0) > 0 && <p>Không đổi loại linh kiện khi danh mục đã có sản phẩm.</p>}
-          </> : <label>URL logo<input type="url" maxLength={2048} placeholder="https://example.com/logo.png" disabled={busy} value={form.logoUrl ?? ""} onChange={event => setForm({ ...form, logoUrl: event.target.value || null })} /></label>}
-          <label>Trạng thái<select disabled={busy} value={form.status} onChange={event => setForm({ ...form, status: event.target.value as TaxonomyStatus })}><option value="ACTIVE">Hoạt động</option><option value="INACTIVE">Ẩn</option></select></label>
-          <div className="admin-drawer-actions"><button type="button" className="admin-button admin-button-secondary" disabled={busy} onClick={close}>Hủy bỏ</button><button type="submit" className="admin-button admin-button-primary" disabled={busy}>{busy ? "Đang lưu…" : "Lưu"}</button></div>
-        </form>
-      </aside>
-    </div>}
-  </div>;
+  );
 }

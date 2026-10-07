@@ -20,7 +20,6 @@ import {
   initialAdminReviews,
   filterAdminReviews,
 } from "@/lib/admin-reviews";
-import "./admin.css";
 
 const initialFilters: AdminReviewFilters = {
   query: "",
@@ -106,85 +105,86 @@ export function AdminReviews() {
   };
 
   return (
-    <div className="admin-page">
+    <div className="max-w-[1250px] mx-auto font-sans">
       {/* Toast Alert */}
       {toastMessage && (
-        <aside aria-label="Thông báo thao tác" aria-live="polite" className="admin-toast">
-          <CheckCircle2 size={16} />
+        <aside aria-label="Thông báo thao tác" aria-live="polite" className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-xs font-semibold text-white shadow-xl">
+          <CheckCircle2 size={16} className="text-emerald-400" />
           <span>{toastMessage}</span>
         </aside>
       )}
 
       {/* Header */}
-      <div className="admin-page-heading">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-7">
         <div>
-          <span className="admin-eyebrow">KIỂM DUYỆT NỘI DUNG</span>
-          <h1>Kiểm duyệt đánh giá sản phẩm</h1>
-          <p>Rà soát trải nghiệm mua hàng, hình ảnh thực tế và ẩn các nhận xét vi phạm tiêu chuẩn.</p>
+          <span className="block text-[10px] font-bold text-admin-soft tracking-wider uppercase">KIỂM DUYỆT NỘI DUNG</span>
+          <h1 className="text-2xl sm:text-3xl lg:text-[34px] font-extrabold text-admin-ink tracking-tight mt-1 mb-1.5 leading-tight">Kiểm duyệt đánh giá sản phẩm</h1>
+          <p className="text-sm text-admin-muted max-w-[570px] m-0">Rà soát trải nghiệm mua hàng, hình ảnh thực tế và ẩn các nhận xét vi phạm tiêu chuẩn.</p>
         </div>
       </div>
 
       {/* Metric Cards */}
-      <section className="admin-stat-grid" aria-label="Chỉ số đánh giá">
-        <article className="admin-stat-card">
-          <div className="admin-stat-icon is-blue">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mb-5" aria-label="Chỉ số đánh giá">
+        <article className="flex items-center gap-3.5 min-h-[86px] p-4 rounded-xl border border-admin-line bg-admin-surface shadow-xs">
+          <div className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-lg bg-admin-blue-soft text-admin-blue">
             <MessageSquare size={18} />
           </div>
-          <div className="admin-stat-copy">
-            <span>Tổng nhận xét</span>
-            <strong>{stats.total}</strong>
-            <small>Bài gửi từ khách</small>
+          <div className="min-w-0 flex-1">
+            <span className="block text-[11px] font-semibold text-admin-muted">Tổng nhận xét</span>
+            <strong className="block text-xl sm:text-2xl font-extrabold text-admin-ink tracking-tight my-0.5 font-mono">{stats.total}</strong>
+            <small className="block text-[10px] text-admin-soft">Bài gửi từ khách</small>
           </div>
         </article>
 
-        <article className="admin-stat-card">
-          <div className="admin-stat-icon is-amber">
+        <article className="flex items-center gap-3.5 min-h-[86px] p-4 rounded-xl border border-admin-line bg-admin-surface shadow-xs">
+          <div className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-lg bg-admin-amber-soft text-admin-amber">
             <Star size={18} />
           </div>
-          <div className="admin-stat-copy">
-            <span>Điểm trung bình</span>
-            <strong>{stats.averageRating} ★</strong>
-            <small>Thang điểm 5 sao</small>
+          <div className="min-w-0 flex-1">
+            <span className="block text-[11px] font-semibold text-admin-muted">Điểm trung bình</span>
+            <strong className="block text-xl sm:text-2xl font-extrabold text-admin-ink tracking-tight my-0.5 font-mono">{stats.averageRating} ★</strong>
+            <small className="block text-[10px] text-admin-soft">Thang điểm 5 sao</small>
           </div>
         </article>
 
-        <article className="admin-stat-card">
-          <div className="admin-stat-icon is-green">
+        <article className="flex items-center gap-3.5 min-h-[86px] p-4 rounded-xl border border-admin-line bg-admin-surface shadow-xs">
+          <div className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-lg bg-admin-green-soft text-admin-green">
             <ImageIcon size={18} />
           </div>
-          <div className="admin-stat-copy">
-            <span>Ảnh thực tế</span>
-            <strong>{stats.withMedia}</strong>
-            <small>Có ảnh đính kèm</small>
+          <div className="min-w-0 flex-1">
+            <span className="block text-[11px] font-semibold text-admin-muted">Ảnh thực tế</span>
+            <strong className="block text-xl sm:text-2xl font-extrabold text-admin-ink tracking-tight my-0.5 font-mono">{stats.withMedia}</strong>
+            <small className="block text-[10px] text-admin-soft">Có ảnh đính kèm</small>
           </div>
         </article>
 
-        <article className="admin-stat-card">
-          <div className="admin-stat-icon is-red">
+        <article className="flex items-center gap-3.5 min-h-[86px] p-4 rounded-xl border border-admin-line bg-admin-surface shadow-xs">
+          <div className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-lg bg-admin-red-soft text-admin-red">
             <ShieldAlert size={18} />
           </div>
-          <div className="admin-stat-copy">
-            <span>Đã ẩn duyệt</span>
-            <strong style={{ color: stats.hidden > 0 ? "var(--admin-red)" : "inherit" }}>
+          <div className="min-w-0 flex-1">
+            <span className="block text-[11px] font-semibold text-admin-muted">Đã ẩn duyệt</span>
+            <strong className={`block text-xl sm:text-2xl font-extrabold tracking-tight my-0.5 font-mono ${stats.hidden > 0 ? "text-admin-red" : "text-admin-ink"}`}>
               {stats.hidden}
             </strong>
-            <small>Vi phạm tiêu chuẩn</small>
+            <small className="block text-[10px] text-admin-soft">Vi phạm tiêu chuẩn</small>
           </div>
         </article>
       </section>
 
       {/* Main Panel */}
-      <section className="admin-panel admin-list-panel">
+      <section className="rounded-xl border border-admin-line bg-admin-surface overflow-hidden">
         {/* Toolbar */}
-        <div className="admin-list-toolbar admin-toolbar-wrap">
-          <label className="admin-search-field">
-            <Search size={16} />
+        <div className="p-3.5 border-b border-admin-line bg-white flex flex-wrap items-center gap-3">
+          <label className="relative flex items-center flex-1 min-w-[220px] max-w-sm">
+            <Search size={16} className="absolute left-3 text-admin-soft pointer-events-none" />
             <span className="sr-only">Tìm đánh giá</span>
             <input
               type="search"
               placeholder="Tìm theo sản phẩm, người dùng hoặc nội dung..."
               value={filters.query}
               onChange={(e) => setFilters({ ...filters, query: e.target.value })}
+              className="w-full h-9 pl-9 pr-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink placeholder:text-admin-soft focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
             />
           </label>
 
@@ -197,6 +197,7 @@ export function AdminReviews() {
                 rating: e.target.value === "ALL" ? "ALL" : (Number(e.target.value) as 1 | 2 | 3 | 4 | 5),
               })
             }
+            className="h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue cursor-pointer"
           >
             <option value="ALL">Tất cả số sao</option>
             <option value="5">5 sao</option>
@@ -215,6 +216,7 @@ export function AdminReviews() {
                 status: e.target.value as AdminReviewFilters["status"],
               })
             }
+            className="h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue cursor-pointer"
           >
             <option value="ALL">Tất cả trạng thái</option>
             <option value="PUBLISHED">Đang hiển thị</option>
@@ -230,6 +232,7 @@ export function AdminReviews() {
                 hasMedia: e.target.value as AdminReviewFilters["hasMedia"],
               })
             }
+            className="h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue cursor-pointer"
           >
             <option value="ALL">Tất cả bài viết</option>
             <option value="YES">Có hình ảnh</option>
@@ -239,7 +242,7 @@ export function AdminReviews() {
           {(filters.query || filters.rating !== "ALL" || filters.status !== "ALL" || filters.hasMedia !== "ALL") && (
             <button
               type="button"
-              className="admin-filter-reset"
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-admin-line bg-white text-xs font-semibold text-admin-muted hover:bg-admin-bg hover:text-admin-ink transition-colors cursor-pointer"
               onClick={() => setFilters(initialFilters)}
             >
               <RotateCcw size={15} />
@@ -249,46 +252,46 @@ export function AdminReviews() {
         </div>
 
         {/* Reviews Table */}
-        <div className="admin-table-wrap">
-          <table className="admin-table">
+        <div className="w-full overflow-x-auto">
+          <table className="w-full border-collapse text-left text-xs">
             <thead>
               <tr>
-                <th style={{ width: 190 }}>Sản phẩm</th>
-                <th style={{ width: 160 }}>Người đánh giá</th>
-                <th style={{ width: 110 }}>Đánh giá</th>
-                <th>Nội dung nhận xét</th>
-                <th style={{ width: 90 }}>Hình ảnh</th>
-                <th style={{ width: 110 }}>Trạng thái</th>
-                <th style={{ width: 100 }}>Ngày gửi</th>
-                <th style={{ width: 130 }} className="align-right">Thao tác</th>
+                <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30 w-48">Sản phẩm</th>
+                <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30 w-40">Người đánh giá</th>
+                <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30 w-28">Đánh giá</th>
+                <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">Nội dung nhận xét</th>
+                <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30 w-24">Hình ảnh</th>
+                <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30 w-28">Trạng thái</th>
+                <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30 w-28">Ngày gửi</th>
+                <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30 w-32 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {filteredReviews.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: "center", padding: "40px 16px", color: "var(--admin-soft)" }}>
+                  <td colSpan={8} className="py-10 text-center text-xs text-admin-soft">
                     Không có đánh giá nào phù hợp với bộ lọc hiện tại.
                   </td>
                 </tr>
               ) : (
                 filteredReviews.map((review) => (
-                  <tr key={review.id}>
-                    <td>
-                      <strong className="admin-table-primary">{review.productName}</strong>
-                      <small className="admin-table-secondary">{review.productSlug}</small>
+                  <tr key={review.id} className="hover:bg-admin-bg/40 transition-colors">
+                    <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle">
+                      <strong className="block text-xs font-bold text-admin-ink">{review.productName}</strong>
+                      <small className="block text-[10px] text-admin-soft mt-0.5">{review.productSlug}</small>
                     </td>
-                    <td>
-                      <strong className="admin-table-primary">{review.userName}</strong>
+                    <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle">
+                      <strong className="block text-xs font-bold text-admin-ink">{review.userName}</strong>
                       {review.verifiedBuyer ? (
-                        <span className="admin-status-pill is-info" style={{ minHeight: 20, fontSize: 9 }}>
+                        <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-admin-blue-soft text-admin-blue">
                           Đã mua hàng
                         </span>
                       ) : (
-                        <small className="admin-table-secondary">Chưa xác thực</small>
+                        <small className="block text-[10px] text-admin-soft">Chưa xác thực</small>
                       )}
                     </td>
-                    <td>
-                      <div className="admin-review-stars">
+                    <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle">
+                      <div className="flex items-center gap-0.5">
                         {Array.from({ length: 5 }).map((_, i) => (
                           <Star
                             key={i}
@@ -299,48 +302,39 @@ export function AdminReviews() {
                         ))}
                       </div>
                     </td>
-                    <td>
-                      <p
-                        style={{
-                          margin: 0,
-                          fontSize: 12,
-                          lineHeight: 1.45,
-                          maxWidth: 340,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          color: "var(--admin-ink)",
-                        }}
-                      >
+                    <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle">
+                      <p className="m-0 text-xs leading-normal max-w-xs truncate text-admin-ink">
                         {review.content}
                       </p>
                     </td>
-                    <td>
+                    <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle">
                       {review.images && review.images.length > 0 ? (
-                        <span className="admin-code-slug" style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-admin-bg text-admin-muted border border-admin-line">
                           <ImageIcon size={11} /> {review.images.length}
                         </span>
                       ) : (
-                        <span style={{ fontSize: 12, color: "var(--admin-soft)" }}>—</span>
+                        <span className="text-xs text-admin-soft">—</span>
                       )}
                     </td>
-                    <td>
+                    <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle">
                       {review.status === "PUBLISHED" ? (
-                        <span className="admin-status-pill is-success">Hiển thị</span>
+                        <span className="inline-flex items-center min-h-[22px] px-2 rounded text-[10px] font-bold bg-admin-green-soft text-admin-green whitespace-nowrap">
+                          Hiển thị
+                        </span>
                       ) : (
-                        <span className="admin-status-pill is-danger">Đã ẩn</span>
+                        <span className="inline-flex items-center min-h-[22px] px-2 rounded text-[10px] font-bold bg-admin-red-soft text-admin-red whitespace-nowrap">
+                          Đã ẩn
+                        </span>
                       )}
                     </td>
-                    <td>
-                      <span style={{ fontSize: 12, color: "var(--admin-muted)" }}>
-                        {new Date(review.createdAt).toLocaleDateString("vi-VN")}
-                      </span>
+                    <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle text-xs text-admin-muted whitespace-nowrap">
+                      {new Date(review.createdAt).toLocaleDateString("vi-VN")}
                     </td>
-                    <td className="align-right">
-                      <div style={{ display: "inline-flex", gap: 6 }}>
+                    <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle text-right whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1.5">
                         <button
                           type="button"
-                          className="admin-table-action"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold text-admin-blue hover:bg-admin-blue-soft transition-colors cursor-pointer"
                           onClick={() => setSelectedReview(review)}
                           title="Xem chi tiết"
                         >
@@ -349,8 +343,7 @@ export function AdminReviews() {
                         {review.status === "PUBLISHED" ? (
                           <button
                             type="button"
-                            className="admin-table-action"
-                            style={{ color: "var(--admin-red)" }}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold text-admin-red hover:bg-admin-red-soft transition-colors cursor-pointer"
                             onClick={() => handleOpenHideModal(review)}
                             title="Ẩn bài đánh giá"
                           >
@@ -359,8 +352,7 @@ export function AdminReviews() {
                         ) : (
                           <button
                             type="button"
-                            className="admin-table-action"
-                            style={{ color: "var(--admin-green)" }}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold text-admin-green hover:bg-admin-green-soft transition-colors cursor-pointer"
                             onClick={() => handleRestoreReview(review)}
                             title="Khôi phục hiển thị"
                           >
@@ -379,26 +371,25 @@ export function AdminReviews() {
 
       {/* Detail Drawer */}
       {selectedReview && (
-        <div className="admin-drawer-layer">
+        <div className="fixed inset-0 z-50 flex justify-end">
           <button
             type="button"
-            className="admin-drawer-overlay"
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs border-0 cursor-pointer"
             aria-label="Đóng chi tiết"
             onClick={() => setSelectedReview(null)}
           />
           <aside
             aria-label="Chi tiết đánh giá"
-            className="admin-drawer"
-            style={{ maxWidth: 520 }}
+            className="relative z-10 w-full max-w-lg bg-white h-full shadow-2xl flex flex-col overflow-y-auto"
           >
-            <div className="admin-drawer-heading">
+            <div className="flex items-center justify-between p-5 border-b border-admin-line">
               <div>
-                <span className="admin-panel-kicker">Đánh giá #{selectedReview.id}</span>
-                <h2>Chi tiết nhận xét</h2>
+                <span className="block text-[10px] font-bold text-admin-soft tracking-wider uppercase">Đánh giá #{selectedReview.id}</span>
+                <h2 className="text-base font-bold text-admin-ink mt-0.5">Chi tiết nhận xét</h2>
               </div>
               <button
                 type="button"
-                className="admin-icon-button"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-transparent text-admin-muted hover:border-admin-line hover:bg-admin-bg hover:text-admin-ink cursor-pointer"
                 aria-label="Đóng"
                 onClick={() => setSelectedReview(null)}
               >
@@ -406,30 +397,30 @@ export function AdminReviews() {
               </button>
             </div>
 
-            <div style={{ padding: "20px", overflowY: "auto", flex: 1 }}>
+            <div className="p-5 overflow-y-auto flex-1 flex flex-col gap-4">
               {/* Product Info */}
-              <div style={{ padding: "12px 14px", backgroundColor: "var(--admin-bg)", borderRadius: 8, marginBottom: 16 }}>
-                <div style={{ fontSize: 10, color: "var(--admin-soft)", textTransform: "uppercase", fontWeight: 700 }}>Sản phẩm được đánh giá</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--admin-ink)", marginTop: 2 }}>{selectedReview.productName}</div>
-                <div style={{ fontSize: 11, color: "var(--admin-muted)" }}>Slug: {selectedReview.productSlug}</div>
+              <div className="p-3 bg-admin-bg rounded-lg border border-admin-line">
+                <div className="text-[10px] text-admin-soft uppercase font-bold">Sản phẩm được đánh giá</div>
+                <div className="text-sm font-bold text-admin-ink mt-0.5">{selectedReview.productName}</div>
+                <div className="text-[11px] text-admin-muted">Slug: {selectedReview.productSlug}</div>
               </div>
 
               {/* Reviewer Info */}
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <div>
-                    <strong style={{ fontSize: 14, color: "var(--admin-ink)" }}>{selectedReview.userName}</strong>
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <strong className="text-sm font-bold text-admin-ink">{selectedReview.userName}</strong>
                     {selectedReview.verifiedBuyer && (
-                      <span className="admin-status-pill is-info" style={{ marginLeft: 6, minHeight: 18, fontSize: 9 }}>
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-admin-blue-soft text-admin-blue">
                         Đã mua
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: 11, color: "var(--admin-soft)" }}>
+                  <div className="text-[11px] text-admin-soft">
                     {new Date(selectedReview.createdAt).toLocaleString("vi-VN")}
                   </div>
                 </div>
-                <div className="admin-review-stars">
+                <div className="flex items-center gap-1">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Star
                       key={i}
@@ -438,48 +429,31 @@ export function AdminReviews() {
                       color={i < selectedReview.rating ? "#e5a100" : "#cbd5e1"}
                     />
                   ))}
-                  <span style={{ fontSize: 12, fontWeight: 700, marginLeft: 6, color: "var(--admin-muted)" }}>
+                  <span className="text-xs font-bold ml-1.5 text-admin-muted">
                     {selectedReview.rating} / 5 sao
                   </span>
                 </div>
               </div>
 
               {/* Content */}
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 11, color: "var(--admin-soft)", marginBottom: 4, fontWeight: 650, textTransform: "uppercase" }}>Nội dung nhận xét:</div>
-                <div
-                  style={{
-                    padding: 12,
-                    backgroundColor: "#ffffff",
-                    border: "1px solid var(--admin-line)",
-                    borderRadius: 8,
-                    fontSize: 13,
-                    lineHeight: 1.5,
-                    color: "var(--admin-ink)",
-                  }}
-                >
+              <div>
+                <div className="text-[11px] text-admin-soft mb-1 font-semibold uppercase">Nội dung nhận xét:</div>
+                <div className="p-3 bg-white border border-admin-line rounded-lg text-xs leading-relaxed text-admin-ink">
                   {selectedReview.content}
                 </div>
               </div>
 
               {/* Photos Gallery */}
               {selectedReview.images && selectedReview.images.length > 0 && (
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 11, color: "var(--admin-soft)", marginBottom: 6, fontWeight: 650, textTransform: "uppercase" }}>
+                <div>
+                  <div className="text-[11px] text-admin-soft mb-1.5 font-semibold uppercase">
                     Hình ảnh đính kèm ({selectedReview.images.length}):
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                  <div className="grid grid-cols-3 gap-2">
                     {selectedReview.images.map((img, idx) => (
                       <div
                         key={idx}
-                        style={{
-                          aspectRatio: "1/1",
-                          position: "relative",
-                          borderRadius: 6,
-                          overflow: "hidden",
-                          border: "1px solid var(--admin-line)",
-                          backgroundColor: "#f1f5f9",
-                        }}
+                        className="aspect-square relative rounded-md overflow-hidden border border-admin-line bg-slate-100"
                       >
                         <Image
                           src={img}
@@ -487,7 +461,7 @@ export function AdminReviews() {
                           fill
                           unoptimized
                           sizes="150px"
-                          style={{ objectFit: "cover" }}
+                          className="object-cover"
                         />
                       </div>
                     ))}
@@ -497,23 +471,15 @@ export function AdminReviews() {
 
               {/* Moderation Status Banner */}
               {selectedReview.status === "HIDDEN" && (
-                <div
-                  style={{
-                    padding: 12,
-                    backgroundColor: "var(--admin-red-soft)",
-                    border: "1px solid #fecaca",
-                    borderRadius: 8,
-                    marginBottom: 16,
-                  }}
-                >
-                  <div style={{ display: "flex", gap: 6, alignItems: "center", color: "var(--admin-red)", fontWeight: 700, fontSize: 12 }}>
+                <div className="p-3 bg-admin-red-soft border border-rose-200 rounded-lg">
+                  <div className="flex gap-1.5 items-center text-admin-red font-bold text-xs">
                     <AlertTriangle size={14} /> Đánh giá đã bị ẩn kiểm duyệt
                   </div>
-                  <div style={{ fontSize: 12, color: "#7f1d1d", marginTop: 4 }}>
+                  <div className="text-xs text-rose-950 mt-1">
                     <strong>Lý do:</strong> {selectedReview.moderationReason || "Không xác định"}
                   </div>
                   {selectedReview.moderatedBy && (
-                    <div style={{ fontSize: 10, color: "var(--admin-red)", marginTop: 4 }}>
+                    <div className="text-[10px] text-admin-red mt-1">
                       Người kiểm duyệt: {selectedReview.moderatedBy} • {new Date(selectedReview.moderatedAt || "").toLocaleString("vi-VN")}
                     </div>
                   )}
@@ -521,10 +487,10 @@ export function AdminReviews() {
               )}
             </div>
 
-            <div className="admin-drawer-actions">
+            <div className="flex items-center justify-end gap-2.5 p-4 border-t border-admin-line mt-auto bg-admin-bg/20">
               <button
                 type="button"
-                className="admin-button admin-button-secondary"
+                className="inline-flex items-center justify-center min-h-[38px] px-4 rounded-lg text-xs font-bold border border-admin-line bg-white hover:border-[#bbc3cc] hover:bg-admin-bg text-admin-ink transition-colors cursor-pointer"
                 onClick={() => setSelectedReview(null)}
               >
                 Đóng
@@ -532,7 +498,7 @@ export function AdminReviews() {
               {selectedReview.status === "PUBLISHED" ? (
                 <button
                   type="button"
-                  className="admin-button admin-button-danger"
+                  className="inline-flex items-center justify-center gap-1.5 min-h-[38px] px-4 rounded-lg text-xs font-bold border border-rose-200 bg-admin-red-soft hover:bg-rose-100 text-admin-red transition-colors cursor-pointer"
                   onClick={() => handleOpenHideModal(selectedReview)}
                 >
                   <ShieldAlert size={15} /> Ẩn đánh giá này
@@ -540,7 +506,7 @@ export function AdminReviews() {
               ) : (
                 <button
                   type="button"
-                  className="admin-button admin-button-primary"
+                  className="inline-flex items-center justify-center gap-1.5 min-h-[38px] px-4 rounded-lg text-xs font-bold bg-admin-accent-dark hover:bg-[#1e252c] text-white transition-colors cursor-pointer"
                   onClick={() => handleRestoreReview(selectedReview)}
                 >
                   <RotateCcw size={15} /> Khôi phục hiển thị
@@ -553,27 +519,26 @@ export function AdminReviews() {
 
       {/* Hide Modal with Reason Dialog */}
       {isHideModalOpen && selectedReview && (
-        <div className="admin-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="hide-modal-title">
-          <div className="admin-modal-card" style={{ maxWidth: 460 }}>
-            <div className="admin-modal-header">
-              <div className="admin-modal-icon is-danger">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs" role="dialog" aria-modal="true" aria-labelledby="hide-modal-title">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-admin-line flex flex-col gap-4">
+            <div className="flex items-start gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-admin-red-soft text-admin-red">
                 <ShieldAlert size={18} />
               </div>
               <div>
-                <h3 id="hide-modal-title">Xác nhận ẩn đánh giá</h3>
-                <p>Khách hàng: <strong>{selectedReview.userName}</strong> ({selectedReview.productName})</p>
+                <h3 id="hide-modal-title" className="text-base font-bold text-admin-ink">Xác nhận ẩn đánh giá</h3>
+                <p className="text-xs text-admin-muted mt-0.5">Khách hàng: <strong className="text-admin-ink">{selectedReview.userName}</strong> ({selectedReview.productName})</p>
               </div>
             </div>
 
-            <div className="admin-modal-body">
-              <p className="admin-modal-warning-text">
+            <div className="flex flex-col gap-3">
+              <p className="text-xs text-admin-muted leading-relaxed m-0">
                 Đánh giá này sẽ bị ẩn khỏi trang bán lẻ và không hiển thị cho người mua khác. Vui lòng ghi rõ lý do kiểm duyệt:
               </p>
 
-              <label className="admin-modal-field">
-                <span>Lý do ẩn đánh giá <span style={{ color: "var(--admin-red)" }}>*</span></span>
+              <label className="flex flex-col gap-1.5 text-xs font-semibold text-admin-ink">
+                <span>Lý do ẩn đánh giá <span className="text-admin-red">*</span></span>
                 <textarea
-                  className="admin-form-textarea"
                   rows={3}
                   placeholder="Ví dụ: Sử dụng từ ngữ thô tục, quảng cáo bên ngoài, sai thông tin sản phẩm..."
                   value={hideReason}
@@ -582,24 +547,25 @@ export function AdminReviews() {
                     if (hideError) setHideError("");
                   }}
                   autoFocus
+                  className="w-full rounded-lg border border-admin-line p-2.5 text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue resize-none"
                 />
                 {hideError && (
-                  <small style={{ color: "var(--admin-red)", fontSize: 11, marginTop: 4 }}>{hideError}</small>
+                  <small className="text-admin-red text-[11px] mt-0.5">{hideError}</small>
                 )}
               </label>
             </div>
 
-            <div className="admin-modal-actions">
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-admin-line">
               <button
                 type="button"
-                className="admin-button admin-button-secondary"
+                className="inline-flex items-center justify-center min-h-[38px] px-3.5 rounded-lg text-xs font-bold border border-admin-line bg-white hover:bg-admin-bg text-admin-ink transition-colors cursor-pointer"
                 onClick={() => setIsHideModalOpen(false)}
               >
                 Hủy bỏ
               </button>
               <button
                 type="button"
-                className="admin-button admin-button-danger"
+                className="inline-flex items-center justify-center min-h-[38px] px-3.5 rounded-lg text-xs font-bold border border-rose-200 bg-admin-red-soft hover:bg-rose-100 text-admin-red transition-colors cursor-pointer"
                 onClick={handleConfirmHide}
               >
                 Xác nhận ẩn

@@ -20,6 +20,24 @@
   --color-rog-surface: #181a20;
   --color-rog-border: #2a2e39;
 
+  --color-admin-ink: #1d232b;
+  --color-admin-muted: #68717d;
+  --color-admin-soft: #9aa3ae;
+  --color-admin-line: #e3e7eb;
+  --color-admin-bg: #f5f6f8;
+  --color-admin-surface: #ffffff;
+  --color-admin-accent: #48525f;
+  --color-admin-accent-dark: #2c343d;
+  --color-admin-accent-soft: #eef1f4;
+  --color-admin-green: #2d7d5d;
+  --color-admin-green-soft: #e9f5ee;
+  --color-admin-amber: #a56a17;
+  --color-admin-amber-soft: #fff5e3;
+  --color-admin-red: #b34b4b;
+  --color-admin-red-soft: #fff0f0;
+  --color-admin-blue: #4b6e91;
+  --color-admin-blue-soft: #edf3f8;
+
   --font-sans: "TTNormsProRegular", "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-nav: "TTNormsProMedium", "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-heading: "TTNormsProBold", "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
