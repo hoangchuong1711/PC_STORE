@@ -874,7 +874,7 @@ export function AdminProducts() {
                     required
                     type="number"
                     min="0"
-                    step="1000"
+                    step="1"
                     placeholder="0"
                     value={editingProduct.price}
                     onChange={(event) => {
