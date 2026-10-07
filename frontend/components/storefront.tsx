@@ -7,14 +7,21 @@ import { useAuth } from "./auth-provider";
 import { useToast } from "./toast";
 import { QuickSearch } from "./quick-search";
 import { ProductReviewsSection } from "./reviews";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import {
   categories,
   brands,
   formatPrice,
   Product,
   products,
+  getProduct,
 } from "../lib/products";
+import {
+  catalogApi,
+  type CatalogProduct,
+  type CatalogCategoryOption,
+  type CatalogBrandOption,
+} from "../lib/catalog-api";
 import {
   Search,
   ShoppingCart,
@@ -28,6 +35,8 @@ import {
   List,
   SlidersHorizontal,
   X,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 
 export function Header() {
@@ -253,35 +262,68 @@ function ProductVisual({
   );
 }
 
-export function ProductCard({ product }: { product: Product }) {
+export type ProductInput = Product | CatalogProduct;
+
+export function toProductCardModel(item: ProductInput): Product {
+  if ("productId" in item) {
+    const brandName = item.brand?.name ?? "PC Store";
+    const catName = item.category?.name ?? "Linh kiện";
+    return {
+      id: String(item.productId),
+      slug: String(item.productId),
+      name: item.name,
+      brand: brandName,
+      category: catName,
+      price: item.price,
+      stock: item.availableQuantity,
+      description: item.description ?? "",
+      specs: {
+        "Hãng": brandName,
+        "Danh mục": catName,
+      },
+      accent: brandName === "AMD" ? "#ed1c24" : brandName === "NVIDIA" ? "#76b900" : "#00539b",
+      badge: item.inStock ? undefined : "Hết hàng",
+      featured: false,
+      rating: 4.8,
+      reviewCount: 12,
+      warranty: "36 tháng chính hãng",
+      images: item.imageUrls.length ? item.imageUrls : ["Góc nhìn chính"],
+    };
+  }
+  return item;
+}
+
+export function ProductCard({ product }: { product: ProductInput }) {
   const { add } = useCart();
   const { toast } = useToast();
+  const item = toProductCardModel(product);
 
-  const handleQuickAdd = (e: React.MouseEvent) => {
+  const handleQuickAdd = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (product.stock > 0) {
-      add(product.id, 1);
-      toast(`Đã thêm "${product.name}" vào giỏ hàng!`, "success");
+    if (item.stock > 0) {
+      const numId = "productId" in product ? product.productId : parseInt(item.id.replace(/^p-?/i, ""), 10) || 1;
+      await add(numId, 1);
+      toast(`Đã thêm "${item.name}" vào giỏ hàng!`, "success");
     }
   };
 
   return (
     <article className="product-card">
-      <Link href={`/products/${product.slug}`} className="product-card-link">
-        <ProductVisual product={product} />
+      <Link href={`/products/${item.slug}`} className="product-card-link">
+        <ProductVisual product={item} />
         <div className="product-card-body">
           <div className="product-meta">
-            <span className="product-brand-tag">{product.brand}</span>
-            {product.badge && (
-              <span className="product-badge">{product.badge}</span>
+            <span className="product-brand-tag">{item.brand}</span>
+            {item.badge && (
+              <span className="product-badge">{item.badge}</span>
             )}
           </div>
-          <h3>{product.name}</h3>
-          <p className="product-card-desc">{product.description}</p>
+          <h3>{item.name}</h3>
+          <p className="product-card-desc">{item.description}</p>
 
           <div className="product-card-specs">
-            {Object.entries(product.specs)
+            {Object.entries(item.specs)
               .slice(0, 2)
               .map(([k, v]) => (
                 <span key={k} className="spec-tag">
@@ -292,30 +334,30 @@ export function ProductCard({ product }: { product: Product }) {
 
           <div className="product-price-row">
             <div className="product-price">
-              <strong>{formatPrice(product.price)}</strong>
-              {product.oldPrice && <del>{formatPrice(product.oldPrice)}</del>}
+              <strong>{formatPrice(item.price)}</strong>
+              {item.oldPrice && <del>{formatPrice(item.oldPrice)}</del>}
             </div>
-            {product.rating && (
+            {item.rating && (
               <div className="product-card-rating">
                 <Star size={13} fill="#f59e0b" color="#f59e0b" />
-                <span>{product.rating}</span>
-                <small>({product.reviewCount})</small>
+                <span>{item.rating}</span>
+                <small>({item.reviewCount})</small>
               </div>
             )}
           </div>
 
           <div className="product-card-footer">
-            <span className={product.stock === 0 ? "stock out" : "stock"}>
-              {product.stock === 0
+            <span className={item.stock === 0 ? "stock out" : "stock"}>
+              {item.stock === 0
                 ? "Tạm hết hàng"
-                : `Còn ${product.stock} sản phẩm`}
+                : `Còn ${item.stock} sản phẩm`}
             </span>
             <button
               type="button"
               className="quick-add-btn"
-              disabled={product.stock === 0}
+              disabled={item.stock === 0}
               onClick={handleQuickAdd}
-              aria-label={`Thêm nhanh ${product.name}`}
+              aria-label={`Thêm nhanh ${item.name}`}
             >
               + Giỏ
             </button>
@@ -327,6 +369,32 @@ export function ProductCard({ product }: { product: Product }) {
 }
 
 export function HomePage() {
+  const [featuredProducts, setFeaturedProducts] = useState<CatalogProduct[]>([]);
+  const [categoriesList, setCategoriesList] = useState<CatalogCategoryOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [prodPage, cats] = await Promise.all([
+        catalogApi.list({ size: 8 }),
+        catalogApi.listCategories(),
+      ]);
+      setFeaturedProducts(prodPage.items);
+      setCategoriesList(cats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể tải dữ liệu sản phẩm từ máy chủ.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
   return (
     <>
       <Header />
@@ -422,47 +490,72 @@ export function HomePage() {
             </Link>
           </div>
           <div className="category-grid">
-            {categories.map((category, idx) => (
-              <Link
-                className={`category-tile category-${category.tone}`}
-                href={`/products?category=${encodeURIComponent(category.name)}`}
-                key={category.name}
-              >
-                <span className="category-index">0{idx + 1}</span>
-                <span className="category-icon">
-                  {category.name === "Laptop"
-                    ? "▱"
-                    : category.name === "PC Gaming"
-                      ? "▣"
-                      : category.name === "Linh kiện"
-                        ? "⌘"
-                        : "◈"}
-                </span>
-                <strong>{category.name}</strong>
-                <small>{category.count}</small>
-                <span className="tile-arrow">↗</span>
-              </Link>
-            ))}
+            {categoriesList.length > 0
+              ? categoriesList.map((category, idx) => (
+                  <Link
+                    className="category-tile category-violet"
+                    href={`/products?categoryId=${category.categoryId}`}
+                    key={category.categoryId}
+                  >
+                    <span className="category-index">0{idx + 1}</span>
+                    <span className="category-icon">▣</span>
+                    <strong>{category.name}</strong>
+                    <small>{category.componentType ?? "Linh kiện"}</small>
+                    <span className="tile-arrow">↗</span>
+                  </Link>
+                ))
+              : categories.map((category, idx) => (
+                  <Link
+                    className={`category-tile category-${category.tone}`}
+                    href={`/products?category=${encodeURIComponent(category.name)}`}
+                    key={category.name}
+                  >
+                    <span className="category-index">0{idx + 1}</span>
+                    <span className="category-icon">▣</span>
+                    <strong>{category.name}</strong>
+                    <small>{category.count}</small>
+                    <span className="tile-arrow">↗</span>
+                  </Link>
+                ))}
           </div>
         </section>
 
         <section className="container section featured-section">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">Sản phẩm nổi bật</span>
+              <span className="eyebrow">Sản phẩm nổi bật từ máy chủ</span>
               <h2>Được lựa chọn nhiều nhất trong tuần.</h2>
             </div>
             <Link className="text-link" href="/products">
               Xem toàn bộ catalog ↗
             </Link>
           </div>
-          <div className="product-grid">
-            {products
-              .filter((product) => product.featured)
-              .map((product) => (
-                <ProductCard product={product} key={product.id} />
+
+          {error ? (
+            <div className="catalog-error-box" role="alert" style={{ padding: "1.5rem", background: "#fee2e2", color: "#b91c1c", borderRadius: "10px", margin: "1rem 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <AlertCircle size={22} />
+                <span>{error}</span>
+              </div>
+              <button onClick={() => void loadData()} className="button button-outline" style={{ fontSize: "0.85rem", padding: "0.4rem 0.8rem" }}>
+                Thử tải lại
+              </button>
+            </div>
+          ) : loading ? (
+            <div className="product-grid" style={{ minHeight: "200px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Loader2 size={32} className="animate-spin text-muted-foreground" />
+            </div>
+          ) : featuredProducts.length > 0 ? (
+            <div className="product-grid">
+              {featuredProducts.map((product) => (
+                <ProductCard product={product} key={product.productId} />
               ))}
-          </div>
+            </div>
+          ) : (
+            <div className="empty-state">
+              <p>Chưa có sản phẩm nào trên máy chủ.</p>
+            </div>
+          )}
         </section>
 
         <section className="container services section" id="services">
@@ -496,8 +589,8 @@ export function HomePage() {
 
 export function CatalogPage() {
   const [query, setQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("Tất cả");
-  const [selectedBrand, setSelectedBrand] = useState("Tất cả");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | "ALL">("ALL");
+  const [selectedBrandId, setSelectedBrandId] = useState<number | "ALL">("ALL");
   const [priceRange, setPriceRange] = useState("ALL");
   const [inStockOnly, setInStockOnly] = useState(false);
   const [sort, setSort] = useState("featured");
@@ -505,67 +598,122 @@ export function CatalogPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
-  const filtered = useMemo(() => {
-    return products
-      .filter((p) => {
-        // Query search
-        const matchQuery =
-          !query.trim() ||
-          p.name.toLowerCase().includes(query.toLowerCase()) ||
-          p.brand.toLowerCase().includes(query.toLowerCase()) ||
-          p.description.toLowerCase().includes(query.toLowerCase());
+  const [categoriesList, setCategoriesList] = useState<CatalogCategoryOption[]>([]);
+  const [brandsList, setBrandsList] = useState<CatalogBrandOption[]>([]);
+  const [serverProducts, setServerProducts] = useState<CatalogProduct[]>([]);
+  const [totalItems, setTotalItems] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-        // Category
-        const matchCategory =
-          selectedCategory === "Tất cả" || p.category === selectedCategory;
+  // Load category and brand metadata from backend
+  useEffect(() => {
+    let active = true;
+    async function loadMeta() {
+      try {
+        const [cats, brs] = await Promise.all([
+          catalogApi.listCategories(),
+          catalogApi.listBrands(),
+        ]);
+        if (active) {
+          setCategoriesList(cats);
+          setBrandsList(brs);
+        }
+      } catch {
+        // Handled via product fetch
+      }
+    }
+    void loadMeta();
+    return () => {
+      active = false;
+    };
+  }, []);
 
-        // Brand
-        const matchBrand =
-          selectedBrand === "Tất cả" || p.brand === selectedBrand;
+  // Fetch products from backend whenever filters or page change
+  const fetchProducts = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        // In stock
-        const matchStock = !inStockOnly || p.stock > 0;
+      let minPrice: number | undefined;
+      let maxPrice: number | undefined;
+      if (priceRange === "UNDER_5M") {
+        minPrice = 0;
+        maxPrice = 5000000;
+      } else if (priceRange === "5M_15M") {
+        minPrice = 5000000;
+        maxPrice = 15000000;
+      } else if (priceRange === "15M_30M") {
+        minPrice = 15000000;
+        maxPrice = 30000000;
+      } else if (priceRange === "OVER_30M") {
+        minPrice = 30000000;
+      }
 
-        // Price range
-        let matchPrice = true;
-        if (priceRange === "UNDER_5M") matchPrice = p.price < 5000000;
-        else if (priceRange === "5M_15M")
-          matchPrice = p.price >= 5000000 && p.price <= 15000000;
-        else if (priceRange === "15M_30M")
-          matchPrice = p.price > 15000000 && p.price <= 30000000;
-        else if (priceRange === "OVER_30M") matchPrice = p.price > 30000000;
-
-        return matchQuery && matchCategory && matchBrand && matchStock && matchPrice;
-      })
-      .sort((a, b) => {
-        if (sort === "price-low") return a.price - b.price;
-        if (sort === "price-high") return b.price - a.price;
-        if (sort === "rating") return (b.rating || 0) - (a.rating || 0);
-        return Number(Boolean(b.featured)) - Number(Boolean(a.featured));
+      const res = await catalogApi.list({
+        q: query.trim() || undefined,
+        categoryId: selectedCategoryId !== "ALL" ? selectedCategoryId : undefined,
+        brandId: selectedBrandId !== "ALL" ? selectedBrandId : undefined,
+        minPrice,
+        maxPrice,
+        page: currentPage,
+        size: itemsPerPage,
       });
-  }, [query, selectedCategory, selectedBrand, priceRange, inStockOnly, sort]);
 
-  const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
-  const paginatedProducts = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filtered.slice(start, start + itemsPerPage);
-  }, [filtered, currentPage]);
+      let items = res.items;
+      if (inStockOnly) {
+        items = items.filter((p) => p.inStock);
+      }
+      setServerProducts(items);
+      setTotalPages(res.totalPages || 1);
+      setTotalItems(res.totalItems || items.length);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Không thể tải danh mục sản phẩm từ máy chủ. Vui lòng kiểm tra lại dịch vụ backend.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    query,
+    selectedCategoryId,
+    selectedBrandId,
+    priceRange,
+    inStockOnly,
+    currentPage,
+  ]);
+
+  useEffect(() => {
+    void fetchProducts();
+  }, [fetchProducts]);
 
   const resetFilters = () => {
     setQuery("");
-    setSelectedCategory("Tất cả");
-    setSelectedBrand("Tất cả");
+    setSelectedCategoryId("ALL");
+    setSelectedBrandId("ALL");
     setPriceRange("ALL");
     setInStockOnly(false);
     setCurrentPage(1);
   };
 
   const hasActiveFilters =
-    query ||
-    selectedCategory !== "Tất cả" ||
-    selectedBrand !== "Tất cả" ||
+    Boolean(query) ||
+    selectedCategoryId !== "ALL" ||
+    selectedBrandId !== "ALL" ||
     priceRange !== "ALL" ||
     inStockOnly;
+
+  const currentCategoryName =
+    selectedCategoryId === "ALL"
+      ? null
+      : categoriesList.find((c) => c.categoryId === selectedCategoryId)?.name;
+
+  const currentBrandName =
+    selectedBrandId === "ALL"
+      ? null
+      : brandsList.find((b) => b.brandId === selectedBrandId)?.name;
 
   return (
     <>
@@ -573,7 +721,7 @@ export function CatalogPage() {
       <main className="catalog-page container">
         <div className="catalog-hero">
           <span className="eyebrow">
-            Catalog linh kiện & máy tính chính hãng
+            Catalog linh kiện & máy tính chính hãng từ máy chủ
           </span>
           <h1>
             Chọn món tiếp theo
@@ -609,21 +757,21 @@ export function CatalogPage() {
               <div className="filter-chips">
                 <button
                   type="button"
-                  className={`filter-chip ${selectedCategory === "Tất cả" ? "active" : ""}`}
+                  className={`filter-chip ${selectedCategoryId === "ALL" ? "active" : ""}`}
                   onClick={() => {
-                    setSelectedCategory("Tất cả");
+                    setSelectedCategoryId("ALL");
                     setCurrentPage(1);
                   }}
                 >
                   Tất cả
                 </button>
-                {categories.map((c) => (
+                {categoriesList.map((c) => (
                   <button
-                    key={c.name}
+                    key={c.categoryId}
                     type="button"
-                    className={`filter-chip ${selectedCategory === c.name ? "active" : ""}`}
+                    className={`filter-chip ${selectedCategoryId === c.categoryId ? "active" : ""}`}
                     onClick={() => {
-                      setSelectedCategory(c.name);
+                      setSelectedCategoryId(c.categoryId);
                       setCurrentPage(1);
                     }}
                   >
@@ -637,16 +785,18 @@ export function CatalogPage() {
             <div className="filter-group">
               <label className="filter-group-label">Thương hiệu</label>
               <select
-                value={selectedBrand}
+                value={selectedBrandId === "ALL" ? "ALL" : String(selectedBrandId)}
                 onChange={(e) => {
-                  setSelectedBrand(e.target.value);
+                  const val = e.target.value;
+                  setSelectedBrandId(val === "ALL" ? "ALL" : Number(val));
                   setCurrentPage(1);
                 }}
                 className="filter-select"
               >
-                {brands.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
+                <option value="ALL">Tất cả thương hiệu</option>
+                {brandsList.map((b) => (
+                  <option key={b.brandId} value={String(b.brandId)}>
+                    {b.name}
                   </option>
                 ))}
               </select>
@@ -769,7 +919,6 @@ export function CatalogPage() {
                   <option value="featured">Ưu tiên nổi bật</option>
                   <option value="price-low">Giá: Thấp đến cao</option>
                   <option value="price-high">Giá: Cao đến thấp</option>
-                  <option value="rating">Đánh giá cao nhất</option>
                 </select>
 
                 <div className="view-mode-toggle" role="group" aria-label="Chế độ xem">
@@ -795,22 +944,22 @@ export function CatalogPage() {
 
             <div className="catalog-count-row">
               <span className="count-label">
-                Tìm thấy <strong>{filtered.length}</strong> sản phẩm phù hợp
+                Tìm thấy <strong>{totalItems}</strong> sản phẩm từ máy chủ
               </span>
               {hasActiveFilters && (
                 <div className="active-filter-tags">
-                  {selectedCategory !== "Tất cả" && (
+                  {currentCategoryName && (
                     <span className="active-tag">
-                      {selectedCategory}
-                      <button onClick={() => setSelectedCategory("Tất cả")}>
+                      {currentCategoryName}
+                      <button onClick={() => setSelectedCategoryId("ALL")}>
                         ×
                       </button>
                     </span>
                   )}
-                  {selectedBrand !== "Tất cả" && (
+                  {currentBrandName && (
                     <span className="active-tag">
-                      {selectedBrand}
-                      <button onClick={() => setSelectedBrand("Tất cả")}>
+                      {currentBrandName}
+                      <button onClick={() => setSelectedBrandId("ALL")}>
                         ×
                       </button>
                     </span>
@@ -825,13 +974,28 @@ export function CatalogPage() {
               )}
             </div>
 
-            {filtered.length ? (
+            {error ? (
+              <div className="catalog-error-box" role="alert" style={{ padding: "2rem", background: "#fee2e2", color: "#b91c1c", borderRadius: "12px", margin: "1rem 0", display: "flex", flexDirection: "column", gap: "1rem", alignItems: "center", textAlign: "center" }}>
+                <AlertCircle size={40} />
+                <div>
+                  <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1.1rem" }}>Lỗi kết nối máy chủ Catalog</h3>
+                  <p style={{ margin: 0, opacity: 0.9 }}>{error}</p>
+                </div>
+                <button onClick={() => void fetchProducts()} className="button button-primary" style={{ marginTop: "0.5rem" }}>
+                  Thử tải lại dữ liệu
+                </button>
+              </div>
+            ) : loading ? (
+              <div className="product-grid" style={{ minHeight: "300px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Loader2 size={36} className="animate-spin text-muted-foreground" />
+              </div>
+            ) : serverProducts.length ? (
               <>
                 <div
                   className={`product-grid ${viewMode === "list" ? "product-grid-list" : "product-grid-catalog"}`}
                 >
-                  {paginatedProducts.map((product) => (
-                    <ProductCard product={product} key={product.id} />
+                  {serverProducts.map((product) => (
+                    <ProductCard product={product} key={product.productId} />
                   ))}
                 </div>
 
@@ -871,7 +1035,7 @@ export function CatalogPage() {
             ) : (
               <div className="empty-state">
                 <Search size={40} className="empty-state-icon" />
-                <h2>Không tìm thấy sản phẩm nào</h2>
+                <h2>Không tìm thấy sản phẩm nào trên máy chủ</h2>
                 <p>
                   Thử thay đổi bộ lọc hoặc tìm kiếm bằng từ khóa linh kiện chung.
                 </p>
@@ -891,25 +1055,170 @@ export function CatalogPage() {
   );
 }
 
-export function ProductDetail({ product }: { product: Product }) {
+export function ProductDetail({
+  product: initialProduct,
+  slug,
+}: {
+  product?: Product | null;
+  slug?: string;
+}) {
   const router = useRouter();
   const { add } = useCart();
   const { toast } = useToast();
+  const [product, setProduct] = useState<Product | null>(initialProduct ?? null);
+  const [loading, setLoading] = useState<boolean>(!initialProduct && Boolean(slug));
+  const [error, setError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (initialProduct) {
+      setProduct(initialProduct);
+      return;
+    }
+    if (!slug) return;
+
+    let isMounted = true;
+    async function fetchProduct() {
+      setLoading(true);
+      setError(null);
+      try {
+        const numId = /^\d+$/.test(slug!) ? Number(slug) : null;
+        if (numId !== null) {
+          const serverProd = await catalogApi.getById(numId);
+          if (isMounted) {
+            setProduct(toProductCardModel(serverProd));
+          }
+        } else {
+          const fallback = getProduct(slug!);
+          if (fallback) {
+            if (isMounted) setProduct(fallback);
+          } else {
+            if (isMounted) setError("Không tìm thấy thông tin sản phẩm yêu cầu.");
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Không thể kết nối đến máy chủ để tải thông tin sản phẩm.",
+          );
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    void fetchProduct();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [initialProduct, slug]);
+
+  if (loading) {
+    return (
+      <>
+        <Header />
+        <main
+          className="container detail-page"
+          style={{
+            minHeight: "60vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div style={{ textAlign: "center", padding: "4rem 0" }}>
+            <Loader2
+              size={40}
+              className="animate-spin text-muted-foreground"
+              style={{ margin: "0 auto 1rem" }}
+            />
+            <p>Đang tải thông tin sản phẩm từ máy chủ...</p>
+          </div>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <>
+        <Header />
+        <main
+          className="container detail-page"
+          style={{ minHeight: "60vh", padding: "4rem 1rem" }}
+        >
+          <div
+            role="alert"
+            style={{
+              maxWidth: "600px",
+              margin: "0 auto",
+              textAlign: "center",
+              padding: "3rem",
+              background: "#fee2e2",
+              color: "#b91c1c",
+              borderRadius: "16px",
+            }}
+          >
+            <AlertCircle size={48} style={{ margin: "0 auto 1rem" }} />
+            <h2 style={{ marginBottom: "0.5rem" }}>Không tìm thấy sản phẩm</h2>
+            <p style={{ marginBottom: "1.5rem" }}>
+              {error ?? "Sản phẩm bạn đang tìm kiếm không tồn tại hoặc đã ngừng kinh doanh."}
+            </p>
+            <Link href="/products" className="button button-primary">
+              ← Quay lại danh mục sản phẩm
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </>
+    );
+  }
 
   const images = product.images?.length
     ? product.images
     : ["Góc nhìn chính", "Góc nghiêng", "Bao bì sản phẩm"];
 
-  const handleAddToCart = () => {
-    add(product.id, quantity);
-    toast(`Đã thêm ${quantity}x "${product.name}" vào giỏ hàng!`, "success");
+  const handleAddToCart = async () => {
+    if (!product || product.stock === 0 || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const numId = /^\d+$/.test(product.id)
+        ? Number(product.id)
+        : parseInt(product.id.replace(/^p-?/i, ""), 10) || 1;
+      await add(numId, quantity);
+      toast(`Đã thêm ${quantity}x "${product.name}" vào giỏ hàng!`, "success");
+    } catch (err) {
+      toast(
+        err instanceof Error ? err.message : "Không thể thêm vào giỏ hàng",
+        "error",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleBuyNow = () => {
-    add(product.id, quantity);
-    router.push("/checkout");
+  const handleBuyNow = async () => {
+    if (!product || product.stock === 0 || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const numId = /^\d+$/.test(product.id)
+        ? Number(product.id)
+        : parseInt(product.id.replace(/^p-?/i, ""), 10) || 1;
+      await add(numId, quantity);
+      router.push("/checkout");
+    } catch (err) {
+      toast(
+        err instanceof Error ? err.message : "Không thể thêm vào giỏ hàng",
+        "error",
+      );
+      setIsSubmitting(false);
+    }
   };
 
   const relatedProducts = products

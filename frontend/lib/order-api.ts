@@ -93,3 +93,6 @@ export function createOrderApi(transport: typeof fetch = fetch) {
     },
   };
 }
+
+export const orderApi = createOrderApi();
+

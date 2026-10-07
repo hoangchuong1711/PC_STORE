@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { Header, Footer } from "./storefront";
 import { useCart } from "./cart-provider";
+import { useAuth } from "./auth-provider";
+import { orderApi, OrderApiError } from "../lib/order-api";
 import { useToast } from "./toast";
 import { formatPrice, products } from "../lib/products";
 import "./shopping.css";
@@ -39,12 +41,12 @@ const savedAddresses = [
 ];
 
 export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
+  const { user } = useAuth();
   const { items, add, update, clear } = useCart();
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [order, setOrder] = useState("");
   const [error, setError] = useState("");
-  const [scenario, setScenario] = useState("success");
   const [paymentMethod, setPaymentMethod] = useState<"COD" | "BANK_TRANSFER">("COD");
   const [copied, setCopied] = useState(false);
 
@@ -61,13 +63,30 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
 
   const submitting = useRef(false);
 
-  const lines = items.flatMap((item) => {
-    const product = products.find((product) => product.id === item.id);
-    return product ? [{ ...item, product }] : [];
+  const lines = items.map((item) => {
+    const foundProduct = products.find((product) => product.id === item.id || product.id === `p${item.id}`);
+    const product = foundProduct ?? {
+      id: item.id,
+      slug: item.id,
+      name: item.name,
+      price: item.price ?? item.unitPrice,
+      stock: item.stock ?? 999,
+      brand: item.product?.brand ?? "PC Store",
+      category: item.product?.category ?? "Linh kiện",
+      description: "",
+      specs: {},
+      accent: item.product?.accent ?? "#00539b",
+      featured: false,
+      rating: 5,
+      reviewCount: 0,
+      warranty: "Chính hãng",
+      images: ["Góc nhìn chính"],
+    };
+    return { ...item, product };
   });
 
   const subtotal = lines.reduce(
-    (sum, line) => sum + line.product.price * line.quantity,
+    (sum, line) => sum + (line.price || line.product.price) * line.quantity,
     0,
   );
 
@@ -101,6 +120,12 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
     event.preventDefault();
     if (submitting.current || !lines.length) return;
 
+    if (!user) {
+      setError("Vui lòng đăng nhập tài khoản để tiến hành đặt hàng.");
+      toast("Vui lòng đăng nhập để tiếp tục thanh toán!", "error");
+      return;
+    }
+
     const data = new FormData(event.currentTarget);
     let recipientName = "";
     let recipientPhone = "";
@@ -132,24 +157,50 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
     setBusy(true);
     setError("");
 
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    if (scenario !== "success") {
-      setError(
-        scenario === "stock"
-          ? "Một số linh kiện trong giỏ vừa hết hàng hoặc không đủ tồn kho."
-          : "Giá một số sản phẩm đã được cập nhật. Vui lòng kiểm tra lại giỏ hàng.",
+    try {
+      const idempotencyKey = crypto.randomUUID();
+      const res = await orderApi.checkout(
+        {
+          shippingName: recipientName.trim(),
+          shippingPhone: recipientPhone.trim(),
+          shippingAddressText: recipientAddress.trim(),
+          paymentMethod: paymentMethod,
+        },
+        idempotencyKey,
       );
-      toast("Đặt hàng chưa thành công do kiểm tra kho!", "error");
-    } else {
-      const generatedCode = `PCS-${Date.now().toString().slice(-6)}`;
-      setOrder(generatedCode);
-      clear();
-      toast(`Tạo đơn hàng ${generatedCode} thành công!`, "success");
-    }
 
-    submitting.current = false;
-    setBusy(false);
+      const orderCode = `#${res.order.orderId}`;
+      setOrder(orderCode);
+      await clear();
+      toast(
+        res.replayed
+          ? `Đơn hàng ${orderCode} đã được tạo trước đó.`
+          : `Tạo đơn hàng ${orderCode} thành công!`,
+        "success",
+      );
+    } catch (err) {
+      if (err instanceof OrderApiError) {
+        if (err.code === "CART_EMPTY") {
+          setError("Giỏ hàng trên máy chủ đang trống. Vui lòng thêm sản phẩm vào giỏ.");
+        } else if (err.code === "OUT_OF_STOCK") {
+          setError("Một số sản phẩm trong giỏ hàng đã hết hàng hoặc không đủ số lượng.");
+        } else if (err.code === "UNAUTHORIZED") {
+          setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục.");
+        } else {
+          setError(err.message || `Lỗi đặt hàng: ${err.code}`);
+        }
+      } else {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Có lỗi xảy ra khi gửi yêu cầu đặt hàng. Vui lòng thử lại.",
+        );
+      }
+      toast("Đặt hàng chưa thành công!", "error");
+    } finally {
+      submitting.current = false;
+      setBusy(false);
+    }
   }
 
   return (
@@ -475,19 +526,7 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
                       </div>
                     )}
 
-                    <details className="demo-scenarios">
-                      <summary>Giả lập kịch bản kiểm thử API</summary>
-                      <label htmlFor="scenario">Kết quả đặt hàng:</label>
-                      <select
-                        id="scenario"
-                        value={scenario}
-                        onChange={(event) => setScenario(event.target.value)}
-                      >
-                        <option value="success">Thành công (200 OK)</option>
-                        <option value="stock">Không đủ tồn kho (409 Conflict)</option>
-                        <option value="price">Giá thay đổi (400 Bad Request)</option>
-                      </select>
-                    </details>
+
                   </div>
 
                   {error && (

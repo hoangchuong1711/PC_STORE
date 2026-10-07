@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   Check,
@@ -16,9 +16,12 @@ import {
   CreditCard,
   Star,
   CheckCircle2,
+  Loader2,
 } from "lucide-react";
 import { Footer, Header } from "./storefront";
 import { useCart } from "./cart-provider";
+import { useAuth } from "./auth-provider";
+import { orderApi } from "../lib/order-api";
 import { useToast } from "./toast";
 import { WriteReviewModal } from "./reviews";
 import { hasUserReviewedProduct } from "../lib/reviews";
@@ -30,7 +33,8 @@ import {
   orderStatusLabels,
   paymentMethodLabels,
   paymentStatusLabels,
-  orders as initialOrders,
+  toOrderModel,
+  getOrder,
   type Order,
   type OrderFilter,
   type OrderStatus,
@@ -120,24 +124,53 @@ function OrderRow({
 }
 
 export function OrdersPage() {
-  const [orderList] = useState<Order[]>(initialOrders);
+  const { user, loading: authLoading } = useAuth();
+  const [orderList, setOrderList] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<OrderFilter>("ALL");
-  const [scenario, setScenario] = useState<"content" | "empty" | "error">(
-    "content",
-  );
   const { add } = useCart();
   const { toast } = useToast();
 
+  const fetchOrders = async () => {
+    if (!user) {
+      setOrderList([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await orderApi.list();
+      setOrderList(res.map(toOrderModel));
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Không thể tải danh sách đơn hàng từ máy chủ.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!authLoading) {
+      void fetchOrders();
+    }
+  }, [authLoading, user]);
+
   const handleReorder = (order: Order) => {
     order.lines.forEach((line) => {
-      add(line.productId, line.quantity);
+      const numId = /^\d+$/.test(line.productId)
+        ? Number(line.productId)
+        : parseInt(line.productId.replace(/^p-?/i, ""), 10) || 1;
+      add(numId, line.quantity);
     });
     toast(`Đã thêm ${order.lines.length} sản phẩm của đơn ${order.code} vào giỏ hàng!`, "success");
   };
 
   const visibleOrders = useMemo(
-    () => (scenario === "content" ? filterOrders(orderList, filter) : []),
-    [filter, scenario, orderList],
+    () => filterOrders(orderList, filter),
+    [filter, orderList],
   );
 
   return (
@@ -149,22 +182,9 @@ export function OrdersPage() {
             <span className="eyebrow">Tài khoản · Quản lý mua sắm</span>
             <h1>Đơn hàng của tôi.</h1>
             <p>
-              Theo dõi lộ trình giao hàng, kiểm tra chi tiết linh kiện và thanh toán.
+              Theo dõi lộ trình giao hàng, kiểm tra chi tiết linh kiện và thanh toán trực tiếp từ máy chủ.
             </p>
           </div>
-          <label className="order-scenario">
-            <span>Tình huống giả lập:</span>
-            <select
-              value={scenario}
-              onChange={(event) =>
-                setScenario(event.target.value as "content" | "empty" | "error")
-              }
-            >
-              <option value="content">Danh sách đơn mẫu</option>
-              <option value="empty">Tài khoản chưa có đơn</option>
-              <option value="error">Mô phỏng lỗi kết nối API</option>
-            </select>
-          </label>
         </div>
 
         <div className="order-filters" role="group" aria-label="Lọc đơn hàng">
@@ -180,18 +200,31 @@ export function OrdersPage() {
           ))}
         </div>
 
-        {scenario === "error" ? (
+        {!user && !authLoading ? (
+          <section className="orders-message" role="alert">
+            <PackageOpen size={48} aria-hidden="true" />
+            <h2>Vui lòng đăng nhập</h2>
+            <p>Đăng nhập vào tài khoản của bạn để xem và theo dõi lịch sử đơn hàng.</p>
+            <Link className="button button-primary" href="/account">
+              Đăng nhập tài khoản
+            </Link>
+          </section>
+        ) : error ? (
           <section className="orders-message" role="alert">
             <AlertCircle size={38} aria-hidden="true" />
             <h2>Không thể tải danh sách đơn hàng</h2>
-            <p>Lỗi kết nối máy chủ Tomcat. Vui lòng kiểm tra lại dịch vụ backend.</p>
+            <p>{error}</p>
             <button
               className="button button-primary"
-              onClick={() => setScenario("content")}
+              onClick={() => void fetchOrders()}
             >
               Thử tải lại
             </button>
           </section>
+        ) : loading ? (
+          <div style={{ minHeight: "300px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Loader2 size={36} className="animate-spin text-muted-foreground" />
+          </div>
         ) : visibleOrders.length ? (
           <section className="order-list" aria-label="Danh sách đơn hàng">
             <div className="order-list-caption">
@@ -206,11 +239,7 @@ export function OrdersPage() {
           <section className="orders-message">
             <PackageOpen size={48} aria-hidden="true" />
             <h2>Chưa có đơn hàng nào ở mục này</h2>
-            <p>
-              {scenario === "empty"
-                ? "Bạn chưa có đơn hàng nào. Hãy khám phá linh kiện hoặc tạo dàn PC mới!"
-                : "Không tìm thấy đơn hàng nào ở trạng thái đã chọn."}
-            </p>
+            <p>Không tìm thấy đơn hàng nào ở trạng thái đã chọn.</p>
             <Link className="button button-primary" href="/products">
               Khám phá linh kiện ngay
             </Link>
@@ -222,8 +251,16 @@ export function OrdersPage() {
   );
 }
 
-export function OrderDetail({ order: initialOrder }: { order: Order }) {
-  const [order, setOrder] = useState<Order>(initialOrder);
+export function OrderDetail({
+  order: initialOrder,
+  id,
+}: {
+  order?: Order | null;
+  id?: string;
+}) {
+  const [order, setOrder] = useState<Order | null>(initialOrder ?? null);
+  const [loading, setLoading] = useState<boolean>(!initialOrder && Boolean(id));
+  const [error, setError] = useState<string | null>(null);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("Đổi ý không muốn mua nữa");
   const [qrModalOpen, setQrModalOpen] = useState(false);
@@ -232,26 +269,151 @@ export function OrderDetail({ order: initialOrder }: { order: Order }) {
     name: string;
   } | null>(null);
   const [, setReviewVersion] = useState(0);
-  const progress = getOrderProgress(order.status);
   const { add } = useCart();
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (initialOrder) {
+      setOrder(initialOrder);
+      return;
+    }
+    if (!id) return;
+
+    let isMounted = true;
+    async function loadOrder() {
+      setLoading(true);
+      setError(null);
+      try {
+        const numId = /^\d+$/.test(id!) ? Number(id) : null;
+        if (numId !== null) {
+          const res = await orderApi.getById(numId);
+          if (isMounted) setOrder(toOrderModel(res));
+        } else {
+          const fallback = getOrder(id!);
+          if (fallback) {
+            if (isMounted) setOrder(fallback);
+          } else {
+            if (isMounted) setError("Không tìm thấy đơn hàng yêu cầu.");
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(
+            err instanceof Error ? err.message : "Không thể tải thông tin đơn hàng.",
+          );
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+    void loadOrder();
+    return () => {
+      isMounted = false;
+    };
+  }, [initialOrder, id]);
+
+  const progress = order ? getOrderProgress(order.status) : [];
+
   const handleReorder = () => {
+    if (!order) return;
     order.lines.forEach((line) => {
-      add(line.productId, line.quantity);
+      const numId = /^\d+$/.test(line.productId)
+        ? Number(line.productId)
+        : parseInt(line.productId.replace(/^p-?/i, ""), 10) || 1;
+      add(numId, line.quantity);
     });
     toast(`Đã thêm ${order.lines.length} sản phẩm vào giỏ hàng!`, "success");
   };
 
-  const handleConfirmCancel = () => {
-    setOrder((prev) => ({
-      ...prev,
-      status: "CANCELLED",
-      cancelReason,
-    }));
-    setCancelModalOpen(false);
-    toast(`Đã hủy đơn hàng ${order.code}!`, "info");
+  const handleConfirmCancel = async () => {
+    if (!order) return;
+    try {
+      const numId = /^\d+$/.test(order.id) ? Number(order.id) : null;
+      if (numId !== null) {
+        const updated = await orderApi.cancel(numId);
+        setOrder(toOrderModel(updated));
+      } else {
+        setOrder((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: "CANCELLED",
+                cancelReason,
+              }
+            : prev,
+        );
+      }
+      setCancelModalOpen(false);
+      toast(`Đã hủy đơn hàng ${order.code}!`, "info");
+    } catch (err) {
+      toast(
+        err instanceof Error ? err.message : "Không thể hủy đơn hàng",
+        "error",
+      );
+    }
   };
+
+  if (loading) {
+    return (
+      <>
+        <Header />
+        <main
+          className="container order-detail-page"
+          style={{
+            minHeight: "60vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div style={{ textAlign: "center", padding: "4rem 0" }}>
+            <Loader2
+              size={40}
+              className="animate-spin text-muted-foreground"
+              style={{ margin: "0 auto 1rem" }}
+            />
+            <p>Đang tải thông tin đơn hàng từ máy chủ...</p>
+          </div>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
+  if (error || !order) {
+    return (
+      <>
+        <Header />
+        <main
+          className="container order-detail-page"
+          style={{ minHeight: "60vh", padding: "4rem 1rem" }}
+        >
+          <div
+            role="alert"
+            style={{
+              maxWidth: "600px",
+              margin: "0 auto",
+              textAlign: "center",
+              padding: "3rem",
+              background: "#fee2e2",
+              color: "#b91c1c",
+              borderRadius: "16px",
+            }}
+          >
+            <AlertCircle size={48} style={{ margin: "0 auto 1rem" }} />
+            <h2 style={{ marginBottom: "0.5rem" }}>Không tìm thấy đơn hàng</h2>
+            <p style={{ marginBottom: "1.5rem" }}>
+              {error ?? "Đơn hàng không tồn tại hoặc bạn không có quyền xem đơn hàng này."}
+            </p>
+            <Link href="/orders" className="button button-primary">
+              ← Danh sách đơn hàng
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </>
+    );
+  }
 
   return (
     <>
