@@ -7,6 +7,7 @@ import "./admin.css";
 
 const api = createAdminTaxonomyApi();
 const emptyForm: TaxonomyInput = { name: "", description: "", status: "ACTIVE", componentType: null, logoUrl: null };
+const TAXONOMY_DRAFT_KEY = "pcstore_admin_taxonomy_draft";
 const messageOf = (cause: unknown) => cause instanceof Error ? cause.message : "Không thể xử lý yêu cầu. Vui lòng thử lại.";
 
 export function AdminCategories() {
@@ -24,6 +25,30 @@ export function AdminCategories() {
   const [form, setForm] = useState<TaxonomyInput>(emptyForm);
 
   useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(TAXONOMY_DRAFT_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.editor && parsed?.form) {
+          setEditor(parsed.editor);
+          setForm(parsed.form);
+        }
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (editor) {
+        sessionStorage.setItem(TAXONOMY_DRAFT_KEY, JSON.stringify({ editor, form }));
+      } else {
+        sessionStorage.removeItem(TAXONOMY_DRAFT_KEY);
+      }
+    } catch {}
+  }, [editor, form]);
+
+  useEffect(() => {
     let cancelled = false;
     Promise.all([api.list("categories"), api.list("brands")]).then(([categories, brands]) => {
       if (!cancelled) { setData({ categories, brands }); setLoadError(""); }
@@ -37,7 +62,13 @@ export function AdminCategories() {
     setError(""); setNotice(""); setEditor({ kind, entry });
     setForm(entry ? { ...entry } : { ...emptyForm });
   }
-  function close() { if (!saving.current) { setEditor(null); setError(""); } }
+  function close() {
+    if (!saving.current) {
+      try { sessionStorage.removeItem(TAXONOMY_DRAFT_KEY); } catch {}
+      setEditor(null);
+      setError("");
+    }
+  }
   function accept(kind: TaxonomyKind, entry: TaxonomyEntry) {
     setData(previous => ({ ...previous, [kind]: previous[kind].some(item => item.id === entry.id)
       ? previous[kind].map(item => item.id === entry.id ? entry : item) : [...previous[kind], entry] }));
@@ -49,6 +80,7 @@ export function AdminCategories() {
     try {
       const entry = await api.save(editor.kind, editor.entry?.id ?? null, form);
       accept(editor.kind, entry);
+      try { sessionStorage.removeItem(TAXONOMY_DRAFT_KEY); } catch {}
       setEditor(null); setNotice('Đã lưu "' + entry.name + '" vào hệ thống.');
     } catch (cause) { setError(messageOf(cause)); }
     finally { saving.current = false; setBusy(false); }

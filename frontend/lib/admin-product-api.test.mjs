@@ -113,3 +113,17 @@ test("preserves backend errors and handles network failure", async () => {
     (e) => e.code === "NETWORK_ERROR",
   );
 });
+
+test("lists products via GET /api/admin/products", async () => {
+  const calls = [];
+  const api = createAdminProductApi(async (url, options) => {
+    calls.push([url, options.method]);
+    return json([sampleProduct], 200);
+  });
+
+  const res = await api.list();
+  assert.equal(res.length, 1);
+  assert.equal(res[0].productId, 101);
+  assert.deepEqual(calls[0], ["/api/admin/products", "GET"]);
+});
+

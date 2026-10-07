@@ -1281,10 +1281,17 @@
 }
 
 .admin-drawer-actions {
+  position: sticky;
+  bottom: 0;
+  background: #ffffff;
   display: flex;
   justify-content: flex-end;
   gap: 9px;
-  padding-top: 5px;
+  padding: 14px 0 8px;
+  margin-top: 8px;
+  border-top: 1px solid var(--admin-line);
+  box-shadow: 0 -4px 14px rgba(21, 27, 33, 0.06);
+  z-index: 20;
 }
 
 .admin-order-drawer {

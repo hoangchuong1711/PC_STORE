@@ -173,6 +173,14 @@ export function createAdminProductApi(transport: typeof fetch = fetch) {
     async setStatus(productId: number, status: AdminProductStatus): Promise<AdminProductItem> {
       return this.update(productId, { status });
     },
+
+    async list(): Promise<AdminProductItem[]> {
+      const res = await request("/api/admin/products", "GET");
+      if (!Array.isArray(res) || !res.every(validProductItem)) {
+        throw new AdminProductApiError(502, "INVALID_RESPONSE", "Danh sách sản phẩm không hợp lệ.");
+      }
+      return res;
+    },
   };
 }
 
