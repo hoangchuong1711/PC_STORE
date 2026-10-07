@@ -88,7 +88,7 @@ class CoreHttpIT {
             for (String pattern : filter.getClass().getAnnotation(WebFilter.class).urlPatterns()) mapping.addURLPattern(pattern);
             context.addFilterMap(mapping);
         }
-        for (HttpServlet servlet : List.of(new AuthServlet(), new CartServlet(), new OrderServlet(), new AdminOrderServlet())) {
+        for (HttpServlet servlet : List.of(new AuthServlet(), new CartServlet(), new OrderServlet(), new AdminOrderServlet(), new AdminTaxonomyServlet(), new CategoryServlet(), new BrandServlet())) {
             WebServlet annotation = servlet.getClass().getAnnotation(WebServlet.class);
             var wrapper = Tomcat.addServlet(context, servlet.getClass().getSimpleName(), servlet);
             wrapper.setLoadOnStartup(1);
@@ -240,6 +240,62 @@ class CoreHttpIT {
         var client = client();
         error(send(client, "POST", "/api/auth/login", "{\"email\":\"a@example.test\",\"password\":\"wrong\"}", null), 401, "UNAUTHORIZED");
         error(send(client, "GET", "/api/orders", null, null), 401, "UNAUTHORIZED");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"categories", "brands"})
+    void adminTaxonomyPersistsAcrossSessionsAndHidesFromPublic(String kind) throws Exception {
+        var admin = login("admin@example.test");
+        String endpoint = "/api/admin/" + kind;
+        String extra = kind.equals("categories") ? "\"componentType\":\"RAM\"" : "\"logoUrl\":\"https://example.test/logo.png\"";
+        String payload = "{\"name\":\"  New taxonomy  \",\"description\":\" New description \",\"status\":\"ACTIVE\"," + extra + "}";
+        var created = send(admin, "POST", endpoint, payload, null);
+        assertEquals(201, created.statusCode(), created.body());
+        int id = body(created).path("id").asInt();
+        assertTrue(id > 0);
+        assertEquals("New taxonomy", body(created).path("name").asText());
+        assertEquals(0, body(created).path("productCount").asInt());
+        assertEquals(2, body(send(login("admin@example.test"), "GET", endpoint, null, null)).size());
+        var changed = send(admin, "PUT", endpoint + "/" + id, payload.replace("New taxonomy", "Updated taxonomy"), null);
+        assertEquals(200, changed.statusCode(), changed.body());
+        assertEquals("Updated taxonomy", body(changed).path("name").asText());
+        assertEquals(200, send(admin, "PUT", endpoint + "/" + id + "/status", "{\"status\":\"INACTIVE\"}", null).statusCode());
+        assertEquals(1, body(send(client(), "GET", "/api/" + kind, null, null)).size());
+        assertEquals(1, scalar("SELECT count(*) FROM " + kind + " WHERE name='Updated taxonomy' AND status='INACTIVE'"));
+        var listed = body(send(admin, "GET", endpoint, null, null));
+        assertEquals(2, listed.size());
+        assertEquals(1, listed.get(0).path("productCount").asInt());
+        assertEquals(200, send(admin, "PUT", endpoint + "/" + id + "/status", "{\"status\":\"ACTIVE\"}", null).statusCode());
+        assertEquals(2, body(send(client(), "GET", "/api/" + kind, null, null)).size());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"categories", "brands"})
+    void adminTaxonomyRejectsInvalidWritesAndProtectsPermissions(String kind) throws Exception {
+        String endpoint = "/api/admin/" + kind;
+        var guest = client();
+        var customer = login("a@example.test");
+        for (String method : List.of("GET", "POST", "PUT", "DELETE")) {
+            error(send(guest, method, endpoint, "{}", null), 401, "UNAUTHORIZED");
+            error(send(customer, method, endpoint, "{}", null), 403, "FORBIDDEN");
+        }
+        var admin = login("admin@example.test");
+        for (String invalid : List.of("null", "{}", "{\"name\":\"   \",\"status\":\"ACTIVE\"}",
+                "{\"name\":\"X\",\"status\":\"HIDDEN\"}", "{\"name\":\"X\",\"status\":\"ACTIVE\",\"slug\":\"x\"}")) {
+            assertEquals(400, send(admin, "POST", endpoint, invalid, null).statusCode());
+        }
+        assertEquals(404, send(admin, "PUT", endpoint + "/999/status", "{\"status\":\"INACTIVE\"}", null).statusCode());
+        assertEquals(404, send(admin, "PUT", endpoint + "/invalid/status", "{\"status\":\"INACTIVE\"}", null).statusCode());
+        assertEquals(405, send(admin, "DELETE", endpoint + "/1", null, null).statusCode());
+        assertEquals(1, scalar("SELECT count(*) FROM " + kind));
+    }
+
+    @Test
+    void adminTaxonomyValidatesUrlsAndPreservesLinkedComponentType() throws Exception {
+        var admin = login("admin@example.test");
+        assertEquals(400, send(admin, "POST", "/api/admin/brands", "{\"name\":\"X\",\"status\":\"ACTIVE\",\"logoUrl\":\"javascript:alert(1)\"}", null).statusCode());
+        assertEquals(409, send(admin, "PUT", "/api/admin/categories/1", "{\"name\":\"CPU\",\"status\":\"ACTIVE\",\"componentType\":\"RAM\"}", null).statusCode());
+        assertEquals(1, scalar("SELECT count(*) FROM categories WHERE category_id=1 AND component_type IS NULL"));
     }
 
     private HttpClient client() {

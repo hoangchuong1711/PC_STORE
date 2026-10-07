@@ -109,7 +109,9 @@ Tiền dùng `BigDecimal` ở Java và `NUMERIC/DECIMAL` ở PostgreSQL; không 
 1. Đăng ký: chuẩn hóa email, kiểm tra trùng, hash password, mặc định `CUSTOMER/ACTIVE`.
 2. Đăng nhập: kiểm tra hash và trạng thái, tạo `HttpSession`; cookie phiên do Tomcat quản lý. Logout hủy session.
 3. Filter chặn route cần đăng nhập, CUSTOMER hoặc ADMIN. Service tiếp tục kiểm tra `order.user.id`, `cart.user.id`, `build.user.id` trước mọi thao tác theo ID. Không tin `userId`, `role`, `price` do client gửi.
-4. `CorsFilter` cho phép đúng origin trong `CORS_ALLOWED_ORIGINS` (danh sách phân cách dấu phẩy), bật credentials và từ chối origin khác. Giá trị Compose mặc định là `http://localhost:3000`; cấu hình domain frontend thật khi triển khai. Không dùng `Access-Control-Allow-Origin: *` cùng cookie. Filter điều chỉnh cookie `JSESSIONID` cho `Path=/`, `HttpOnly`, `SameSite=Lax` tương thích proxy `/api/*` tới context `/pc-store-backend`. Bật `SESSION_COOKIE_SECURE=true` khi chạy sau HTTPS. Khi frontend gọi trực tiếp backend khác site, cần HTTPS và cấu hình SameSite/CSRF phù hợp.
+4. `CorsFilter` cho phép đúng origin trong `CORS_ALLOWED_ORIGINS` (danh sách phân cách dấu phẩy), bật credentials và từ chối origin khác. Giá trị Compose mặc định là `http://localhost:3000`; cấu hình domain frontend thật khi triển khai. Không dùng `Access-Control-Allow-Origin: *` cùng cookie. `SessionCookieListener` cấu hình cookie do Tomcat tạo với `Path=/`, `HttpOnly`, `SameSite=Lax` ngay khi context khởi tạo, tương thích proxy `/api/*` tới context `/pc-store-backend`. Chỉ sửa header qua response wrapper là chưa đủ vì Tomcat tạo cookie session qua luồng nội bộ. Session chỉ truyền bằng cookie, không dùng URL rewriting. Bật `SESSION_COOKIE_SECURE=true` khi chạy sau HTTPS. Khi frontend gọi trực tiếp backend khác site, cần HTTPS và cấu hình SameSite/CSRF phù hợp.
+
+`SessionCookieTest` chạy Tomcat thật tại context `/pc-store-backend`, nhận cookie như trình duyệt qua URL `/api/auth/login` và kiểm tra cookie được gửi khi gọi `/api/auth/me` nhiều lần. Chạy bằng `mvn -B "-Dtest=SessionCookieTest" test`, không cần database. Sau khi thay cấu hình cookie, rebuild backend và đăng nhập lại để nhận cookie mới.
 
 Các endpoint auth đã triển khai: `POST /api/auth/register` (201), `POST /api/auth/login` (200 + session cookie), `POST /api/auth/logout` (204), `GET /api/auth/me` (200). Lỗi JSON có dạng `{ "code": "...", "message": "..." }`; email được trim/chuyển chữ thường và unique, mật khẩu lưu PBKDF2-HMAC-SHA256. Route `/api/admin/*` yêu cầu ADMIN; `/api/customer/*` yêu cầu CUSTOMER; `/api/auth/me` và logout yêu cầu session. Không gửi cookie hoặc role trong JSON.
 
@@ -131,6 +133,14 @@ Với `COD`, Payment giữ `PENDING` sau checkout; Admin chỉ đánh dấu `PAI
 ### Admin
 
 Admin thêm/sửa/ẩn sản phẩm, điều chỉnh kho theo quy tắc một nguồn Inventory, xem đơn và chuyển trạng thái hợp lệ. Không xóa cứng Product đã được OrderItem tham chiếu. Customer không gọi được API admin dù ẩn nút trong giao diện.
+
+#### T20 — quản trị danh mục/hãng
+
+Đã thêm `GET/POST /api/admin/categories`, `GET/POST /api/admin/brands`, `PUT /api/admin/{categories|brands}/{id}` và `PUT /api/admin/{categories|brands}/{id}/status`. Tất cả yêu cầu session ADMIN. GET trả cả ACTIVE/INACTIVE cùng số sản phẩm liên kết; POST trả 201, PUT trả 200 sau commit. Không hỗ trợ DELETE. Response dùng DTO `{id,name,description,status,componentType,logoUrl,productCount}`; trường không áp dụng là null.
+
+PUT form là thay thế đầy đủ: tên (trim, 1–255), mô tả nullable, trạng thái ACTIVE/INACTIVE; category có componentType nullable theo enum; brand có logoUrl nullable, tối đa 2048, chỉ HTTP(S) và không userinfo. Endpoint `/status` chỉ nhận `{status}` để không ghi đè các trường khác. Không đổi componentType của category đã có sản phẩm (409 CATEGORY_IN_USE). Slug/icon/xuất xứ/website không nằm trong schema, form T20 không còn nhận các trường này. Không thêm/sửa migration.
+
+Ẩn category/brand giữ nguyên sản phẩm và lịch sử; catalog public tiếp tục lọc theo ACTIVE. API không ép tên duy nhất vì schema hiện tại không có ràng buộc này. Xem Swagger để thử và CoreHttpIT cho test lưu qua phiên mới, phân quyền, input sai và ẩn/hiện.
 
 ### Builder/Compatibility
 

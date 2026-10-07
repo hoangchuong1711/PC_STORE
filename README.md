@@ -33,7 +33,8 @@ cd frontend
 npm install
 npm run dev
 "
-
+...
+...
 - Giao diện: http://localhost:3000
 - Swagger UI (danh sách và thử API): http://localhost:8080/pc-store-backend/api-docs/
   Đổi `8080` theo `BACKEND_PORT` nếu có. Sau khi lấy thay đổi này, rebuild bằng

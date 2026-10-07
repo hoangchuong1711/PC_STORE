@@ -2,24 +2,48 @@
 
 Cập nhật: 06/10/2026. Phạm vi: toàn bộ test tự động đang có trong repo, bao gồm phần bổ sung T19.
 
-## 1. Kết quả kiểm chứng gần nhất
+## Bổ sung T20 — lớp gọi API frontend (07/10/2026)
+
+### Admin danh mục/hãng
+
+Kiểm chứng ngày 07/10/2026 sau tích hợp: backend 34 unit/contract + 100 integration đạt; frontend 54 Node tests đạt; TypeScript, lint phần sửa và build đạt. Hai script UI auth và admin-taxonomy đều đạt với HTTP giả lập. Chưa chạy browser E2E ghi dữ liệu xuyên suốt vào database ứng dụng; API persistence được kiểm tra bằng PostgreSQL test riêng.
+
+- `frontend/lib/admin-taxonomy-api.test.mjs`: adapter quản trị, payload đúng schema, giữ lỗi HTTP và kiểm tra response. Chạy từ frontend: `node --experimental-strip-types --test lib/admin-taxonomy-api.test.mjs`.
+- `frontend/tests/admin-taxonomy-ui.py`: UI thêm/sửa, chuyển chức năng rồi quay lại, F5, ẩn/hiện, lỗi lưu giữ form. Dùng HTTP giả lập, không ghi database. Chạy frontend dev ở cổng 3100 (`npm run dev -- --port 3100`), rồi terminal thứ hai trong frontend: `python -u tests/admin-taxonomy-ui.py`. Có thể đổi URL bằng biến `TEST_FRONTEND_URL`.
+- `CoreHttpIT#adminTaxonomy*`: 5 ca HTTP thật qua session/filter/Servlet/Service/DAO/JPA trên PostgreSQL test riêng; tạo/sửa/ẩn/hiện, đọc ở phiên mới, quyền guest/customer, JSON sai, URL logo sai, category đang có sản phẩm. Chạy từ backend với Java 21 và TEST_DB_* bên dưới: `mvn -B -Pdb-test "-Dit.test=CoreHttpIT#adminTaxonomy*" verify`.
+- Test thủ công sau rebuild: Admin → Danh mục & Hãng → thêm/sửa → chờ thông báo lưu → sang Tổng quan → quay lại → F5. Kiểm tra tên/mô tả/trạng thái giữ nguyên. Lặp cho Thương hiệu. Các phần Admin khác chưa được chuyển sang API trong đợt này.
+
+Các test dưới đây kiểm tra mã adapter thật với HTTP response được kiểm soát; không phải E2E với Java/PostgreSQL và không xác nhận giao diện đã nối API.
+
+| File trong `frontend/lib` | Nội dung | Chạy từ thư mục `frontend` |
+| --- | --- | --- |
+| `catalog-api.test.mjs` | Catalog, filter/phân trang, chi tiết, danh mục/hãng và response lỗi | `node --experimental-strip-types --test lib/catalog-api.test.mjs` |
+| `cart-api.test.mjs` | Đọc/thêm/sửa/xóa giỏ, dùng cartItemId, tổng từ backend | `node --experimental-strip-types --test lib/cart-api.test.mjs` |
+| `order-api.test.mjs` | Checkout/idempotency, đọc danh sách/chi tiết, hủy đơn, lỗi quyền và kiểm tra DTO lồng nhau | `node --experimental-strip-types --test lib/order-api.test.mjs` |
+
+Chạy toàn bộ frontend: `node --experimental-strip-types --test lib/*.test.mjs`.
+Kiểm tra kiểu: `npx tsc --noEmit`; build: `npm run build`.
+
+Backend checkout hiện chỉ hỗ trợ COD. Kiểu BANK_TRANSFER trong adapter chỉ là chuẩn bị, chưa phải tích hợp VNPAY. Các trang catalog/cart/order vẫn cần được nối vào adapter; không tính phần nền tảng này là hoàn thành luồng T20.
+
+## 1. Kết quả kiểm chứng lịch sử (06/10/2026)
 
 | Nhóm | Số ca thực thi | Kết quả |
 | --- | ---: | --- |
 | Backend unit/contract — Surefire | 33 | 33 đạt |
-| Backend integration — Failsafe | 95 | 93 đạt, 2 lỗi thiếu file rollback |
-| Frontend — Node test runner | 18 | 18 đạt |
-| Tổng | 146 | 144 đạt, 2 lỗi, không bỏ qua ca |
+| Backend integration — Failsafe | 95 | 95 đạt |
+| Frontend — Node test runner | 23 | 23 đạt |
+| Tổng | 151 | 151 đạt, không bỏ qua ca |
 
-Đây là kết quả lượt chạy 06/10/2026, không phải cam kết mọi lần chạy sau đều đạt. Backend gồm 13 lớp, frontend gồm 5 file. Test tham số được tính theo số bộ dữ liệu; vòng lặp assertion bên trong một test không được tính thành nhiều ca riêng.
+Đây là kết quả lượt chạy 06/10/2026 trên nhánh T20 sau khi bổ sung rollback, không phải cam kết mọi lần chạy sau đều đạt. Backend gồm 13 lớp, frontend gồm 6 file (đã có thêm admin.test.mjs). Build WAR và `npm run build` cũng đạt. Test tham số được tính theo số bộ dữ liệu; vòng lặp assertion bên trong một test không được tính thành nhiều ca riêng.
 
 63 ca mới của T19 đều đạt: 31 ca bổ sung vào OrderServiceIT, 14 ca OrderValidationTest và 18 ca CoreHttpIT. OrderServiceIT có tổng cộng 36 ca, gồm 5 ca đã có.
 
-Hai lỗi hiện tại thuộc FeatureMigrationIT:
+Hai lỗi nền đã tái hiện và sửa trong FeatureMigrationIT:
 - `rollsBackOnlyT10AndCanMigrateUpAgain`
 - `rollbackRequiresOptInAndRefusesLaterMigrations`
 
-Cùng nguyên nhân: thiếu `backend/src/main/resources/db/rollback/V3__drop_builder_review_setup.sql`. Lệnh chạy toàn bộ backend hiện trả **BUILD FAILURE** do hai lỗi này. Không bỏ qua chúng để gọi bộ test là đạt toàn bộ.
+Cùng nguyên nhân: thiếu `backend/src/main/resources/db/rollback/V3__drop_builder_review_setup.sql`. Đã bổ sung script và chạy lại toàn bộ `mvn -B -Pdb-test verify`: **BUILD SUCCESS**, 33 unit/contract + 95 integration đạt. Script yêu cầu opt-in, chỉ cho phép V3 là migration cuối, không dùng CASCADE và không chạy trên database ứng dụng. Xem [hướng dẫn rollback](../backend/T10_MIGRATION.md). Kết quả này chưa chứng minh các tính năng tích hợp T20/VNPAY đã hoàn thành.
 
 ## 2. Chuẩn bị môi trường (PowerShell)
 
@@ -332,8 +356,8 @@ mvn -B -Pdb-test "-Dit.test=FeatureMigrationIT" verify
 | --- | --- | --- |
 | `migratesFreshDatabaseAndCanRunAgain` | Migration FEATURE schema mới và chạy lại. | `mvn -B -Pdb-test "-Dit.test=FeatureMigrationIT#migratesFreshDatabaseAndCanRunAgain" verify` |
 | `upgradesPopulatedT03WithoutChangingCoreData` | Nâng từ T03 có dữ liệu, giữ dữ liệu CORE. | `mvn -B -Pdb-test "-Dit.test=FeatureMigrationIT#upgradesPopulatedT03WithoutChangingCoreData" verify` |
-| `rollsBackOnlyT10AndCanMigrateUpAgain` | Rollback T10 và migrate lại. **Đang lỗi: thiếu file rollback V3.** | `mvn -B -Pdb-test "-Dit.test=FeatureMigrationIT#rollsBackOnlyT10AndCanMigrateUpAgain" verify` |
-| `rollbackRequiresOptInAndRefusesLaterMigrations` | Rollback yêu cầu opt-in và từ chối khi có migration mới hơn. **Đang lỗi: thiếu file rollback V3.** | `mvn -B -Pdb-test "-Dit.test=FeatureMigrationIT#rollbackRequiresOptInAndRefusesLaterMigrations" verify` |
+| `rollsBackOnlyT10AndCanMigrateUpAgain` | Rollback T10, giữ dữ liệu CORE và migrate lại. | `mvn -B -Pdb-test "-Dit.test=FeatureMigrationIT#rollsBackOnlyT10AndCanMigrateUpAgain" verify` |
+| `rollbackRequiresOptInAndRefusesLaterMigrations` | Rollback yêu cầu opt-in và từ chối khi có migration mới hơn. | `mvn -B -Pdb-test "-Dit.test=FeatureMigrationIT#rollbackRequiresOptInAndRefusesLaterMigrations" verify` |
 | `enforcesOneReviewPerOrderItemEvenAfterSoftDeleteAndOneLikePerUser` | Một review/OrderItem kể cả xóa mềm; một like/user. | `mvn -B -Pdb-test "-Dit.test=FeatureMigrationIT#enforcesOneReviewPerOrderItemEvenAfterSoftDeleteAndOneLikePerUser" verify` |
 | `preservesOwnershipPathsAndRejectsOrphanReferences` | FK xác định chủ sở hữu và chặn tham chiếu mồ côi. | `mvn -B -Pdb-test "-Dit.test=FeatureMigrationIT#preservesOwnershipPathsAndRejectsOrphanReferences" verify` |
 | `validatesReviewMediaAndModerationStates` | Ràng buộc media review và trạng thái kiểm duyệt. | `mvn -B -Pdb-test "-Dit.test=FeatureMigrationIT#validatesReviewMediaAndModerationStates" verify` |
@@ -527,6 +551,6 @@ node --experimental-strip-types --test lib/reviews.test.mjs
 - Checkout hiện chỉ hỗ trợ COD. BANK_TRANSFER và API xác nhận thanh toán chưa hoàn tất; test bankTransferRequiresPaymentBeforeShipping chỉ chuẩn bị đơn chuyển khoản bằng fixture DB để kiểm tra quy tắc xuất/giao hàng.
 - CoreHttpIT kiểm tra Tomcat nhúng và đăng ký servlet/filter theo annotation; không thay thế kiểm thử WAR triển khai lên môi trường thật hoặc routing qua Next.js.
 - Test schema/FK của FEATURE không chứng minh quyền API Review/Community/Builder. Test fixture frontend cũng không chứng minh quy tắc người mua thật.
-- Hai test rollback FEATURE đang lỗi vì thiếu file SQL đã nêu ở phần 1. Không sửa migration đã merge hoặc tự bỏ qua test để làm báo cáo xanh.
+- Hai test rollback FEATURE đã đạt sau khi bổ sung script thiếu. Rollback chỉ dùng trên database test riêng; không sửa migration đã merge hoặc bỏ qua test.
 - Mỗi lần thay code cần chạy lại các test liên quan; tổng ca trong tài liệu là ảnh chụp tại ngày cập nhật.
 

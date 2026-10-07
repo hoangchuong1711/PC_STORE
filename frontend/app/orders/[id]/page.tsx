@@ -1,4 +1,3 @@
-import { notFound } from "next/navigation";
 import { OrderDetail } from "../../../components/orders";
 import { getOrder, orders } from "../../../lib/orders";
 
@@ -13,7 +12,6 @@ export default async function OrderDetailRoute({
 }) {
   const { id } = await params;
   const order = getOrder(id);
-  if (!order) notFound();
 
-  return <OrderDetail order={order} />;
+  return <OrderDetail order={order} id={id} />;
 }

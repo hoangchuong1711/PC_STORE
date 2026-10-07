@@ -40,7 +40,9 @@ class OpenApiContractTest {
                 "GET /api/customer/cart", "POST /api/customer/cart/items",
                 "PATCH /api/customer/cart/items/{id}", "DELETE /api/customer/cart/items/{id}",
                 "POST /api/orders", "GET /api/orders", "GET /api/orders/{id}", "POST /api/orders/{id}/cancel",
-                "GET /api/admin/orders", "GET /api/admin/orders/{id}", "PUT /api/admin/orders/{id}/status"), operations);
+                "GET /api/admin/orders", "GET /api/admin/orders/{id}", "PUT /api/admin/orders/{id}/status",
+                "GET /api/admin/categories", "POST /api/admin/categories", "PUT /api/admin/categories/{id}", "PUT /api/admin/categories/{id}/status",
+                "GET /api/admin/brands", "POST /api/admin/brands", "PUT /api/admin/brands/{id}", "PUT /api/admin/brands/{id}/status"), operations);
         assertEquals("JSESSIONID", api.getComponents().getSecuritySchemes().get("sessionCookie").getName());
         assertEquals("cookie", api.getComponents().getSecuritySchemes().get("sessionCookie").getIn().toString());
     }
