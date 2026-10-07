@@ -1,6 +1,34 @@
 @import "./asus-typography.css";
 @import "tailwindcss";
 
+@theme {
+  --color-ink: #181818;
+  --color-muted: #757575;
+  --color-muted-light: #9e9e9e;
+  --color-line: #e0e0e0;
+  --color-paper: #f8f8f8;
+  --color-surface-alt: #f4f5f7;
+  --color-asus-blue: #006ce1;
+  --color-blue: #006ce1;
+  --color-blue-hover: #0051a8;
+  --color-blue-subtle: #edf5fe;
+  --color-lime: #006ce1;
+  --color-rog-red: #ff0033;
+  --color-rog-red-hover: #d9002c;
+  --color-rog-red-subtle: #fff1f2;
+  --color-rog-dark: #0f1115;
+  --color-rog-surface: #181a20;
+  --color-rog-border: #2a2e39;
+
+  --font-sans: "TTNormsProRegular", "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-nav: "TTNormsProMedium", "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-heading: "TTNormsProBold", "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-gaming: "ROGFonts-Regular", "TradeGothicLTPro", "TTNormsProBold", sans-serif;
+  --font-specs: "FFDINCondensedBold", "TradeGothicLTPro", "TTNormsStdCondensedNormal", sans-serif;
+
+  --radius-asus: 12px;
+}
+
 :root {
   /* ==========================================================================
      ASUS OFFICIAL DESIGN SYSTEM (Extracted from https://www.asus.com/vn/)
