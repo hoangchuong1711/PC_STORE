@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useMemo, useState, type ChangeEvent } from "react";
+import { FormEvent, useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Image from "next/image";
 import {
+  AlertCircle,
   Check,
   CheckSquare,
   ChevronLeft,
@@ -10,6 +11,7 @@ import {
   Cpu,
   Edit3,
   Layers,
+  Loader2,
   Package,
   Plus,
   RotateCcw,
@@ -31,6 +33,27 @@ import {
   type AdminProductFilters,
   type AdminProductStatus,
 } from "../../lib/admin";
+import { catalogApi, type CatalogProduct, type CatalogCategoryOption, type CatalogBrandOption } from "../../lib/catalog-api";
+import { adminProductApi } from "../../lib/admin-product-api";
+
+function toAdminProduct(p: CatalogProduct): AdminProduct {
+  const brandName = p.brand?.name ?? "PC Store";
+  const catName = p.category?.name ?? "Linh kiện";
+  return {
+    id: String(p.productId),
+    sku: `PCS-${p.productId.toString().padStart(4, "0")}`,
+    name: p.name,
+    brand: brandName,
+    category: catName,
+    price: p.price,
+    stock: p.availableQuantity,
+    status: p.inStock ? "ACTIVE" : "OUT_OF_STOCK",
+    imageUrl: p.imageUrls?.[0] || "/admin/products/laptop.svg",
+    imageColor: "#e6e9ef",
+    description: p.description ?? "",
+    updatedAt: new Date().toISOString(),
+  };
+}
 
 const itemsPerPage = 6;
 
@@ -59,6 +82,11 @@ const statusTone: Record<AdminProductStatus, string> = {
 
 export function AdminProducts() {
   const [items, setItems] = useState<AdminProduct[]>(initialAdminProducts);
+  const [categoriesList, setCategoriesList] = useState<CatalogCategoryOption[]>([]);
+  const [brandsList, setBrandsList] = useState<CatalogBrandOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [filters, setFilters] = useState<AdminProductFilters>({
     query: "",
     category: "ALL",
@@ -71,6 +99,36 @@ export function AdminProducts() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<AdminProductStatus>("ACTIVE");
   const [feedback, setFeedback] = useState("");
+
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [cats, brs, prods] = await Promise.all([
+        catalogApi.listCategories(),
+        catalogApi.listBrands(),
+        catalogApi.list({ size: 100 }),
+      ]);
+      setCategoriesList(cats);
+      setBrandsList(brs);
+      if (prods.items && prods.items.length > 0) {
+        setItems(prods.items.map(toAdminProduct));
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Không thể kết nối máy chủ để tải danh mục sản phẩm.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void fetchData();
+  }, []);
+
+  const availableCategories = categoriesList.length > 0 ? categoriesList.map((c) => c.name) : adminCategories;
+  const availableBrands = brandsList.length > 0 ? brandsList.map((b) => b.name) : adminBrands;
 
   const filteredProducts = useMemo(() => filterAdminProducts(items, filters), [items, filters]);
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
@@ -114,18 +172,34 @@ export function AdminProducts() {
     });
   }
 
-  function applyBulkStatus() {
+  async function applyBulkStatus() {
     if (selectedIds.size === 0) return;
-    setItems((current) =>
-      current.map((item) => (selectedIds.has(item.id) ? { ...item, status: bulkStatus } : item)),
-    );
-    setFeedback(`Đã cập nhật trạng thái ${selectedIds.size} sản phẩm sang "${productStatusLabels[bulkStatus]}".`);
-    setSelectedIds(new Set());
+    try {
+      for (const id of selectedIds) {
+        const numId = /^\d+$/.test(id) ? Number(id) : null;
+        if (numId !== null) {
+          await adminProductApi.setStatus(numId, bulkStatus);
+        }
+      }
+      setItems((current) =>
+        current.map((item) => (selectedIds.has(item.id) ? { ...item, status: bulkStatus } : item)),
+      );
+      setFeedback(`Đã cập nhật trạng thái ${selectedIds.size} sản phẩm sang "${productStatusLabels[bulkStatus]}".`);
+      setSelectedIds(new Set());
+    } catch (err) {
+      setFeedback(err instanceof Error ? `Lỗi: ${err.message}` : "Không thể cập nhật hàng loạt");
+    }
   }
 
   function openCreate() {
     setFeedback("");
-    setEditingProduct(emptyProduct());
+    const defaultBrand = brandsList.length > 0 ? brandsList[0].name : "ASUS";
+    const defaultCat = categoriesList.length > 0 ? categoriesList[0].name : "Laptop";
+    setEditingProduct({
+      ...emptyProduct(),
+      brand: defaultBrand,
+      category: defaultCat,
+    });
   }
 
   function openEdit(product: AdminProduct) {
@@ -133,9 +207,17 @@ export function AdminProducts() {
     setEditingProduct({ ...product });
   }
 
-  function updateProductStatus(productId: string, status: AdminProductStatus) {
-    setItems((current) => current.map((product) => (product.id === productId ? { ...product, status } : product)));
-    setFeedback("Đã cập nhật trạng thái sản phẩm.");
+  async function updateProductStatus(productId: string, status: AdminProductStatus) {
+    try {
+      const numId = /^\d+$/.test(productId) ? Number(productId) : null;
+      if (numId !== null) {
+        await adminProductApi.setStatus(numId, status);
+      }
+      setItems((current) => current.map((product) => (product.id === productId ? { ...product, status } : product)));
+      setFeedback("Đã cập nhật trạng thái sản phẩm trên máy chủ.");
+    } catch (err) {
+      setFeedback(err instanceof Error ? `Lỗi: ${err.message}` : "Không thể cập nhật trạng thái");
+    }
   }
 
   function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
@@ -144,15 +226,48 @@ export function AdminProducts() {
     setEditingProduct({ ...editingProduct, imageUrl: URL.createObjectURL(file) });
   }
 
-  function saveProduct(event: FormEvent<HTMLFormElement>) {
+  async function saveProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!editingProduct?.name.trim() || editingProduct.price < 0 || editingProduct.stock < 0) return;
-    const product = { ...editingProduct, name: editingProduct.name.trim(), updatedAt: new Date().toISOString() };
-    const isEdit = items.some((item) => item.id === product.id);
+    if (!editingProduct?.name.trim() || editingProduct.price < 0 || editingProduct.stock < 0 || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const numId = /^\d+$/.test(editingProduct.id) ? Number(editingProduct.id) : null;
+      const cat = categoriesList.find((c) => c.name === editingProduct.category) ?? categoriesList[0];
+      const br = brandsList.find((b) => b.name === editingProduct.brand) ?? brandsList[0];
 
-    setItems((current) => (isEdit ? current.map((item) => (item.id === product.id ? product : item)) : [product, ...current]));
-    setEditingProduct(null);
-    setFeedback(isEdit ? "Đã lưu thay đổi sản phẩm." : "Đã thêm sản phẩm mới vào danh mục.");
+      if (numId !== null) {
+        await adminProductApi.update(numId, {
+          name: editingProduct.name.trim(),
+          description: editingProduct.description || null,
+          price: editingProduct.price,
+          categoryId: cat?.categoryId ?? 1,
+          brandId: br?.brandId ?? 1,
+          status: editingProduct.status,
+        });
+        await adminProductApi.updateInventory(numId, {
+          quantityOnHand: editingProduct.stock,
+        });
+        setFeedback(`Đã lưu thay đổi cho sản phẩm #${numId}.`);
+      } else {
+        const created = await adminProductApi.create({
+          name: editingProduct.name.trim(),
+          description: editingProduct.description || null,
+          price: editingProduct.price,
+          categoryId: cat?.categoryId ?? 1,
+          brandId: br?.brandId ?? 1,
+          status: editingProduct.status,
+          quantityOnHand: editingProduct.stock,
+        });
+        setFeedback(`Đã thêm sản phẩm mới #${created.productId} thành công.`);
+      }
+
+      await fetchData();
+      setEditingProduct(null);
+    } catch (err) {
+      setFeedback(err instanceof Error ? `Lỗi: ${err.message}` : "Không thể lưu sản phẩm");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -168,6 +283,18 @@ export function AdminProducts() {
           Thêm sản phẩm
         </button>
       </div>
+
+      {error && (
+        <div className="admin-feedback is-danger" role="alert" style={{ background: "#fee2e2", color: "#b91c1c", marginBottom: "1rem", padding: "1rem", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <AlertCircle size={18} />
+            <span>{error}</span>
+          </div>
+          <button type="button" className="admin-button admin-button-secondary admin-btn-sm" onClick={() => void fetchData()}>
+            Tải lại
+          </button>
+        </div>
+      )}
 
       {feedback && (
         <div className="admin-feedback" role="status">
@@ -230,7 +357,7 @@ export function AdminProducts() {
             onChange={(event) => updateFilter("category", event.target.value)}
           >
             <option value="ALL">Tất cả danh mục</option>
-            {adminCategories.map((cat) => (
+            {availableCategories.map((cat) => (
               <option key={cat} value={cat}>
                 {cat}
               </option>
@@ -242,7 +369,7 @@ export function AdminProducts() {
             onChange={(event) => updateFilter("brand", event.target.value)}
           >
             <option value="ALL">Tất cả thương hiệu</option>
-            {adminBrands.map((b) => (
+            {availableBrands.map((b) => (
               <option key={b} value={b}>
                 {b}
               </option>
@@ -276,6 +403,11 @@ export function AdminProducts() {
         </div>
 
         <div className="admin-table-wrap">
+          {loading ? (
+            <div style={{ minHeight: "260px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Loader2 size={36} className="animate-spin text-muted-foreground" />
+            </div>
+          ) : (
           <table className="admin-table admin-products-table">
             <thead>
               <tr>
@@ -374,7 +506,8 @@ export function AdminProducts() {
               })}
             </tbody>
           </table>
-          {visibleProducts.length === 0 && (
+          )}
+          {!loading && visibleProducts.length === 0 && (
             <div className="admin-empty-state">
               <Package size={22} />
               <strong>Không tìm thấy sản phẩm</strong>
@@ -457,7 +590,7 @@ export function AdminProducts() {
                     value={editingProduct.brand}
                     onChange={(event) => setEditingProduct({ ...editingProduct, brand: event.target.value })}
                   >
-                    {adminBrands.map((brand) => (
+                    {availableBrands.map((brand) => (
                       <option key={brand} value={brand}>
                         {brand}
                       </option>
@@ -473,7 +606,7 @@ export function AdminProducts() {
                     value={editingProduct.category}
                     onChange={(event) => setEditingProduct({ ...editingProduct, category: event.target.value })}
                   >
-                    {adminCategories.map((category) => (
+                    {availableCategories.map((category) => (
                       <option key={category} value={category}>
                         {category}
                       </option>

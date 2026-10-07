@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  AlertCircle,
   AlertTriangle,
   ArrowRight,
   Check,
@@ -11,6 +12,7 @@ import {
   CreditCard,
   Eye,
   FileText,
+  Loader2,
   PackageCheck,
   Printer,
   RotateCcw,
@@ -32,8 +34,39 @@ import {
   type AdminOrderDateFilter,
   type AdminOrderFilters,
   type AdminOrderStatus,
+  type AdminPaymentMethod,
   type AdminPaymentStatus,
 } from "../../lib/admin";
+import { adminOrderApi } from "../../lib/admin-order-api";
+import type { OrderResponse } from "../../lib/order-api";
+
+function toAdminOrderModel(res: OrderResponse): AdminOrder {
+  const status = (["PENDING", "CONFIRMED", "SHIPPING", "DELIVERED", "CANCELLED"].includes(res.status)
+    ? res.status
+    : "PENDING") as AdminOrderStatus;
+  const paymentMethod = (res.payment?.method === "BANK_TRANSFER" ? "BANK_TRANSFER" : "COD") as AdminPaymentMethod;
+  const paymentStatus = (res.payment?.status === "PAID" ? "PAID" : "PENDING") as AdminPaymentStatus;
+
+  return {
+    id: String(res.orderId),
+    code: `#${res.orderId}`,
+    customerName: res.shippingName,
+    customerEmail: "khachhang@pcstore.vn",
+    customerPhone: res.shippingPhone,
+    shippingAddress: res.shippingAddressText,
+    createdAt: res.orderDate,
+    total: res.totalAmount,
+    status,
+    paymentMethod,
+    paymentStatus,
+    itemCount: (res.items || []).reduce((sum, item) => sum + item.quantity, 0),
+    lines: (res.items || []).map((item) => ({
+      productName: item.productName,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+    })),
+  };
+}
 
 const itemsPerPage = 5;
 
@@ -59,7 +92,9 @@ const cancellationReasons = [
 ];
 
 export function AdminOrders() {
-  const [items, setItems] = useState<AdminOrder[]>(initialAdminOrders);
+  const [items, setItems] = useState<AdminOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<AdminOrderFilters>({
     query: "",
     status: "ALL",
@@ -73,6 +108,25 @@ export function AdminOrders() {
   const [customCancelReason, setCustomCancelReason] = useState("");
   const [staffNoteDraft, setStaffNoteDraft] = useState("");
   const [feedback, setFeedback] = useState("");
+
+  const fetchOrders = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await adminOrderApi.list();
+      setItems(res.map(toAdminOrderModel));
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Không thể tải danh sách đơn hàng từ máy chủ.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void fetchOrders();
+  }, []);
 
   const filteredOrders = useMemo(() => filterAdminOrders(items, filters), [items, filters]);
   const totalPages = Math.max(1, Math.ceil(filteredOrders.length / itemsPerPage));
@@ -95,7 +149,7 @@ export function AdminOrders() {
     setStaffNoteDraft(order.staffNotes ?? "");
   }
 
-  function updateStatus(status: AdminOrderStatus) {
+  async function updateStatus(status: AdminOrderStatus) {
     if (!selectedOrder) return;
     if (status === "CANCELLED") {
       setCancelModalOrder(selectedOrder);
@@ -103,31 +157,57 @@ export function AdminOrders() {
     }
     if (!getNextOrderStatuses(selectedOrder.status).includes(status)) return;
 
-    const nextOrder = { ...selectedOrder, status };
-    setItems((current) => current.map((order) => (order.id === selectedOrder.id ? nextOrder : order)));
-    setSelectedOrder(nextOrder);
-    setFeedback(`Đơn ${selectedOrder.code} đã chuyển sang ${orderStatusLabels[status].toLowerCase()}.`);
+    try {
+      const numId = /^\d+$/.test(selectedOrder.id) ? Number(selectedOrder.id) : null;
+      if (numId !== null) {
+        const updatedRes = await adminOrderApi.updateStatus(numId, status);
+        const nextOrder = toAdminOrderModel(updatedRes);
+        setItems((current) => current.map((order) => (order.id === selectedOrder.id ? nextOrder : order)));
+        setSelectedOrder(nextOrder);
+      } else {
+        const nextOrder = { ...selectedOrder, status };
+        setItems((current) => current.map((order) => (order.id === selectedOrder.id ? nextOrder : order)));
+        setSelectedOrder(nextOrder);
+      }
+      setFeedback(`Đơn ${selectedOrder.code} đã chuyển sang ${orderStatusLabels[status].toLowerCase()}.`);
+    } catch (err) {
+      setFeedback(err instanceof Error ? `Lỗi: ${err.message}` : "Không thể cập nhật trạng thái đơn hàng");
+    }
   }
 
-  function confirmCancellation() {
+  async function confirmCancellation() {
     if (!cancelModalOrder) return;
     const finalReason = customCancelReason.trim()
       ? `${selectedCancelReason}: ${customCancelReason.trim()}`
       : selectedCancelReason;
 
-    const nextOrder: AdminOrder = {
-      ...cancelModalOrder,
-      status: "CANCELLED",
-      cancellationReason: finalReason,
-    };
+    try {
+      const numId = /^\d+$/.test(cancelModalOrder.id) ? Number(cancelModalOrder.id) : null;
+      let nextOrder: AdminOrder;
+      if (numId !== null) {
+        const updatedRes = await adminOrderApi.updateStatus(numId, "CANCELLED");
+        nextOrder = {
+          ...toAdminOrderModel(updatedRes),
+          cancellationReason: finalReason,
+        };
+      } else {
+        nextOrder = {
+          ...cancelModalOrder,
+          status: "CANCELLED",
+          cancellationReason: finalReason,
+        };
+      }
 
-    setItems((current) => current.map((order) => (order.id === cancelModalOrder.id ? nextOrder : order)));
-    if (selectedOrder?.id === cancelModalOrder.id) {
-      setSelectedOrder(nextOrder);
+      setItems((current) => current.map((order) => (order.id === cancelModalOrder.id ? nextOrder : order)));
+      if (selectedOrder?.id === cancelModalOrder.id) {
+        setSelectedOrder(nextOrder);
+      }
+      setCancelModalOrder(null);
+      setCustomCancelReason("");
+      setFeedback(`Đơn ${cancelModalOrder.code} đã bị hủy. Lý do: ${finalReason}.`);
+    } catch (err) {
+      setFeedback(err instanceof Error ? `Lỗi: ${err.message}` : "Không thể hủy đơn hàng");
     }
-    setCancelModalOrder(null);
-    setCustomCancelReason("");
-    setFeedback(`Đơn ${cancelModalOrder.code} đã bị hủy. Lý do: ${finalReason}.`);
   }
 
   function confirmPayment() {
@@ -167,6 +247,18 @@ export function AdminOrders() {
           </span>
         </div>
       </div>
+
+      {error && (
+        <div className="admin-feedback is-danger" role="alert" style={{ background: "#fee2e2", color: "#b91c1c", marginBottom: "1rem", padding: "1rem", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <AlertCircle size={18} />
+            <span>{error}</span>
+          </div>
+          <button type="button" className="admin-button admin-button-secondary admin-btn-sm" onClick={() => void fetchOrders()}>
+            Tải lại
+          </button>
+        </div>
+      )}
 
       {feedback && (
         <div className="admin-feedback" role="status">
@@ -232,6 +324,11 @@ export function AdminOrders() {
         </div>
 
         <div className="admin-table-wrap">
+          {loading ? (
+            <div style={{ minHeight: "260px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Loader2 size={36} className="animate-spin text-muted-foreground" />
+            </div>
+          ) : (
           <table className="admin-table admin-orders-table">
             <thead>
               <tr>
@@ -275,7 +372,8 @@ export function AdminOrders() {
               ))}
             </tbody>
           </table>
-          {visibleOrders.length === 0 && (
+          )}
+          {!loading && visibleOrders.length === 0 && (
             <div className="admin-empty-state">
               <ClipboardListFallback />
               <strong>Không có đơn phù hợp</strong>
