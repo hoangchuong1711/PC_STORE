@@ -2,7 +2,9 @@ openapi: "3.0.3"
 info:
   title: "PC Store API"
   version: "1.0.0"
-  description: "Danh sách API đã triển khai. Chọn endpoint → Try it out → Execute. Đăng nhập bằng POST /api/auth/login trước khi gọi /me hoặc Admin. Cookie được trình duyệt quản lý; nút Authorize không đặt được cookie HttpOnly. Request POST/PATCH thay đổi dữ liệu thật, nên dùng môi trường test. Backend có thể trả lỗi CORS 403 (ORIGIN_NOT_ALLOWED) nếu origin không được phép."
+  description: "Danh sách API đã triển khai. Chọn endpoint → Try it out → Execute. Đăng nhập bằng POST /api/auth/login trước khi gọi /me hoặc Admin.
+    Cookie được trình duyệt quản lý; nút Authorize không đặt được cookie HttpOnly. Request POST/PATCH thay đổi dữ liệu thật, nên dùng môi trường test. 
+    Backend có thể trả lỗi CORS 403 (ORIGIN_NOT_ALLOWED) nếu origin không được phép."
 servers:
   -
     url: ".."

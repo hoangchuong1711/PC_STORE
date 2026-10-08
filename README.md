@@ -22,6 +22,12 @@ Backend luôn dùng cổng host `8080`. Nếu cổng này đang bị ứng dụn
 
 Upload ảnh/video cần `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` và `CLOUDINARY_API_SECRET` trong `.env` ở thư mục gốc. Compose truyền các biến này vào backend. Xem [hướng dẫn media](backend/T21_MEDIA.md) để biết giới hạn và trạng thái kiểm chứng.
 
+### Dữ liệu và tài khoản demo
+
+`DEMO_SEED_ENABLED` mặc định là `true`. Backend chạy các file SQL trong danh sách `SQL_SEEDS` của `DemoDataSeeder` theo thứ tự sau Flyway. Hiện danh sách có `t05_catalog.sql`; muốn thêm file mới, viết seed có thể chạy lại mà không nhân đôi hoặc ghi đè dữ liệu đã sửa, rồi thêm đường dẫn vào danh sách. File `t09_catalog.sql` vẫn chạy thủ công vì nó tự quản lý transaction bằng `BEGIN`/`COMMIT`; cần bỏ hai lệnh đó trước khi đưa vào danh sách tự động.
+
+Hai tài khoản thử đăng nhập chỉ được tạo khi đặt `DEMO_ACCOUNTS_ENABLED=true` trong `.env` local và `DEMO_SEED_ENABLED` vẫn bật. Sau đó chạy `docker compose up --build -d backend`. Thông tin demo: `admin@gmail.com` / `admin123` (ADMIN) và `user@gmail.com` / `user123` (CUSTOMER). Backend hash mật khẩu bằng `PasswordUtil`; SQL seed không lưu mật khẩu thô. Nếu DB local còn hai tài khoản demo cũ, seed đổi email và mật khẩu của chúng nhưng giữ `user_id`; các lần chạy tiếp theo không reset tài khoản với email mới. Cờ tài khoản mặc định tắt để không tạo ADMIN mật khẩu đơn giản trên môi trường khác. Đặt `DEMO_SEED_ENABLED=false` để tắt mọi seed demo.
+
 Nếu chạy frontend riêng trong VS Code, vào `frontend/`, chạy `npm install` rồi `npm run dev`. Frontend cần backend hoạt động để gọi API thật.
 
 ## Tìm tài liệu
