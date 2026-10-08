@@ -43,6 +43,8 @@ npm run dev
 
 Nếu Compose báo cổng `8080` đang được sử dụng, backend không khởi động được và frontend phụ thuộc backend cũng chưa chạy. Đặt `BACKEND_PORT=8081` trong `.env`, rồi chạy lại `docker compose up -d`. Giao diện vẫn ở `http://localhost:3000`;
 
+Upload ảnh/video của T21 cần `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` trong `.env` của Compose và API key có quyền upload. Backend dùng FFmpeg trong image Docker để xử lý video Review tối đa 10 giây; giới hạn và cách gắn media vào bài xem tại [T21 media](backend/T21_MEDIA.md). Không đưa URL hoặc khóa Cloudinary ra frontend.
+
 Để xem log: `docker compose logs -f backend`. Sau khi sửa mã nguồn, chạy lại `docker compose up --build -d`. Dừng ứng dụng bằng `docker compose down`; dữ liệu vẫn nằm trong Docker volume. Không commit file `.env`.
 
 ## Cấu trúc repo
