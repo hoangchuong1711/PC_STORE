@@ -13,6 +13,7 @@ export type CreateProductInput = {
   brandId: number;
   status?: AdminProductStatus;
   quantityOnHand: number;
+  spec?: Record<string, unknown>;
 };
 
 export type UpdateProductInput = {
@@ -22,6 +23,7 @@ export type UpdateProductInput = {
   categoryId?: number;
   brandId?: number;
   status?: AdminProductStatus;
+  spec?: Record<string, unknown>;
 };
 
 export type UpdateInventoryInput = {
@@ -41,6 +43,7 @@ export type AdminProductItem = {
   quantityOnHand: number;
   reservedQuantity: number;
   availableQuantity: number;
+  spec?: Record<string, unknown> | null;
 };
 
 export class AdminProductApiError extends Error {
@@ -114,6 +117,15 @@ export function createAdminProductApi(transport: typeof fetch = fetch) {
   }
 
   return {
+    async get(productId: number): Promise<AdminProductItem> {
+      requireId(productId);
+      const res = await request(`/api/admin/products/${productId}`, "GET");
+      if (!validProductItem(res)) {
+        throw new AdminProductApiError(502, "INVALID_RESPONSE", "Phản hồi sản phẩm không hợp lệ.");
+      }
+      return res;
+    },
+
     async create(input: CreateProductInput): Promise<AdminProductItem> {
       if (!input.name || input.name.trim().length === 0) {
         throw new AdminProductApiError(400, "INVALID_INPUT", "Tên sản phẩm không được để trống.");

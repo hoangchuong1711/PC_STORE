@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createAdminProductApi } from "./admin-product-api.ts";
+import { collectProductSpec, productSpecFields } from "./product-spec-fields.ts";
 
 const sampleProduct = {
   productId: 101,
@@ -18,6 +19,35 @@ const sampleProduct = {
 };
 
 const json = (val, status = 200) => new Response(JSON.stringify(val), { status });
+
+test("exposes the documented fields for every Builder component", () => {
+  assert.deepEqual(Object.keys(productSpecFields).sort(),
+    ["CPU", "MOTHERBOARD", "RAM", "GPU", "STORAGE", "PSU", "CASE", "COOLER"].sort());
+  assert.deepEqual(collectProductSpec("CASE", {
+    maxGpuLengthMm: "350", maxCoolerHeightMm: "170", maxRadiatorSizeMm: "0",
+    supportedFormFactors: "ATX, Micro-ATX",
+  }), {
+    maxGpuLengthMm: 350, maxCoolerHeightMm: 170, maxRadiatorSizeMm: 0,
+    supportedFormFactors: ["ATX", "Micro-ATX"],
+  });
+  assert.throws(() => collectProductSpec("CPU", { socketCode: "AM5" }), /Số nhân/);
+});
+
+test("sends spec and reads it back from product detail", async () => {
+  const calls = [];
+  const spec = { socketCode: "AM5", cores: 6, threads: 12,
+    baseClockGhz: 3.5, boostClockGhz: 4.4, tdpWatts: 65 };
+  const api = createAdminProductApi(async (url, options) => {
+    calls.push([url, options.method, options.body && JSON.parse(options.body)]);
+    return json({ ...sampleProduct, spec }, options.method === "POST" ? 201 : 200);
+  });
+  await api.create({ name: "CPU", price: 100, categoryId: 1, brandId: 2,
+    quantityOnHand: 1, spec });
+  const detail = await api.get(101);
+  assert.deepEqual(calls[0][2].spec, spec);
+  assert.deepEqual(calls[1], ["/api/admin/products/101", "GET", undefined]);
+  assert.deepEqual(detail.spec, spec);
+});
 
 test("creates product sending json payload and returns mapped item", async () => {
   const calls = [];
