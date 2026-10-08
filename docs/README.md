@@ -6,6 +6,7 @@
 | --- | --- | --- |
 | Thứ tự và phạm vi triển khai | Trang này | Quyết định ưu tiên CORE → FEATURE → ADVANCED. |
 | Task và phụ thuộc | [Kế hoạch T01–T38](plane.md) | Bản kế hoạch tại thời điểm lập; trạng thái Work Item xem trên Plane. |
+| Tích hợp luồng mua hàng | [Nhật ký T20](T20_INTEGRATION_LOG.md) | Kết quả và giới hạn kiểm chứng khi ghép frontend với backend. |
 | Schema và quy tắc dữ liệu | [Mô hình dữ liệu](data-model.md) | Thiết kế dữ liệu mục tiêu; đối chiếu migration để biết phần đã có. |
 | Cách chạy kiểm thử | [Hướng dẫn kiểm thử](testing.md) | Lệnh kiểm thử và môi trường cần chuẩn bị. |
 | API đã khai báo | [OpenAPI](../backend/src/main/webapp/api-docs/openapi.yaml) | Đặc tả HTTP; đối chiếu Servlet/DTO khi sửa endpoint. |

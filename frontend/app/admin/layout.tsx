@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { AdminShell } from "../../components/admin/admin-shell";
-import "../../components/admin/admin.css";
 
 export const metadata: Metadata = {
   title: "Admin | PC Store",

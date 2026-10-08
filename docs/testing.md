@@ -49,3 +49,5 @@ Các file `*.test.mjs` dùng Node test runner; không cần khởi động Next.
 ## Cách đọc kết quả
 
 Kiểm tra exit code và tổng failures/errors của lần chạy mới nhất. Test giao diện dùng fixture chỉ xác nhận hành vi của fixture; nghiệm thu luồng mua hàng thật vẫn cần chạy ứng dụng, API và database cùng nhau. OpenAPI contract test kiểm tra đặc tả, không thay thế kiểm thử endpoint thực tế.
+
+Các ca và giới hạn kiểm chứng riêng của lần tích hợp CORE được ghi trong [nhật ký T20](T20_INTEGRATION_LOG.md).

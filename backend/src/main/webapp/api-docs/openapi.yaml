@@ -903,6 +903,280 @@ paths:
           description: "Byte range không hợp lệ"
         "502":
           description: "Cloudinary không sẵn sàng"
+  "/api/admin/categories":
+    get:
+      tags: ["Admin taxonomy"]
+      operationId: "listAdminCategory"
+      summary: "ADMIN — list categories"
+      description: "Không xóa cứng. PUT cập nhật toàn bộ form; endpoint /status chỉ đổi trạng thái. Đổi componentType khi danh mục có sản phẩm trả 409."
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: "Thành công; dữ liệu đã commit với thao tác ghi"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminTaxonomyEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      tags: ["Admin taxonomy"]
+      operationId: "createAdminCategory"
+      summary: "ADMIN — create categories"
+      description: "Không xóa cứng. PUT cập nhật toàn bộ form; endpoint /status chỉ đổi trạng thái. Đổi componentType khi danh mục có sản phẩm trả 409."
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCategoryInput"
+      responses:
+        "201":
+          description: "Thành công; dữ liệu đã commit với thao tác ghi"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTaxonomyEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/api/admin/categories/{id}":
+    put:
+      tags: ["Admin taxonomy"]
+      operationId: "updateAdminCategory"
+      summary: "ADMIN — update categories"
+      description: "Không xóa cứng. PUT cập nhật toàn bộ form; endpoint /status chỉ đổi trạng thái. Đổi componentType khi danh mục có sản phẩm trả 409."
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int32, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCategoryInput"
+      responses:
+        "200":
+          description: "Thành công; dữ liệu đã commit với thao tác ghi"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTaxonomyEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/api/admin/categories/{id}/status":
+    put:
+      tags: ["Admin taxonomy"]
+      operationId: "setStatusAdminCategory"
+      summary: "ADMIN — setStatus categories"
+      description: "Không xóa cứng. PUT cập nhật toàn bộ form; endpoint /status chỉ đổi trạng thái. Đổi componentType khi danh mục có sản phẩm trả 409."
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int32, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminTaxonomyStatusInput"
+      responses:
+        "200":
+          description: "Thành công; dữ liệu đã commit với thao tác ghi"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTaxonomyEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/api/admin/brands":
+    get:
+      tags: ["Admin taxonomy"]
+      operationId: "listAdminBrand"
+      summary: "ADMIN — list brands"
+      description: "Không xóa cứng. PUT cập nhật toàn bộ form; endpoint /status chỉ đổi trạng thái. Đổi componentType khi danh mục có sản phẩm trả 409."
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: "Thành công; dữ liệu đã commit với thao tác ghi"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminTaxonomyEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      tags: ["Admin taxonomy"]
+      operationId: "createAdminBrand"
+      summary: "ADMIN — create brands"
+      description: "Không xóa cứng. PUT cập nhật toàn bộ form; endpoint /status chỉ đổi trạng thái. Đổi componentType khi danh mục có sản phẩm trả 409."
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminBrandInput"
+      responses:
+        "201":
+          description: "Thành công; dữ liệu đã commit với thao tác ghi"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTaxonomyEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/api/admin/brands/{id}":
+    put:
+      tags: ["Admin taxonomy"]
+      operationId: "updateAdminBrand"
+      summary: "ADMIN — update brands"
+      description: "Không xóa cứng. PUT cập nhật toàn bộ form; endpoint /status chỉ đổi trạng thái. Đổi componentType khi danh mục có sản phẩm trả 409."
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int32, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminBrandInput"
+      responses:
+        "200":
+          description: "Thành công; dữ liệu đã commit với thao tác ghi"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTaxonomyEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/api/admin/brands/{id}/status":
+    put:
+      tags: ["Admin taxonomy"]
+      operationId: "setStatusAdminBrand"
+      summary: "ADMIN — setStatus brands"
+      description: "Không xóa cứng. PUT cập nhật toàn bộ form; endpoint /status chỉ đổi trạng thái. Đổi componentType khi danh mục có sản phẩm trả 409."
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int32, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminTaxonomyStatusInput"
+      responses:
+        "200":
+          description: "Thành công; dữ liệu đã commit với thao tác ghi"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTaxonomyEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     sessionCookie:
@@ -948,6 +1222,44 @@ components:
           schema:
             "$ref": "#/components/schemas/ErrorResponse"
   schemas:
+    AdminCategoryInput:
+      type: object
+      additionalProperties: false
+      required: [name, status]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: string, nullable: true }
+        componentType:
+          type: string
+          nullable: true
+          enum: [CPU, MOTHERBOARD, RAM, GPU, STORAGE, PSU, CASE, COOLER, null]
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+    AdminBrandInput:
+      type: object
+      additionalProperties: false
+      required: [name, status]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: string, nullable: true }
+        logoUrl: { type: string, nullable: true, maxLength: 2048, description: "HTTP(S) URL, không chứa userinfo" }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+    AdminTaxonomyStatusInput:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+    AdminTaxonomyEntry:
+      type: object
+      required: [id, name, description, status, componentType, logoUrl, productCount]
+      properties:
+        id: { type: integer, format: int32, minimum: 1 }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        componentType: { type: string, nullable: true }
+        logoUrl: { type: string, nullable: true }
+        productCount: { type: integer, format: int64, minimum: 0, description: "Đếm mọi sản phẩm liên kết, kể cả sản phẩm ẩn" }
     AddCartItemRequest:
       "type": "object"
       "required":

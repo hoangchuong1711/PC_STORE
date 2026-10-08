@@ -1,490 +1,277 @@
 "use client";
 
-import { useId, useState } from "react";
-import {
-  CheckCircle2,
-  Cpu,
-  Edit2,
-  ExternalLink,
-  Eye,
-  EyeOff,
-  FolderTree,
-  Globe,
-  Headphones,
-  Laptop,
-  Monitor,
-  Plus,
-  RotateCcw,
-  Search,
-  Tag,
-  X,
-} from "lucide-react";
-import {
-  type AdminCategory,
-  type AdminBrand,
-  initialAdminCategories,
-  initialAdminBrands,
-  filterAdminCategories,
-  filterAdminBrands,
-  toSlug,
-} from "@/lib/admin-categories";
-import "./admin.css";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Edit2, Eye, EyeOff, FolderTree, Plus, RotateCcw, Search, Tag, X } from "lucide-react";
+import { componentTypes, createAdminTaxonomyApi, type ComponentType, type TaxonomyEntry, type TaxonomyInput, type TaxonomyKind, type TaxonomyStatus } from "../../lib/admin-taxonomy-api";
+
+const api = createAdminTaxonomyApi();
+const emptyForm: TaxonomyInput = { name: "", description: "", status: "ACTIVE", componentType: null, logoUrl: null };
+const TAXONOMY_DRAFT_KEY = "pcstore_admin_taxonomy_draft";
+const messageOf = (cause: unknown) => cause instanceof Error ? cause.message : "Không thể xử lý yêu cầu. Vui lòng thử lại.";
 
 export function AdminCategories() {
-  const [activeTab, setActiveTab] = useState<"CATEGORIES" | "BRANDS">("CATEGORIES");
-  const [categories, setCategories] = useState<AdminCategory[]>(initialAdminCategories);
-  const [brands, setBrands] = useState<AdminBrand[]>(initialAdminBrands);
+  const [activeTab, setActiveTab] = useState<TaxonomyKind>("categories");
+  const [data, setData] = useState<Record<TaxonomyKind, TaxonomyEntry[]>>({ categories: [], brands: [] });
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [reload, setReload] = useState(0);
   const [query, setQuery] = useState("");
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const saving = useRef(false);
+  const [editor, setEditor] = useState<{ kind: TaxonomyKind; entry: TaxonomyEntry | null } | null>(null);
+  const [form, setForm] = useState<TaxonomyInput>(emptyForm);
 
-  const categoryNameInputId = useId();
-  const categorySlugInputId = useId();
-  const categoryDescInputId = useId();
-  const categoryIconSelectId = useId();
-  const categoryStatusSelectId = useId();
-  const brandNameInputId = useId();
-  const brandOriginInputId = useId();
-  const brandWebsiteInputId = useId();
-  const brandStatusSelectId = useId();
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(TAXONOMY_DRAFT_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.editor && parsed?.form) {
+          setEditor(parsed.editor);
+          setForm(parsed.form);
+        }
+      }
+    } catch {}
+  }, []);
 
-  // Drawers
-  const [editingCategory, setEditingCategory] = useState<AdminCategory | null>(null);
-  const [isNewCategoryOpen, setIsNewCategoryOpen] = useState(false);
-  const [categoryForm, setCategoryForm] = useState({
-    name: "",
-    slug: "",
-    description: "",
-    iconName: "Cpu",
-    status: "ACTIVE" as "ACTIVE" | "HIDDEN",
-  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (editor) {
+        sessionStorage.setItem(TAXONOMY_DRAFT_KEY, JSON.stringify({ editor, form }));
+      } else {
+        sessionStorage.removeItem(TAXONOMY_DRAFT_KEY);
+      }
+    } catch {}
+  }, [editor, form]);
 
-  const [editingBrand, setEditingBrand] = useState<AdminBrand | null>(null);
-  const [isNewBrandOpen, setIsNewBrandOpen] = useState(false);
-  const [brandForm, setBrandForm] = useState({
-    name: "",
-    origin: "",
-    website: "",
-    status: "ACTIVE" as "ACTIVE" | "HIDDEN",
-  });
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([api.list("categories"), api.list("brands")]).then(([categories, brands]) => {
+      if (!cancelled) { setData({ categories, brands }); setLoadError(""); }
+    }).catch(cause => { if (!cancelled) setLoadError(messageOf(cause)); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [reload]);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
-  };
-
-  const filteredCategories = filterAdminCategories(categories, query);
-  const filteredBrands = filterAdminBrands(brands, query);
-
-  // Category handlers
-  const handleOpenNewCategory = () => {
-    setCategoryForm({
-      name: "",
-      slug: "",
-      description: "",
-      iconName: "Cpu",
-      status: "ACTIVE",
-    });
-    setIsNewCategoryOpen(true);
-  };
-
-  const handleOpenEditCategory = (cat: AdminCategory) => {
-    setEditingCategory(cat);
-    setCategoryForm({
-      name: cat.name,
-      slug: cat.slug,
-      description: cat.description,
-      iconName: cat.iconName || "Cpu",
-      status: cat.status,
-    });
-  };
-
-  const handleSaveCategory = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!categoryForm.name.trim()) return;
-
-    const slug = categoryForm.slug.trim() || toSlug(categoryForm.name);
-
-    if (editingCategory) {
-      setCategories((prev) =>
-        prev.map((c) =>
-          c.id === editingCategory.id
-            ? {
-                ...c,
-                name: categoryForm.name.trim(),
-                slug,
-                description: categoryForm.description.trim(),
-                iconName: categoryForm.iconName,
-                status: categoryForm.status,
-              }
-            : c,
-        ),
-      );
-      showToast(`Đã cập nhật danh mục "${categoryForm.name.trim()}".`);
-      setEditingCategory(null);
-    } else {
-      const newCat: AdminCategory = {
-        id: `cat-${Date.now()}`,
-        name: categoryForm.name.trim(),
-        slug,
-        description: categoryForm.description.trim(),
-        productCount: 0,
-        status: categoryForm.status,
-        iconName: categoryForm.iconName,
-      };
-      setCategories((prev) => [...prev, newCat]);
-      showToast(`Đã thêm danh mục "${newCat.name}".`);
-      setIsNewCategoryOpen(false);
+  function refresh() { setLoading(true); setReload(value => value + 1); }
+  function open(kind: TaxonomyKind, entry: TaxonomyEntry | null) {
+    setError(""); setNotice(""); setEditor({ kind, entry });
+    setForm(entry ? { ...entry } : { ...emptyForm });
+  }
+  function close() {
+    if (!saving.current) {
+      try { sessionStorage.removeItem(TAXONOMY_DRAFT_KEY); } catch {}
+      setEditor(null);
+      setError("");
     }
-  };
+  }
+  function accept(kind: TaxonomyKind, entry: TaxonomyEntry) {
+    setData(previous => ({ ...previous, [kind]: previous[kind].some(item => item.id === entry.id)
+      ? previous[kind].map(item => item.id === entry.id ? entry : item) : [...previous[kind], entry] }));
+  }
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    if (!editor || saving.current) return;
+    saving.current = true; setBusy(true); setError(""); setNotice("");
+    try {
+      const entry = await api.save(editor.kind, editor.entry?.id ?? null, form);
+      accept(editor.kind, entry);
+      try { sessionStorage.removeItem(TAXONOMY_DRAFT_KEY); } catch {}
+      setEditor(null); setNotice('Đã lưu "' + entry.name + '" vào hệ thống.');
+    } catch (cause) { setError(messageOf(cause)); }
+    finally { saving.current = false; setBusy(false); }
+  }
+  async function toggle(entry: TaxonomyEntry) {
+    if (saving.current) return;
+    saving.current = true; setBusy(true); setError(""); setNotice("");
+    const kind = activeTab;
+    try {
+      const changed = await api.setStatus(kind, entry.id, entry.status === "ACTIVE" ? "INACTIVE" : "ACTIVE");
+      accept(kind, changed); setNotice('Đã cập nhật trạng thái "' + changed.name + '".');
+    } catch (cause) { setError(messageOf(cause)); }
+    finally { saving.current = false; setBusy(false); }
+  }
 
-  const handleToggleCategoryStatus = (cat: AdminCategory) => {
-    const nextStatus = cat.status === "ACTIVE" ? "HIDDEN" : "ACTIVE";
-    setCategories((prev) =>
-      prev.map((c) => (c.id === cat.id ? { ...c, status: nextStatus } : c)),
-    );
-    showToast(
-      `Đã chuyển danh mục "${cat.name}" sang ${nextStatus === "ACTIVE" ? "Hoạt động" : "Ẩn"}.`,
-    );
-  };
-
-  // Brand handlers
-  const handleOpenNewBrand = () => {
-    setBrandForm({
-      name: "",
-      origin: "",
-      website: "",
-      status: "ACTIVE",
-    });
-    setIsNewBrandOpen(true);
-  };
-
-  const handleOpenEditBrand = (brand: AdminBrand) => {
-    setEditingBrand(brand);
-    setBrandForm({
-      name: brand.name,
-      origin: brand.origin,
-      website: brand.website || "",
-      status: brand.status,
-    });
-  };
-
-  const handleSaveBrand = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!brandForm.name.trim()) return;
-
-    if (editingBrand) {
-      setBrands((prev) =>
-        prev.map((b) =>
-          b.id === editingBrand.id
-            ? {
-                ...b,
-                name: brandForm.name.trim(),
-                origin: brandForm.origin.trim() || "Chưa rõ",
-                website: brandForm.website.trim() || undefined,
-                status: brandForm.status,
-              }
-            : b,
-        ),
-      );
-      showToast(`Đã cập nhật thương hiệu "${brandForm.name.trim()}".`);
-      setEditingBrand(null);
-    } else {
-      const newB: AdminBrand = {
-        id: `b-${Date.now()}`,
-        name: brandForm.name.trim(),
-        origin: brandForm.origin.trim() || "Chưa rõ",
-        website: brandForm.website.trim() || undefined,
-        productCount: 0,
-        status: brandForm.status,
-      };
-      setBrands((prev) => [...prev, newB]);
-      showToast(`Đã thêm thương hiệu "${newB.name}".`);
-      setIsNewBrandOpen(false);
-    }
-  };
-
-  const handleToggleBrandStatus = (brand: AdminBrand) => {
-    const nextStatus = brand.status === "ACTIVE" ? "HIDDEN" : "ACTIVE";
-    setBrands((prev) =>
-      prev.map((b) => (b.id === brand.id ? { ...b, status: nextStatus } : b)),
-    );
-    showToast(
-      `Đã chuyển thương hiệu "${brand.name}" sang ${nextStatus === "ACTIVE" ? "Hoạt động" : "Ẩn"}.`,
-    );
-  };
-
-  const renderIcon = (iconName?: string) => {
-    switch (iconName) {
-      case "Laptop":
-        return <Laptop size={16} />;
-      case "Monitor":
-        return <Monitor size={16} />;
-      case "Headphones":
-        return <Headphones size={16} />;
-      case "Cpu":
-      default:
-        return <Cpu size={16} />;
-    }
-  };
+  const filtered = data[activeTab].filter(entry => (entry.name + " " + (entry.description ?? "")).toLocaleLowerCase("vi").includes(query.trim().toLocaleLowerCase("vi")));
+  const isCategory = activeTab === "categories";
 
   return (
-    <div className="admin-page">
-      {/* Toast Alert */}
-      {toastMessage && (
-        <aside aria-label="Thông báo thao tác" aria-live="polite" className="admin-toast">
-          <CheckCircle2 size={16} />
-          <span>{toastMessage}</span>
-        </aside>
-      )}
-
-      {/* Header */}
-      <div className="admin-page-heading">
+    <div className="max-w-[1250px] mx-auto font-sans">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-7">
         <div>
-          <span className="admin-eyebrow">PHÂN LOẠI & ĐỐI TÁC</span>
-          <h1>Quản lý Danh mục & Thương hiệu</h1>
-          <p>Cấu hình nhóm sản phẩm và các nhãn hàng linh kiện phân phối trong kho.</p>
+          <span className="block text-[10px] font-bold text-admin-soft tracking-wider uppercase">PHÂN LOẠI & ĐỐI TÁC</span>
+          <h1 className="text-2xl sm:text-3xl lg:text-[34px] font-extrabold text-admin-ink tracking-tight mt-1 mb-1.5 leading-tight">Quản lý Danh mục & Thương hiệu</h1>
+          <p className="text-sm text-admin-muted max-w-[570px] m-0">Dữ liệu được lưu tại máy chủ. Ẩn danh mục/hãng sẽ ẩn các sản phẩm liên quan khỏi catalog công khai.</p>
         </div>
-        <div className="admin-heading-actions">
+        <div className="flex items-center gap-2.5 shrink-0">
           <button
             type="button"
-            className="admin-button admin-button-primary"
-            onClick={activeTab === "CATEGORIES" ? handleOpenNewCategory : handleOpenNewBrand}
+            className="inline-flex items-center justify-center gap-2 min-h-[38px] px-3.5 rounded-lg text-xs font-bold border border-admin-line bg-white hover:border-[#bbc3cc] hover:bg-admin-bg text-admin-ink transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            disabled={loading || busy || !!editor}
+            onClick={refresh}
           >
-            <Plus size={16} />
-            {activeTab === "CATEGORIES" ? "Thêm danh mục" : "Thêm thương hiệu"}
+            <RotateCcw size={16} /> Tải lại
+          </button>
+          <button
+            type="button"
+            className="inline-flex items-center justify-center gap-2 min-h-[38px] px-3.5 rounded-lg text-xs font-bold bg-admin-accent-dark hover:bg-[#1e252c] text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            disabled={loading || busy || !!loadError}
+            onClick={() => open(activeTab, null)}
+          >
+            <Plus size={16} />{isCategory ? "Thêm danh mục" : "Thêm thương hiệu"}
           </button>
         </div>
       </div>
 
-      {/* Main Panel with Tabs */}
-      <section className="admin-panel admin-list-panel">
-        {/* Tab switch header */}
-        <div className="admin-tabs-bar">
+      {notice && (
+        <p role="status" className="mb-4 rounded-lg bg-admin-green-soft border border-admin-green/20 p-3 text-xs font-semibold text-admin-green">
+          {notice}
+        </p>
+      )}
+      {error && !editor && (
+        <p role="alert" className="mb-4 rounded-lg bg-admin-red-soft border border-admin-red/20 p-3 text-xs font-semibold text-admin-red">
+          {error}
+        </p>
+      )}
+      {loadError && (
+        <p role="alert" className="mb-4 rounded-lg bg-admin-red-soft border border-admin-red/20 p-3 text-xs font-semibold text-admin-red flex items-center justify-between">
+          <span>{loadError}</span>
+          <button type="button" onClick={refresh} disabled={loading} className="underline font-bold cursor-pointer">
+            Thử lại
+          </button>
+        </p>
+      )}
+
+      <section className="rounded-xl border border-admin-line bg-admin-surface overflow-hidden" aria-busy={loading}>
+        <div className="flex items-center border-b border-admin-line bg-admin-bg/50 px-3 pt-2 gap-1" role="tablist" aria-label="Loại dữ liệu">
           <button
             type="button"
-            className={`admin-tab-item ${activeTab === "CATEGORIES" ? "is-active" : ""}`}
-            onClick={() => setActiveTab("CATEGORIES")}
+            role="tab"
+            aria-label="Danh mục"
+            aria-selected={isCategory}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-xs font-semibold transition-colors cursor-pointer ${
+              isCategory
+                ? "bg-white text-admin-ink font-bold border-t-2 border-admin-blue -mb-px shadow-xs"
+                : "text-admin-muted hover:text-admin-ink"
+            }`}
+            onClick={() => { setActiveTab("categories"); setQuery(""); }}
           >
             <FolderTree size={16} />
-            <span>Danh mục</span>
-            <span className="admin-tab-count">{categories.length}</span>
+            Danh mục
+            <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-admin-line text-admin-ink ml-1">
+              {data.categories.length}
+            </span>
           </button>
           <button
             type="button"
-            className={`admin-tab-item ${activeTab === "BRANDS" ? "is-active" : ""}`}
-            onClick={() => setActiveTab("BRANDS")}
+            role="tab"
+            aria-label="Thương hiệu"
+            aria-selected={!isCategory}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-xs font-semibold transition-colors cursor-pointer ${
+              !isCategory
+                ? "bg-white text-admin-ink font-bold border-t-2 border-admin-blue -mb-px shadow-xs"
+                : "text-admin-muted hover:text-admin-ink"
+            }`}
+            onClick={() => { setActiveTab("brands"); setQuery(""); }}
           >
             <Tag size={16} />
-            <span>Thương hiệu</span>
-            <span className="admin-tab-count">{brands.length}</span>
+            Thương hiệu
+            <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-admin-line text-admin-ink ml-1">
+              {data.brands.length}
+            </span>
           </button>
         </div>
 
-        {/* Toolbar */}
-        <div className="admin-list-toolbar admin-toolbar-wrap">
-          <label className="admin-search-field">
-            <Search size={16} />
+        <div className="p-3.5 border-b border-admin-line bg-white">
+          <label className="relative flex items-center w-full max-w-sm">
+            <Search size={16} className="absolute left-3 text-admin-soft pointer-events-none" />
             <span className="sr-only">Tìm kiếm</span>
             <input
               type="search"
-              placeholder={
-                activeTab === "CATEGORIES"
-                  ? "Tìm danh mục theo tên, slug, mô tả..."
-                  : "Tìm thương hiệu theo tên hãng, xuất xứ..."
-              }
+              placeholder="Tìm theo tên, mô tả..."
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={event => setQuery(event.target.value)}
+              className="w-full h-9 pl-9 pr-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink placeholder:text-admin-soft focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
             />
           </label>
-          {query && (
-            <button
-              type="button"
-              className="admin-filter-reset"
-              onClick={() => setQuery("")}
-            >
-              <RotateCcw size={15} />
-              Xóa tìm kiếm
-            </button>
-          )}
         </div>
 
-        {/* Tab 1: Categories Table */}
-        {activeTab === "CATEGORIES" && (
-          <div className="admin-table-wrap">
-            <table className="admin-table">
+        {loading ? (
+          <p role="status" className="p-8 text-center text-xs text-admin-muted">
+            Đang tải dữ liệu…
+          </p>
+        ) : !loadError && (
+          <div className="w-full overflow-x-auto">
+            <table className="w-full border-collapse text-left text-xs">
               <thead>
                 <tr>
-                  <th style={{ width: 60, textAlign: "center" }}>Biểu tượng</th>
-                  <th style={{ width: 180 }}>Tên danh mục</th>
-                  <th style={{ width: 160 }}>Đường dẫn (Slug)</th>
-                  <th>Mô tả</th>
-                  <th style={{ width: 130 }}>Số sản phẩm</th>
-                  <th style={{ width: 130 }}>Trạng thái</th>
-                  <th style={{ width: 140 }} className="align-right">Thao tác</th>
+                  <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">Tên</th>
+                  <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">Mô tả</th>
+                  <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">{isCategory ? "Loại linh kiện" : "URL logo"}</th>
+                  <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">Số sản phẩm</th>
+                  <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">Trạng thái</th>
+                  <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30 text-right">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredCategories.length === 0 ? (
+                {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: "center", padding: "40px 16px", color: "var(--admin-soft)" }}>
-                      Không tìm thấy danh mục phù hợp.
+                    <td colSpan={6} className="py-8 text-center text-xs text-admin-muted">
+                      Chưa có dữ liệu phù hợp.
                     </td>
                   </tr>
                 ) : (
-                  filteredCategories.map((cat) => (
-                    <tr key={cat.id}>
-                      <td style={{ textAlign: "center" }}>
-                        <div
-                          style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: 6,
-                            backgroundColor: "var(--admin-bg)",
-                            display: "inline-grid",
-                            placeItems: "center",
-                            color: "var(--admin-ink)",
-                          }}
-                        >
-                          {renderIcon(cat.iconName)}
-                        </div>
+                  filtered.map(entry => (
+                    <tr key={entry.id} className="hover:bg-admin-bg/40 transition-colors">
+                      <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle">
+                        <strong className="block text-xs font-bold text-admin-ink">{entry.name}</strong>
                       </td>
-                      <td>
-                        <strong className="admin-table-primary">{cat.name}</strong>
+                      <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle text-admin-muted max-w-xs truncate">
+                        {entry.description || "—"}
                       </td>
-                      <td>
-                        <span className="admin-code-slug">{cat.slug}</span>
+                      <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle">
+                        {isCategory ? (
+                          entry.componentType ? (
+                            <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-admin-blue-soft text-admin-blue">{entry.componentType}</span>
+                          ) : "Không áp dụng"
+                        ) : (
+                          entry.logoUrl || "—"
+                        )}
                       </td>
-                      <td>
-                        <span style={{ color: "var(--admin-muted)", fontSize: 12 }}>
-                          {cat.description || "—"}
+                      <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle font-mono">
+                        {entry.productCount}
+                      </td>
+                      <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle">
+                        <span className={`inline-flex items-center min-h-[22px] px-2 rounded text-[10px] font-bold whitespace-nowrap ${
+                          entry.status === "ACTIVE" ? "bg-admin-green-soft text-admin-green" : "bg-slate-100 text-slate-500"
+                        }`}>
+                          {entry.status === "ACTIVE" ? "Hoạt động" : "Đã ẩn"}
                         </span>
                       </td>
-                      <td>
-                        <strong style={{ color: "var(--admin-ink)", fontVariantNumeric: "tabular-nums" }}>
-                          {cat.productCount}
-                        </strong>{" "}
-                        <small style={{ color: "var(--admin-soft)" }}>sản phẩm</small>
-                      </td>
-                      <td>
-                        {cat.status === "ACTIVE" ? (
-                          <span className="admin-status-pill is-success">Hoạt động</span>
-                        ) : (
-                          <span className="admin-status-pill is-muted">Đã ẩn</span>
-                        )}
-                      </td>
-                      <td className="align-right">
-                        <div style={{ display: "inline-flex", gap: 6 }}>
-                          <button
-                            type="button"
-                            className="admin-table-action"
-                            onClick={() => handleOpenEditCategory(cat)}
-                            title="Sửa thông tin"
-                          >
-                            <Edit2 size={13} /> Sửa
-                          </button>
-                          <button
-                            type="button"
-                            className="admin-table-action"
-                            onClick={() => handleToggleCategoryStatus(cat)}
-                            title={cat.status === "ACTIVE" ? "Ẩn danh mục" : "Hiện danh mục"}
-                          >
-                            {cat.status === "ACTIVE" ? <><EyeOff size={13} /> Ẩn</> : <><Eye size={13} /> Hiện</>}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Tab 2: Brands Table */}
-        {activeTab === "BRANDS" && (
-          <div className="admin-table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 180 }}>Tên thương hiệu</th>
-                  <th style={{ width: 150 }}>Xuất xứ</th>
-                  <th>Website chính thức</th>
-                  <th style={{ width: 130 }}>Số sản phẩm</th>
-                  <th style={{ width: 130 }}>Trạng thái</th>
-                  <th style={{ width: 140 }} className="align-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredBrands.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} style={{ textAlign: "center", padding: "40px 16px", color: "var(--admin-soft)" }}>
-                      Không tìm thấy thương hiệu phù hợp.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredBrands.map((brand) => (
-                    <tr key={brand.id}>
-                      <td>
-                        <strong className="admin-table-primary">{brand.name}</strong>
-                      </td>
-                      <td>
-                        <span style={{ color: "var(--admin-muted)", fontSize: 12 }}>{brand.origin}</span>
-                      </td>
-                      <td>
-                        {brand.website ? (
-                          <a
-                            href={brand.website}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 4,
-                              fontSize: 12,
-                              color: "var(--admin-blue)",
-                              textDecoration: "none",
-                              fontWeight: 600,
-                            }}
-                          >
-                            <Globe size={13} /> {brand.website.replace(/^https?:\/\//, "")}{" "}
-                            <ExternalLink size={11} />
-                          </a>
-                        ) : (
-                          <span style={{ fontSize: 12, color: "var(--admin-soft)" }}>—</span>
-                        )}
-                      </td>
-                      <td>
-                        <strong style={{ color: "var(--admin-ink)", fontVariantNumeric: "tabular-nums" }}>
-                          {brand.productCount}
-                        </strong>{" "}
-                        <small style={{ color: "var(--admin-soft)" }}>sản phẩm</small>
-                      </td>
-                      <td>
-                        {brand.status === "ACTIVE" ? (
-                          <span className="admin-status-pill is-success">Hoạt động</span>
-                        ) : (
-                          <span className="admin-status-pill is-muted">Đã ẩn</span>
-                        )}
-                      </td>
-                      <td className="align-right">
-                        <div style={{ display: "inline-flex", gap: 6 }}>
-                          <button
-                            type="button"
-                            className="admin-table-action"
-                            onClick={() => handleOpenEditBrand(brand)}
-                            title="Sửa thông tin"
-                          >
-                            <Edit2 size={13} /> Sửa
-                          </button>
-                          <button
-                            type="button"
-                            className="admin-table-action"
-                            onClick={() => handleToggleBrandStatus(brand)}
-                            title={brand.status === "ACTIVE" ? "Ẩn thương hiệu" : "Hiện thương hiệu"}
-                          >
-                            {brand.status === "ACTIVE" ? <><EyeOff size={13} /> Ẩn</> : <><Eye size={13} /> Hiện</>}
-                          </button>
-                        </div>
+                      <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle text-right whitespace-nowrap">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold text-admin-blue hover:bg-admin-blue-soft transition-colors cursor-pointer disabled:opacity-50"
+                          onClick={() => open(activeTab, entry)}
+                        >
+                          <Edit2 size={13} /> Sửa
+                        </button>{" "}
+                        <button
+                          type="button"
+                          disabled={busy}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold text-admin-muted hover:bg-admin-bg hover:text-admin-ink transition-colors cursor-pointer disabled:opacity-50"
+                          onClick={() => void toggle(entry)}
+                        >
+                          {entry.status === "ACTIVE" ? (
+                            <><EyeOff size={13} /> Ẩn</>
+                          ) : (
+                            <><Eye size={13} /> Hiện</>
+                          )}
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -495,229 +282,124 @@ export function AdminCategories() {
         )}
       </section>
 
-      {/* Category Drawer */}
-      {(isNewCategoryOpen || editingCategory) && (
-        <div className="admin-drawer-layer">
+      {editor && (
+        <div className="fixed inset-0 z-50 flex justify-end">
           <button
             type="button"
-            className="admin-drawer-overlay"
-            aria-label="Đóng form danh mục"
-            onClick={() => {
-              setIsNewCategoryOpen(false);
-              setEditingCategory(null);
-            }}
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs border-0 cursor-pointer"
+            disabled={busy}
+            aria-label="Đóng form"
+            onClick={close}
           />
-          <aside className="admin-drawer" aria-label="Thông tin danh mục">
-            <div className="admin-drawer-heading">
-              <div>
-                <span className="admin-panel-kicker">Cấu hình phân loại</span>
-                <h2>{editingCategory ? "Cập nhật danh mục" : "Thêm danh mục mới"}</h2>
-              </div>
+          <aside
+            role="dialog"
+            aria-modal="true"
+            aria-label={editor.kind === "categories" ? "Thông tin danh mục" : "Thông tin thương hiệu"}
+            className="relative z-10 w-full max-w-md bg-white h-full shadow-2xl flex flex-col p-6 overflow-y-auto"
+          >
+            <div className="flex items-center justify-between pb-4 mb-5 border-b border-admin-line">
+              <h2 className="text-base font-bold text-admin-ink">
+                {editor.entry ? "Cập nhật" : "Thêm"} {editor.kind === "categories" ? "danh mục" : "thương hiệu"}
+              </h2>
               <button
                 type="button"
-                className="admin-icon-button"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-transparent text-admin-muted hover:border-admin-line hover:bg-admin-bg hover:text-admin-ink cursor-pointer"
                 aria-label="Đóng"
-                onClick={() => {
-                  setIsNewCategoryOpen(false);
-                  setEditingCategory(null);
-                }}
+                disabled={busy}
+                onClick={close}
               >
                 <X size={18} />
               </button>
             </div>
-
-            <form className="admin-form" onSubmit={handleSaveCategory}>
-              <label>
-                Tên danh mục
+            <form className="flex flex-col gap-4 text-xs font-semibold text-admin-ink flex-1" onSubmit={save}>
+              {error && (
+                <p role="alert" className="rounded-lg bg-admin-red-soft p-3 text-xs text-admin-red">
+                  {error}
+                </p>
+              )}
+              <label className="flex flex-col gap-1.5">
+                <span>Tên</span>
                 <input
-                  id={categoryNameInputId}
-                  type="text"
+                  autoFocus
                   required
-                  placeholder="Ví dụ: Màn hình, Laptop Gaming..."
-                  value={categoryForm.name}
-                  onChange={(e) => {
-                    const name = e.target.value;
-                    setCategoryForm({
-                      ...categoryForm,
-                      name,
-                      slug: editingCategory ? categoryForm.slug : toSlug(name),
-                    });
-                  }}
+                  maxLength={255}
+                  disabled={busy}
+                  value={form.name}
+                  onChange={event => setForm({ ...form, name: event.target.value })}
+                  className="w-full rounded-lg border border-admin-line p-2.5 text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue"
                 />
               </label>
-
-              <label>
-                Mã đường dẫn (Slug)
-                <input
-                  id={categorySlugInputId}
-                  type="text"
-                  placeholder="man-hinh"
-                  value={categoryForm.slug}
-                  onChange={(e) => setCategoryForm({ ...categoryForm, slug: e.target.value })}
-                />
-              </label>
-
-              <label>
-                Mô tả danh mục
+              <label className="flex flex-col gap-1.5">
+                <span>Mô tả</span>
                 <textarea
-                  id={categoryDescInputId}
-                  className="admin-form-textarea"
                   rows={3}
-                  placeholder="Mô tả nhóm sản phẩm và mục đích sử dụng..."
-                  value={categoryForm.description}
-                  onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
+                  disabled={busy}
+                  value={form.description ?? ""}
+                  onChange={event => setForm({ ...form, description: event.target.value })}
+                  className="w-full rounded-lg border border-admin-line p-2.5 text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue resize-none"
                 />
               </label>
-
-              <div className="admin-form-grid">
-                <label>
-                  Biểu tượng đại diện
-                  <select
-                    id={categoryIconSelectId}
-                    value={categoryForm.iconName}
-                    onChange={(e) => setCategoryForm({ ...categoryForm, iconName: e.target.value })}
-                  >
-                    <option value="Cpu">CPU / Linh kiện</option>
-                    <option value="Laptop">Laptop</option>
-                    <option value="Monitor">Màn hình / PC</option>
-                    <option value="Headphones">Phụ kiện âm thanh</option>
-                  </select>
+              {editor.kind === "categories" ? (
+                <>
+                  <label className="flex flex-col gap-1.5">
+                    <span>Loại linh kiện</span>
+                    <select
+                      disabled={busy || (editor.entry?.productCount ?? 0) > 0}
+                      value={form.componentType ?? ""}
+                      onChange={event => setForm({ ...form, componentType: event.target.value ? event.target.value as ComponentType : null })}
+                      className="w-full rounded-lg border border-admin-line p-2.5 text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue bg-white"
+                    >
+                      <option value="">Không áp dụng</option>
+                      {componentTypes.map(type => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </label>
+                  {(editor.entry?.productCount ?? 0) > 0 && (
+                    <p className="text-[11px] text-admin-soft font-normal">Không đổi loại linh kiện khi danh mục đã có sản phẩm.</p>
+                  )}
+                </>
+              ) : (
+                <label className="flex flex-col gap-1.5">
+                  <span>URL logo</span>
+                  <input
+                    type="url"
+                    maxLength={2048}
+                    placeholder="https://example.com/logo.png"
+                    disabled={busy}
+                    value={form.logoUrl ?? ""}
+                    onChange={event => setForm({ ...form, logoUrl: event.target.value || null })}
+                    className="w-full rounded-lg border border-admin-line p-2.5 text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue"
+                  />
                 </label>
-
-                <label>
-                  Trạng thái hiển thị
-                  <select
-                    id={categoryStatusSelectId}
-                    value={categoryForm.status}
-                    onChange={(e) =>
-                      setCategoryForm({
-                        ...categoryForm,
-                        status: e.target.value as "ACTIVE" | "HIDDEN",
-                      })
-                    }
-                  >
-                    <option value="ACTIVE">Hoạt động (Hiển thị)</option>
-                    <option value="HIDDEN">Ẩn tạm thời</option>
-                  </select>
-                </label>
-              </div>
-
-              <div className="admin-drawer-actions">
-                <button
-                  type="button"
-                  className="admin-button admin-button-secondary"
-                  onClick={() => {
-                    setIsNewCategoryOpen(false);
-                    setEditingCategory(null);
-                  }}
-                >
-                  Hủy bỏ
-                </button>
-                <button type="submit" className="admin-button admin-button-primary">
-                  {editingCategory ? "Lưu thay đổi" : "Tạo danh mục"}
-                </button>
-              </div>
-            </form>
-          </aside>
-        </div>
-      )}
-
-      {/* Brand Drawer */}
-      {(isNewBrandOpen || editingBrand) && (
-        <div className="admin-drawer-layer">
-          <button
-            type="button"
-            className="admin-drawer-overlay"
-            aria-label="Đóng form thương hiệu"
-            onClick={() => {
-              setIsNewBrandOpen(false);
-              setEditingBrand(null);
-            }}
-          />
-          <aside className="admin-drawer" aria-label="Thông tin thương hiệu">
-            <div className="admin-drawer-heading">
-              <div>
-                <span className="admin-panel-kicker">Đối tác sản xuất</span>
-                <h2>{editingBrand ? "Cập nhật thương hiệu" : "Thêm thương hiệu mới"}</h2>
-              </div>
-              <button
-                type="button"
-                className="admin-icon-button"
-                aria-label="Đóng"
-                onClick={() => {
-                  setIsNewBrandOpen(false);
-                  setEditingBrand(null);
-                }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form className="admin-form" onSubmit={handleSaveBrand}>
-              <label>
-                Tên hãng / Thương hiệu
-                <input
-                  id={brandNameInputId}
-                  type="text"
-                  required
-                  placeholder="Ví dụ: ASUS, GIGABYTE, MSI..."
-                  value={brandForm.name}
-                  onChange={(e) => setBrandForm({ ...brandForm, name: e.target.value })}
-                />
-              </label>
-
-              <label>
-                Quốc gia / Xuất xứ
-                <input
-                  id={brandOriginInputId}
-                  type="text"
-                  placeholder="Ví dụ: Đài Loan, Mỹ, Hàn Quốc, Việt Nam..."
-                  value={brandForm.origin}
-                  onChange={(e) => setBrandForm({ ...brandForm, origin: e.target.value })}
-                />
-              </label>
-
-              <label>
-                Website chính thức
-                <input
-                  id={brandWebsiteInputId}
-                  type="url"
-                  placeholder="https://rog.asus.com"
-                  value={brandForm.website}
-                  onChange={(e) => setBrandForm({ ...brandForm, website: e.target.value })}
-                />
-              </label>
-
-              <label>
-                Trạng thái hoạt động
+              )}
+              <label className="flex flex-col gap-1.5">
+                <span>Trạng thái</span>
                 <select
-                  id={brandStatusSelectId}
-                  value={brandForm.status}
-                  onChange={(e) =>
-                    setBrandForm({
-                      ...brandForm,
-                      status: e.target.value as "ACTIVE" | "HIDDEN",
-                    })
-                  }
+                  disabled={busy}
+                  value={form.status}
+                  onChange={event => setForm({ ...form, status: event.target.value as TaxonomyStatus })}
+                  className="w-full rounded-lg border border-admin-line p-2.5 text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue bg-white"
                 >
-                  <option value="ACTIVE">Hoạt động (Hiển thị trong lọc)</option>
-                  <option value="HIDDEN">Tạm ẩn</option>
+                  <option value="ACTIVE">Hoạt động</option>
+                  <option value="INACTIVE">Ẩn</option>
                 </select>
               </label>
-
-              <div className="admin-drawer-actions">
+              <div className="flex items-center justify-end gap-2.5 pt-4 mt-auto border-t border-admin-line">
                 <button
                   type="button"
-                  className="admin-button admin-button-secondary"
-                  onClick={() => {
-                    setIsNewBrandOpen(false);
-                    setEditingBrand(null);
-                  }}
+                  className="inline-flex items-center justify-center min-h-[38px] px-3.5 rounded-lg text-xs font-bold border border-admin-line bg-white hover:border-[#bbc3cc] hover:bg-admin-bg text-admin-ink transition-colors cursor-pointer"
+                  disabled={busy}
+                  onClick={close}
                 >
                   Hủy bỏ
                 </button>
-                <button type="submit" className="admin-button admin-button-primary">
-                  {editingBrand ? "Lưu thay đổi" : "Thêm thương hiệu"}
+                <button
+                  type="submit"
+                  className="inline-flex items-center justify-center min-h-[38px] px-3.5 rounded-lg text-xs font-bold bg-admin-accent-dark hover:bg-[#1e252c] text-white transition-colors cursor-pointer disabled:opacity-50"
+                  disabled={busy}
+                >
+                  {busy ? "Đang lưu…" : "Lưu"}
                 </button>
               </div>
             </form>

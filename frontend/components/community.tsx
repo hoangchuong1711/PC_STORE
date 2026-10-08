@@ -31,7 +31,6 @@ import { products, formatPrice } from "../lib/products";
 import { useCart } from "./cart-provider";
 import { useToast } from "./toast";
 import { Header, Footer } from "./storefront";
-import "./community.css";
 
 export function CommunityFeed() {
   const [selectedStyle, setSelectedStyle] = useState<SetupStyle>("all");
@@ -60,19 +59,21 @@ export function CommunityFeed() {
   return (
     <>
       <Header />
-      <main className="container community-page">
+      <main className="container py-12 pb-24 min-h-[75vh]">
         {/* Hero Section */}
-        <section className="community-hero">
-          <div className="community-hero-title">
-            <h1>Góc máy & Cảm hứng không gian</h1>
-            <p>
+        <section className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-10 pb-8 border-b border-[#e0e0e0]">
+          <div>
+            <h1 className="font-heading text-3xl md:text-5xl font-extrabold tracking-tight text-ink mb-2">
+              Góc máy & Cảm hứng không gian
+            </h1>
+            <p className="text-muted max-w-xl text-sm md:text-base leading-relaxed m-0">
               Khám phá các góc máy tính, bàn làm việc công thái học và phòng chơi game
               được chia sẻ trực tiếp từ cộng đồng người dùng PC Store.
             </p>
           </div>
           <button
             type="button"
-            className="button button-primary community-share-btn"
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm bg-[#006ce1] hover:bg-[#0051a8] text-white shadow-sm transition-all cursor-pointer border-none shrink-0"
             onClick={() => setIsShareModalOpen(true)}
           >
             <Camera size={18} /> Chia sẻ góc máy của bạn
@@ -81,42 +82,48 @@ export function CommunityFeed() {
 
         {/* Featured Spotlight Setup */}
         {featured && (
-          <section className="featured-spotlight" aria-label="Góc máy nổi bật">
-            <div className="spotlight-grid">
-              <div className="spotlight-visual">
+          <section className="bg-white border border-[#e0e0e0] rounded-3xl overflow-hidden mb-12 shadow-sm" aria-label="Góc máy nổi bật">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+              <div className="relative min-h-[320px] max-h-[460px] overflow-hidden bg-slate-900">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={featured.coverImage} alt={featured.title} />
+                <img src={featured.coverImage} alt={featured.title} className="w-full h-full object-cover" />
               </div>
-              <div className="spotlight-content">
-                <div className="spotlight-badge">
+              <div className="p-8 md:p-10 flex flex-col justify-center">
+                <div className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full mb-3 w-max">
                   <Sparkles size={14} /> Góc máy ấn tượng của tháng
                 </div>
-                <h2>{featured.title}</h2>
-                <p className="spotlight-desc">{featured.description}</p>
+                <h2 className="font-heading text-2xl md:text-3xl font-extrabold text-ink mb-3 tracking-tight">
+                  {featured.title}
+                </h2>
+                <p className="text-sm md:text-base text-muted leading-relaxed mb-6">{featured.description}</p>
 
-                <div className="spotlight-author">
+                <div className="flex items-center gap-3 mb-6">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={featured.author.avatar}
                     alt={featured.author.name}
-                    className="spotlight-author-img"
+                    className="w-11 h-11 rounded-full object-cover border border-[#e0e0e0]"
                   />
-                  <div className="spotlight-author-info">
-                    <strong>{featured.author.name}</strong>
-                    <span>{featured.author.role}</span>
+                  <div>
+                    <strong className="block text-sm text-ink">{featured.author.name}</strong>
+                    <span className="text-xs text-muted">{featured.author.role}</span>
                   </div>
                 </div>
 
-                <div className="spotlight-actions">
+                <div className="flex items-center gap-3 flex-wrap">
                   <Link
                     href={`/community/${featured.id}`}
-                    className="spotlight-view-btn"
+                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl font-semibold text-sm bg-[#006ce1] hover:bg-[#0051a8] text-white transition-colors shadow-sm"
                   >
                     Khám phá chi tiết linh kiện <ArrowRight size={15} />
                   </Link>
                   <button
                     type="button"
-                    className={`spotlight-like-btn ${featured.isLiked ? "liked" : ""}`}
+                    className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors cursor-pointer ${
+                      featured.isLiked
+                        ? "bg-rose-50 border-rose-300 text-rose-600"
+                        : "bg-white border-[#e0e0e0] text-slate-700 hover:border-slate-400"
+                    }`}
                     onClick={(e) => handleToggleLike(featured.id, e)}
                     aria-label="Thả tim góc máy này"
                   >
@@ -133,13 +140,17 @@ export function CommunityFeed() {
         )}
 
         {/* Category Tabs & Search Toolbar */}
-        <section className="community-toolbar">
-          <div className="community-style-tabs" role="tablist" aria-label="Lọc theo phong cách">
+        <section className="mb-8">
+          <div className="flex gap-2 overflow-x-auto pb-2 border-b border-[#e0e0e0] mb-6" role="tablist" aria-label="Lọc theo phong cách">
             {styleCategories.map((cat) => (
               <button
                 key={cat.id}
                 type="button"
-                className={`style-tab-btn ${selectedStyle === cat.id ? "active" : ""}`}
+                className={`px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer border-none ${
+                  selectedStyle === cat.id
+                    ? "bg-ink text-white"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
                 onClick={() => setSelectedStyle(cat.id)}
                 role="tab"
                 aria-selected={selectedStyle === cat.id}
@@ -149,24 +160,26 @@ export function CommunityFeed() {
             ))}
           </div>
 
-          <div className="community-search-sort-row">
-            <div className="community-search-box">
-              <Search size={16} className="community-search-icon" />
+          <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
+            <div className="flex-1 flex items-center gap-2.5 bg-white border border-[#e0e0e0] rounded-xl px-3.5 py-2">
+              <Search size={16} className="text-muted shrink-0" />
               <input
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Tìm góc máy theo tên, linh kiện hoặc tác giả..."
                 aria-label="Tìm kiếm góc máy"
+                className="w-full border-none bg-transparent text-sm outline-none"
               />
             </div>
 
-            <div className="community-sort-select">
-              <SlidersHorizontal size={14} />
+            <div className="flex items-center gap-2 text-muted text-xs md:text-sm">
+              <SlidersHorizontal size={14} className="shrink-0" />
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as "newest" | "likes" | "views")}
                 aria-label="Sắp xếp danh sách góc máy"
+                className="p-2 px-3 border border-[#e0e0e0] rounded-xl bg-white text-xs md:text-sm text-ink outline-none"
               >
                 <option value="newest">Mới đăng gần đây</option>
                 <option value="likes">Được yêu thích nhất</option>
@@ -177,25 +190,27 @@ export function CommunityFeed() {
         </section>
 
         {/* Setups Grid */}
-        <div className="setups-grid">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {posts.length > 0 ? (
             posts.map((post) => (
-              <article key={post.id} className="setup-card">
-                <Link href={`/community/${post.id}`} className="setup-card-cover-wrap">
+              <article key={post.id} className="bg-white border border-[#e0e0e0] rounded-2xl overflow-hidden flex flex-col hover:border-slate-300 hover:shadow-md transition-all">
+                <Link href={`/community/${post.id}`} className="relative block aspect-video overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={post.coverImage}
                     alt={post.title}
-                    className="setup-card-cover"
+                    className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                     loading="lazy"
                   />
-                  <span className="setup-card-tag">
+                  <span className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-sm text-white text-[11px] font-bold px-2.5 py-1 rounded-md">
                     {styleCategories.find((s) => s.id === post.style)?.label.split(" (")[0] ||
                       post.style}
                   </span>
                   <button
                     type="button"
-                    className={`setup-card-like-btn ${post.isLiked ? "liked" : ""}`}
+                    className={`absolute top-3 right-3 w-9 h-9 rounded-full bg-slate-900/60 backdrop-blur-sm text-white grid place-items-center hover:bg-slate-900 transition-colors border-none cursor-pointer ${
+                      post.isLiked ? "text-rose-500" : ""
+                    }`}
                     onClick={(e) => handleToggleLike(post.id, e)}
                     aria-label={`Thả tim bài viết, hiện có ${post.likesCount} lượt thích`}
                   >
@@ -206,46 +221,48 @@ export function CommunityFeed() {
                   </button>
                 </Link>
 
-                <div className="setup-card-body">
-                  <h3 className="setup-card-title">
-                    <Link href={`/community/${post.id}`}>{post.title}</Link>
+                <div className="p-5 flex flex-col flex-1">
+                  <h3 className="font-heading text-base font-bold text-ink mb-2">
+                    <Link href={`/community/${post.id}`} className="hover:text-[#006ce1] transition-colors">
+                      {post.title}
+                    </Link>
                   </h3>
 
-                  <div className="setup-card-author">
+                  <div className="flex items-center gap-2.5 mb-3 text-xs">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={post.author.avatar}
                       alt={post.author.name}
-                      className="setup-card-avatar"
+                      className="w-6 h-6 rounded-full object-cover"
                     />
-                    <div className="setup-card-author-name">
-                      <strong>{post.author.name}</strong> · {post.author.role}
+                    <div className="text-muted truncate">
+                      <strong className="text-ink">{post.author.name}</strong> · {post.author.role}
                     </div>
                   </div>
 
-                  <div className="setup-card-components">
+                  <div className="flex flex-wrap gap-1.5 mb-4">
                     {post.components.slice(0, 3).map((comp, idx) => (
-                      <span key={idx} className="component-chip">
+                      <span key={idx} className="text-[11px] font-medium bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md truncate max-w-[140px]">
                         {comp.name}
                       </span>
                     ))}
                     {post.components.length > 3 && (
-                      <span className="component-chip">
+                      <span className="text-[11px] font-medium bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md">
                         +{post.components.length - 3} món
                       </span>
                     )}
                   </div>
 
-                  <div className="setup-card-footer">
+                  <div className="flex justify-between items-center text-xs text-muted pt-3 border-t border-slate-100 mt-auto">
                     <span>{formatTimeAgo(post.createdAt)}</span>
-                    <div className="setup-stats">
-                      <span className="stat-item" title="Lượt thích">
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex items-center gap-1" title="Lượt thích">
                         <Heart size={13} /> {post.likesCount}
                       </span>
-                      <span className="stat-item" title="Bình luận">
+                      <span className="inline-flex items-center gap-1" title="Bình luận">
                         <MessageSquare size={13} /> {post.comments.length}
                       </span>
-                      <span className="stat-item" title="Lượt xem">
+                      <span className="inline-flex items-center gap-1" title="Lượt xem">
                         <Eye size={13} /> {post.viewsCount}
                       </span>
                     </div>
@@ -254,12 +271,12 @@ export function CommunityFeed() {
               </article>
             ))
           ) : (
-            <div className="community-empty">
-              <h3>Không tìm thấy góc máy nào</h3>
-              <p>Thử tìm với từ khóa khác hoặc chọn phong cách khác.</p>
+            <div className="col-span-full text-center py-16 px-6 bg-white border border-[#e0e0e0] rounded-2xl">
+              <h3 className="text-lg font-bold text-ink mb-2">Không tìm thấy góc máy nào</h3>
+              <p className="text-sm text-muted mb-4">Thử tìm với từ khóa khác hoặc chọn phong cách khác.</p>
               <button
                 type="button"
-                className="button button-outline"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-ink border border-[#e0e0e0] hover:border-slate-400 bg-white transition-colors cursor-pointer"
                 onClick={() => {
                   setSelectedStyle("all");
                   setSearchQuery("");
@@ -359,39 +376,45 @@ export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) 
   return (
     <>
       <Header />
-      <main className="container community-detail-page">
-        <nav className="breadcrumb" aria-label="Đường dẫn">
-          <Link href="/">Trang chủ</Link>
+      <main className="container py-10 pb-24 min-h-[75vh]">
+        <nav className="flex items-center gap-2 text-xs md:text-sm text-muted mb-6" aria-label="Đường dẫn">
+          <Link href="/" className="hover:text-ink">Trang chủ</Link>
           <span>/</span>
-          <Link href="/community">Cộng đồng góc máy</Link>
+          <Link href="/community" className="hover:text-ink">Cộng đồng góc máy</Link>
           <span>/</span>
-          <span>{post.title}</span>
+          <span className="text-ink font-semibold truncate max-w-sm">{post.title}</span>
         </nav>
 
         {/* Title & Author Bar */}
-        <div className="detail-header-wrap">
-          <h1>{post.title}</h1>
-          <div className="detail-author-bar">
-            <div className="detail-author-left">
+        <div className="mb-8">
+          <h1 className="font-heading text-2xl md:text-4xl font-extrabold text-ink mb-4 tracking-tight">
+            {post.title}
+          </h1>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-4 border-y border-[#e0e0e0]">
+            <div className="flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={post.author.avatar}
                 alt={post.author.name}
-                className="detail-author-avatar"
+                className="w-11 h-11 rounded-full object-cover border border-[#e0e0e0]"
               />
-              <div className="detail-author-meta">
-                <strong>{post.author.name}</strong>
-                <span>
+              <div className="text-xs md:text-sm">
+                <strong className="block text-ink">{post.author.name}</strong>
+                <span className="text-muted">
                   {post.author.role} · Đăng {formatTimeAgo(post.createdAt)} ·{" "}
                   {post.viewsCount} lượt xem
                 </span>
               </div>
             </div>
 
-            <div className="detail-header-actions">
+            <div className="flex items-center gap-3">
               <button
                 type="button"
-                className={`detail-like-btn ${post.isLiked ? "liked" : ""}`}
+                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs md:text-sm font-semibold border transition-colors cursor-pointer ${
+                  post.isLiked
+                    ? "bg-rose-50 border-rose-300 text-rose-600"
+                    : "bg-white border-[#e0e0e0] text-slate-700 hover:border-slate-400"
+                }`}
                 onClick={handleToggleLike}
                 aria-label="Thả tim góc máy này"
               >
@@ -403,7 +426,7 @@ export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) 
               </button>
               <button
                 type="button"
-                className="detail-share-btn"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs md:text-sm font-semibold border border-[#e0e0e0] hover:border-slate-400 bg-white text-slate-700 transition-colors cursor-pointer"
                 onClick={handleCopyLink}
                 aria-label="Chia sẻ liên kết"
               >
@@ -414,29 +437,32 @@ export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) 
         </div>
 
         {/* Main 2-column layout */}
-        <div className="community-detail-layout">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.9fr)] gap-8 items-start">
           {/* Left Column: Gallery, Specs & Story */}
-          <div className="community-detail-left">
+          <div className="flex flex-col gap-8">
             {/* Gallery View */}
-            <div className="community-detail-gallery">
-              <div className="detail-gallery-main">
+            <div>
+              <div className="aspect-video rounded-2xl overflow-hidden bg-slate-900 border border-[#e0e0e0]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={post.images[selectedImgIdx] || post.coverImage}
                   alt={post.title}
+                  className="w-full h-full object-cover"
                 />
               </div>
               {post.images.length > 1 && (
-                <div className="detail-gallery-thumbs" role="group" aria-label="Hình ảnh khác">
+                <div className="flex gap-3 overflow-x-auto pb-2 mt-3" role="group" aria-label="Hình ảnh khác">
                   {post.images.map((imgUrl, idx) => (
                     <button
                       key={idx}
                       type="button"
-                      className={`gallery-thumb-btn ${selectedImgIdx === idx ? "active" : ""}`}
+                      className={`w-20 h-20 rounded-xl overflow-hidden border-2 p-0 bg-transparent cursor-pointer shrink-0 transition-all ${
+                        selectedImgIdx === idx ? "border-[#006ce1] ring-2 ring-[#006ce1]/30" : "border-transparent opacity-70 hover:opacity-100"
+                      }`}
                       onClick={() => setSelectedImgIdx(idx)}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={imgUrl} alt={`Góc nhìn ${idx + 1}`} />
+                      <img src={imgUrl} alt={`Góc nhìn ${idx + 1}`} className="w-full h-full object-cover" />
                     </button>
                   ))}
                 </div>
@@ -444,47 +470,48 @@ export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) 
             </div>
 
             {/* Desk Specifications */}
-            <section className="desk-specs-box">
-              <h2>Thông số không gian bàn làm việc</h2>
-              <dl className="specs-grid-items">
-                <div className="spec-entry">
-                  <dt>Bàn làm việc</dt>
-                  <dd>{post.deskSpecs.desk}</dd>
+            <section className="bg-white border border-[#e0e0e0] rounded-2xl p-6 md:p-7">
+              <h2 className="font-heading text-lg font-bold text-ink m-0 mb-4">Thông số không gian bàn làm việc</h2>
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 m-0">
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                  <dt className="text-xs font-bold uppercase text-muted mb-1">Bàn làm việc</dt>
+                  <dd className="m-0 text-sm font-semibold text-ink">{post.deskSpecs.desk}</dd>
                 </div>
-                <div className="spec-entry">
-                  <dt>Ghế ngồi</dt>
-                  <dd>{post.deskSpecs.chair}</dd>
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                  <dt className="text-xs font-bold uppercase text-muted mb-1">Ghế ngồi</dt>
+                  <dd className="m-0 text-sm font-semibold text-ink">{post.deskSpecs.chair}</dd>
                 </div>
-                <div className="spec-entry">
-                  <dt>Chiếu sáng & Đèn</dt>
-                  <dd>{post.deskSpecs.lighting}</dd>
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                  <dt className="text-xs font-bold uppercase text-muted mb-1">Chiếu sáng & Đèn</dt>
+                  <dd className="m-0 text-sm font-semibold text-ink">{post.deskSpecs.lighting}</dd>
                 </div>
                 {post.deskSpecs.audio && (
-                  <div className="spec-entry">
-                    <dt>Âm thanh & Tai nghe</dt>
-                    <dd>{post.deskSpecs.audio}</dd>
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                    <dt className="text-xs font-bold uppercase text-muted mb-1">Âm thanh & Tai nghe</dt>
+                    <dd className="m-0 text-sm font-semibold text-ink">{post.deskSpecs.audio}</dd>
                   </div>
                 )}
               </dl>
             </section>
 
             {/* Author Story */}
-            <section className="setup-story-section">
-              <h2>Câu chuyện & Kinh nghiệm bố trí</h2>
-              <p>{post.description}</p>
+            <section className="bg-white border border-[#e0e0e0] rounded-2xl p-6 md:p-7">
+              <h2 className="font-heading text-lg font-bold text-ink m-0 mb-3">Câu chuyện & Kinh nghiệm bố trí</h2>
+              <p className="text-sm md:text-base leading-relaxed text-slate-700 m-0">{post.description}</p>
             </section>
 
             {/* Comments & Discussion */}
-            <section className="setup-comments-section">
-              <h2>Thảo luận ({post.comments.length})</h2>
+            <section className="bg-white border border-[#e0e0e0] rounded-2xl p-6 md:p-7">
+              <h2 className="font-heading text-lg font-bold text-ink m-0 mb-4">Thảo luận ({post.comments.length})</h2>
 
-              <form onSubmit={handleCommentSubmit} className="add-comment-box">
+              <form onSubmit={handleCommentSubmit} className="flex flex-col gap-3 mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
                 <input
                   type="text"
                   value={commentAuthor}
                   onChange={(e) => setCommentAuthor(e.target.value)}
                   placeholder="Tên của bạn (hoặc để trống)..."
                   aria-label="Tên người bình luận"
+                  className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none bg-white focus:border-[#006ce1]"
                 />
                 <textarea
                   rows={3}
@@ -493,18 +520,19 @@ export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) 
                   placeholder="Hỏi về cách đi dây, trải nghiệm linh kiện hoặc chia sẻ cảm nghĩ của bạn..."
                   required
                   aria-label="Nội dung bình luận"
+                  className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none bg-white focus:border-[#006ce1] resize-y"
                 />
-                <div className="add-comment-footer">
-                  <button type="submit" className="button button-primary">
+                <div className="flex justify-end">
+                  <button type="submit" className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm cursor-pointer border-none">
                     Gửi bình luận
                   </button>
                 </div>
               </form>
 
-              <div className="comments-list">
+              <div className="flex flex-col gap-4">
                 {post.comments.length > 0 ? (
                   post.comments.map((comment) => (
-                    <article key={comment.id} className="comment-card">
+                    <article key={comment.id} className="flex items-start gap-3.5 p-4 border border-slate-100 rounded-xl bg-slate-50/50">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={
@@ -512,19 +540,19 @@ export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) 
                           "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80"
                         }
                         alt={comment.author}
-                        className="comment-avatar"
+                        className="w-10 h-10 rounded-full object-cover shrink-0"
                       />
-                      <div className="comment-main">
-                        <div className="comment-header">
-                          <strong>{comment.author}</strong>
-                          <span>{formatTimeAgo(comment.createdAt)}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center text-xs mb-1">
+                          <strong className="text-ink font-bold">{comment.author}</strong>
+                          <span className="text-muted">{formatTimeAgo(comment.createdAt)}</span>
                         </div>
-                        <p className="comment-content">{comment.content}</p>
+                        <p className="m-0 text-xs md:text-sm text-slate-700 leading-relaxed">{comment.content}</p>
                       </div>
                     </article>
                   ))
                 ) : (
-                  <p className="no-comments-yet">
+                  <p className="text-center py-6 text-sm text-muted m-0">
                     Chưa có bình luận nào. Hãy là người đầu tiên đặt câu hỏi cho chủ nhân góc máy!
                   </p>
                 )}
@@ -533,48 +561,48 @@ export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) 
           </div>
 
           {/* Right Column: Sticky Tagged Components */}
-          <aside className="community-sidebar">
-            <div className="components-card-panel">
-              <div className="components-card-panel-header">
-                <h3>Linh kiện trong góc máy</h3>
-                <span className="components-count-badge">
+          <aside className="lg:sticky lg:top-24">
+            <div className="bg-white border border-[#e0e0e0] rounded-2xl p-6 shadow-sm">
+              <div className="flex justify-between items-center mb-4 pb-3 border-b border-[#e0e0e0]">
+                <h3 className="m-0 text-base font-bold text-ink">Linh kiện trong góc máy</h3>
+                <span className="text-xs font-semibold text-muted bg-slate-100 px-2.5 py-1 rounded-full">
                   {post.components.length} sản phẩm
                 </span>
               </div>
 
-              <div className="setup-components-list">
+              <div className="flex flex-col gap-3 mb-5 max-h-[460px] overflow-y-auto">
                 {post.components.map((comp, idx) => (
-                  <div key={idx} className="component-item-row">
-                    <div className="component-item-info">
-                      <span className="component-item-cat">{comp.category}</span>
+                  <div key={idx} className="flex items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] font-bold uppercase text-muted block mb-0.5">{comp.category}</span>
                       {comp.slug ? (
                         <Link
                           href={`/products/${comp.slug}`}
-                          className="component-item-name"
+                          className="text-xs md:text-sm font-bold text-ink hover:text-[#006ce1] block truncate"
                         >
                           {comp.name}
                         </Link>
                       ) : (
-                        <strong className="component-item-name">{comp.name}</strong>
+                        <strong className="text-xs md:text-sm font-bold text-ink block truncate">{comp.name}</strong>
                       )}
                       {comp.specsSummary && (
-                        <p className="component-item-specs">{comp.specsSummary}</p>
+                        <p className="m-0 text-[11px] text-muted truncate">{comp.specsSummary}</p>
                       )}
                     </div>
                     {comp.price && (
-                      <div className="component-item-price">
+                      <div className="text-xs md:text-sm font-specs font-bold text-ink shrink-0">
                         {formatPrice(comp.price)}
                       </div>
                     )}
                     {comp.slug && (
                       <button
                         type="button"
-                        className="component-add-cart-btn"
+                        className="w-8 h-8 rounded-lg bg-white hover:bg-[#006ce1] hover:text-white border border-slate-200 grid place-items-center text-slate-700 transition-colors cursor-pointer shrink-0"
                         onClick={() => handleAddToCart(comp.slug, comp.name)}
                         aria-label={`Thêm ${comp.name} vào giỏ`}
                         title="Thêm vào giỏ hàng"
                       >
-                        <ShoppingCart size={15} />
+                        <ShoppingCart size={14} />
                       </button>
                     )}
                   </div>
@@ -583,7 +611,7 @@ export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) 
 
               <button
                 type="button"
-                className="button button-primary buy-all-components-btn"
+                className="w-full inline-flex items-center justify-center gap-2 p-3 font-semibold text-sm rounded-xl text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm cursor-pointer border-none"
                 onClick={handleAddAllComponents}
               >
                 <ShoppingCart size={16} /> Thêm cả bộ vào giỏ hàng
@@ -667,23 +695,23 @@ export function CreateSetupModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 grid place-items-center p-5" onClick={onClose}>
       <div
-        className="modal-content share-setup-modal"
+        className="bg-white rounded-2xl p-7 md:p-8 max-w-[640px] w-full max-h-[85vh] overflow-y-auto shadow-2xl"
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="share-modal-header">
+        <div className="flex justify-between items-start mb-6">
           <div>
-            <h2>Chia sẻ góc máy của bạn</h2>
-            <p className="modal-subtitle">
+            <h2 className="text-xl font-bold text-ink m-0">Chia sẻ góc máy của bạn</h2>
+            <p className="text-xs md:text-sm text-muted mt-1 leading-relaxed">
               Lan tỏa cảm hứng làm việc và trải nghiệm phần cứng đến cộng đồng
             </p>
           </div>
           <button
             type="button"
-            className="picker-close-btn"
+            className="text-muted hover:text-ink p-1 rounded-lg cursor-pointer bg-transparent border-none"
             onClick={onClose}
             aria-label="Đóng"
           >
@@ -691,9 +719,9 @@ export function CreateSetupModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="share-setup-form">
-          <div className="form-field">
-            <label htmlFor="setupTitle">Tiêu đề góc máy *</label>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="setupTitle" className="text-xs font-bold text-ink">Tiêu đề góc máy *</label>
             <input
               id="setupTitle"
               type="text"
@@ -701,12 +729,13 @@ export function CreateSetupModal({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="VD: Không gian làm việc tối giản phong cách Bắc Âu"
               required
+              className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
             />
           </div>
 
-          <div className="form-group-row">
-            <div className="form-field">
-              <label htmlFor="authorName">Tên của bạn *</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="authorName" className="text-xs font-bold text-ink">Tên của bạn *</label>
               <input
                 id="authorName"
                 type="text"
@@ -714,26 +743,29 @@ export function CreateSetupModal({
                 onChange={(e) => setAuthorName(e.target.value)}
                 placeholder="VD: Minh Hoàng"
                 required
+                className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
               />
             </div>
-            <div className="form-field">
-              <label htmlFor="authorRole">Nghề nghiệp / Sở thích</label>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="authorRole" className="text-xs font-bold text-ink">Nghề nghiệp / Sở thích</label>
               <input
                 id="authorRole"
                 type="text"
                 value={authorRole}
                 onChange={(e) => setAuthorRole(e.target.value)}
                 placeholder="VD: Software Engineer & Gamer"
+                className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
               />
             </div>
           </div>
 
-          <div className="form-field">
-            <label htmlFor="setupStyle">Phong cách không gian *</label>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="setupStyle" className="text-xs font-bold text-ink">Phong cách không gian *</label>
             <select
               id="setupStyle"
               value={style}
               onChange={(e) => setStyle(e.target.value as SetupStyle)}
+              className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none bg-white focus:border-[#006ce1]"
             >
               <option value="minimalist">Tối giản (Minimalist)</option>
               <option value="rgb-gaming">RGB & Battlestation</option>
@@ -742,67 +774,78 @@ export function CreateSetupModal({
             </select>
           </div>
 
-          <div className="form-group-row">
-            <div className="form-field">
-              <label htmlFor="deskModel">Mẫu bàn làm việc</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="deskModel" className="text-xs font-bold text-ink">Mẫu bàn làm việc</label>
               <input
                 id="deskModel"
                 type="text"
                 value={deskModel}
                 onChange={(e) => setDeskModel(e.target.value)}
                 placeholder="VD: Bàn nâng hạ tự động 1m6 x 80cm"
+                className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
               />
             </div>
-            <div className="form-field">
-              <label htmlFor="chairModel">Ghế ngồi / Công thái học</label>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="chairModel" className="text-xs font-bold text-ink">Ghế ngồi / Công thái học</label>
               <input
                 id="chairModel"
                 type="text"
                 value={chairModel}
                 onChange={(e) => setChairModel(e.target.value)}
                 placeholder="VD: Ghế lưới công thái học"
+                className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
               />
             </div>
           </div>
 
-          <div className="form-field">
-            <label htmlFor="lightingModel">Chiếu sáng / Đèn trang trí</label>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="lightingModel" className="text-xs font-bold text-ink">Chiếu sáng / Đèn trang trí</label>
             <input
               id="lightingModel"
               type="text"
               value={lightingModel}
               onChange={(e) => setLightingModel(e.target.value)}
               placeholder="VD: Đèn treo màn hình chống cận"
+              className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
             />
           </div>
 
-          <div className="form-field">
-            <label>Chọn hình ảnh góc máy:</label>
-            <div className="preset-photos-row">
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-bold text-ink">Chọn hình ảnh góc máy:</label>
+            <div className="grid grid-cols-4 gap-2.5">
               {presetPhotos.map((url, idx) => (
                 <button
                   key={idx}
                   type="button"
-                  className={`preset-photo-thumb ${selectedPresetPhoto === idx ? "active" : ""}`}
+                  className={`aspect-video rounded-xl overflow-hidden border-2 p-0 bg-transparent cursor-pointer transition-all ${
+                    selectedPresetPhoto === idx
+                      ? "border-[#006ce1] ring-2 ring-[#006ce1]/30"
+                      : "border-transparent opacity-75 hover:opacity-100"
+                  }`}
                   onClick={() => setSelectedPresetPhoto(idx)}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt={`Ảnh mẫu ${idx + 1}`} />
+                  <img src={url} alt={`Ảnh mẫu ${idx + 1}`} className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="form-field">
-            <label>Gắn thẻ linh kiện có sẵn tại PC Store:</label>
-            <div className="component-multi-select">
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-bold text-ink">Gắn thẻ linh kiện có sẵn tại PC Store:</label>
+            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-slate-50 border border-slate-200 rounded-xl">
               {products.map((p) => {
                 const selected = selectedComponentSlugs.includes(p.slug);
                 return (
                   <button
                     key={p.slug}
                     type="button"
-                    className={`component-select-pill ${selected ? "selected" : ""}`}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer transition-colors border ${
+                      selected
+                        ? "bg-[#006ce1] text-white border-[#006ce1]"
+                        : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                    }`}
                     onClick={() => toggleComponentSelect(p.slug)}
                   >
                     {selected && <Check size={12} />} {p.name}
@@ -812,8 +855,8 @@ export function CreateSetupModal({
             </div>
           </div>
 
-          <div className="form-field">
-            <label htmlFor="setupDesc">Câu chuyện góc máy & Bí quyết giấu dây *</label>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="setupDesc" className="text-xs font-bold text-ink">Câu chuyện góc máy & Bí quyết giấu dây *</label>
             <textarea
               id="setupDesc"
               rows={3}
@@ -821,18 +864,22 @@ export function CreateSetupModal({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Chia sẻ về ý tưởng setup, cách giấu dây, đèn nền hoặc cảm nhận hiệu năng..."
               required
+              className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none resize-y focus:border-[#006ce1]"
             />
           </div>
 
-          <div className="share-modal-actions">
+          <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
             <button
               type="button"
-              className="button button-outline"
+              className="px-4 py-2 rounded-xl text-sm font-semibold text-ink border border-[#e0e0e0] hover:border-slate-400 bg-white transition-colors cursor-pointer"
               onClick={onClose}
             >
               Hủy
             </button>
-            <button type="submit" className="button button-primary">
+            <button
+              type="submit"
+              className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm cursor-pointer border-none"
+            >
               Đăng góc máy ngay
             </button>
           </div>
