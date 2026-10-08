@@ -291,6 +291,26 @@ paths:
           format: "int32"
           minimum: 1
         description: "ID sản phẩm"
+    get:
+      tags:
+        - "Admin products"
+      operationId: "getAdminProduct"
+      summary: "Đọc sản phẩm và thông số kỹ thuật (ADMIN)"
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: "Chi tiết sản phẩm gồm spec đã lưu"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AdminProductResponse"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
     patch:
       tags:
         - "Admin products"
@@ -1848,6 +1868,8 @@ components:
           type: "integer"
           format: "int32"
           minimum: 0
+        spec:
+          "$ref": "#/components/schemas/BuilderProductSpec"
     UpdateProductRequest:
       type: "object"
       properties:
@@ -1879,6 +1901,8 @@ components:
             -
               "$ref": "#/components/schemas/ProductStatus"
           nullable: true
+        spec:
+          "$ref": "#/components/schemas/BuilderProductSpec"
       description: "Phải có ít nhất một trường khác null. Trường null/bỏ qua không thay đổi. description rỗng xóa mô tả. status HIDDEN ẩn sản phẩm, không xóa cứng."
       minProperties: 1
     UpdateInventoryRequest:
@@ -1925,3 +1949,11 @@ components:
         availableQuantity:
           type: "integer"
           format: "int32"
+        spec:
+          allOf:
+            - "$ref": "#/components/schemas/BuilderProductSpec"
+          nullable: true
+    BuilderProductSpec:
+      type: "object"
+      description: "Bộ spec đầy đủ theo categories.component_type. CPU: socketCode, cores, threads, baseClockGhz, boostClockGhz, tdpWatts. MOTHERBOARD: socketCode, chipset, ramType, pcieVersion, formFactorCode, ramSlots, maxRamGb. RAM: ramType, capacityGb, speedMhz, moduleCount. GPU: vramGb, memoryType, interfaceType, lengthMm, powerConsumptionW, recommendedPsuW. STORAGE: storageType, interfaceType, capacityGb, readSpeedMBps, writeSpeedMBps. PSU: wattage, efficiencyRating, modularType. CASE: maxGpuLengthMm, maxCoolerHeightMm, maxRadiatorSizeMm, supportedFormFactors[]. COOLER: coolerType, maxTdpW, heightMm hoặc radiatorSizeMm, supportedSockets[]. Chi tiết ràng buộc tại docs/data-model.md mục 4.2 và 6.7. Nếu sản phẩm chưa có spec, response là null; không suy diễn PASS."
+      additionalProperties: true

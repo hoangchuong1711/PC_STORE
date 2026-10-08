@@ -3,6 +3,7 @@ package com.pcstore.service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Objects;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -17,6 +18,7 @@ import com.pcstore.entity.Category;
 import com.pcstore.entity.Inventory;
 import com.pcstore.entity.Product;
 import com.pcstore.entity.enums.ActiveStatus;
+import com.pcstore.entity.enums.ComponentType;
 import com.pcstore.entity.enums.ProductStatus;
 import com.pcstore.exception.AppException;
 import com.pcstore.exception.ResourceNotFoundException;
@@ -69,8 +71,12 @@ public class AdminProductService {
             inventory.setQuantityOnHand(quantityOnHand);
             inventory.setReservedQuantity(0);
             dao.persistInventory(inventory);
-
-            return toResponse(product, inventory);
+            if (request.spec() != null) {
+                Map<String, Object> spec = ProductSpecSchema.validate(category.getComponentType(), request.spec());
+                dao.flush();
+                dao.specs().replace(product.getProductId(), null, category.getComponentType(), spec);
+            }
+            return toResponse(dao, product, inventory);
         });
     }
 
@@ -84,6 +90,8 @@ public class AdminProductService {
 
         return inTransaction(dao -> {
             Product product = findProduct(dao, productId);
+            ComponentType oldType = product.getCategory().getComponentType();
+            Map<String, Object> oldSpec = dao.specs().find(productId, oldType);
 
             if (request.name() != null) product.setName(validateName(request.name()));
             if (request.description() != null) product.setDescription(cleanDescription(request.description()));
@@ -94,11 +102,21 @@ public class AdminProductService {
 
             validateActiveDependencies(product.getStatus(), product.getCategory(), product.getBrand());
 
+            ComponentType newType = product.getCategory().getComponentType();
+            if (request.spec() == null && oldSpec != null && oldType != newType) {
+                throw new ValidationException("Đổi loại linh kiện cần cung cấp bộ thông số mới.");
+            }
+            if (request.spec() != null) {
+                Map<String, Object> spec = ProductSpecSchema.validate(newType, request.spec());
+                dao.flush();
+                dao.specs().replace(productId, oldSpec == null ? null : oldType, newType, spec);
+            }
+
             Inventory inventory = dao.findInventoryByProductId(productId);
             if (inventory == null) {
                 throw new ResourceNotFoundException("Không tìm thấy tồn kho của sản phẩm.");
             }
-            return toResponse(product, inventory);
+            return toResponse(dao, product, inventory);
         });
     }
 
@@ -120,7 +138,17 @@ public class AdminProductService {
             }
 
             inventory.setQuantityOnHand(newQuantity);
-            return toResponse(product, inventory);
+            return toResponse(dao, product, inventory);
+        });
+    }
+
+    public AdminProductResponse get(int productId) {
+        validateProductId(productId);
+        return inTransaction(dao -> {
+            Product product = findProduct(dao, productId);
+            Inventory inventory = dao.findInventoryByProductId(productId);
+            if (inventory == null) throw new ResourceNotFoundException("Không tìm thấy tồn kho của sản phẩm.");
+            return toResponse(dao, product, inventory);
         });
     }
 
@@ -200,15 +228,17 @@ public class AdminProductService {
                 || request.price() != null
                 || request.categoryId() != null
                 || request.brandId() != null
-                || request.status() != null;
+                || request.status() != null
+                || request.spec() != null;
     }
 
-    private AdminProductResponse toResponse(Product product, Inventory inventory) {
+    private AdminProductResponse toResponse(AdminProductDao dao, Product product, Inventory inventory) {
         return new AdminProductResponse(
                 product.getProductId(), product.getName(), product.getDescription(), product.getPrice(),
                 product.getStatus().name(), product.getCategory().getCategoryId(), product.getCategory().getName(),
                 product.getBrand().getBrandId(), product.getBrand().getName(), inventory.getQuantityOnHand(),
-                inventory.getReservedQuantity(), inventory.getQuantityOnHand() - inventory.getReservedQuantity());
+                inventory.getReservedQuantity(), inventory.getQuantityOnHand() - inventory.getReservedQuantity(),
+                dao.specs().find(product.getProductId(), product.getCategory().getComponentType()));
     }
 
     private <T> T inTransaction(Function<AdminProductDao, T> operation) {

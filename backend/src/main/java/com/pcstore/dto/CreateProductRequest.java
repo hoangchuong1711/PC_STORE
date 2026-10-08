@@ -1,6 +1,7 @@
 package com.pcstore.dto;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 import com.pcstore.entity.enums.ProductStatus;
 
@@ -12,5 +13,11 @@ public record CreateProductRequest(
         Integer categoryId,
         Integer brandId,
         ProductStatus status,
-        Integer quantityOnHand
-) {}
+        Integer quantityOnHand,
+        Map<String, Object> spec
+) {
+    public CreateProductRequest(String name, String description, BigDecimal price, Integer categoryId,
+                                Integer brandId, ProductStatus status, Integer quantityOnHand) {
+        this(name, description, price, categoryId, brandId, status, quantityOnHand, null);
+    }
+}
