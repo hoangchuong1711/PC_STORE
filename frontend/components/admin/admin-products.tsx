@@ -260,8 +260,6 @@ export function AdminProducts() {
     try {
       if (editingProduct) {
         sessionStorage.setItem(DRAFT_KEY, JSON.stringify(editingProduct));
-      } else {
-        sessionStorage.removeItem(DRAFT_KEY);
       }
     } catch {
       // ignore
