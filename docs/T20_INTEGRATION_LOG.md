@@ -42,7 +42,7 @@
 
 ### B. Frontend Unit Test Suite
 - Lệnh kiểm tra: `node --experimental-strip-types --test lib/*.test.mjs`
-- Kết quả: **63/63 test case passed** (100% thành công):
+- Kết quả: **64/64 test case passed** (100% thành công):
   - `account.test.mjs`: 2 pass
   - `admin-taxonomy-api.test.mjs`: 3 pass
   - `admin.test.mjs`: 12 pass
@@ -54,13 +54,24 @@
   - `order-api.test.mjs`: 9 pass
   - `orders.test.mjs`: 3 pass
   - `reviews.test.mjs`: 4 pass
-  - `admin-product-api.test.mjs`: 5 pass *(mới thêm)*
-  - `admin-order-api.test.mjs`: 4 pass *(mới thêm)*
+  - `admin-product-api.test.mjs`: 5 pass
+  - `admin-order-api.test.mjs`: 4 pass
 
 ### C. Production Build Verification
 - Lệnh kiểm tra: `npm run build`
-- Kết quả: **Thành công biên dịch tất cả 40 Static & SSG routes**, bao gồm toàn bộ trang khách hàng và trang quản trị.
+- Kết quả: **Thành công biên dịch tất cả 37 Static/SSG/Dynamic routes** (Next.js 16.3.7 App Router + Turbopack). Route `/orders/[id]` được render động theo dữ liệu đơn hàng thực tế của khách hàng.
 
-### D. Backend Build Verification
-- Lệnh kiểm tra: `mvn test-compile`
-- Kết quả: **BUILD SUCCESS** (Tất cả mã nguồn Java backend đồng bộ hoàn hảo).
+### D. Backend Build & Unit Test Verification
+- Lệnh biên dịch: `mvn test-compile` -> **BUILD SUCCESS**.
+- Lệnh chạy kiểm thử: `$env:JAVA_HOME='D:\IntelliJ IDEA 2025.3.2\jbr'; mvn test` -> **BUILD SUCCESS** (34/34 Surefire unit & validation tests passed, 0 failures, 0 errors).
+
+---
+
+## 5. Tinh chỉnh Core COD & Phân tách phạm vi Thanh toán Online (08/10/2026)
+1. **Tách riêng cổng thanh toán online (VNPAY / VietQR / Expiration 15m / Hoàn tiền)** sang task độc lập `T20-B`.
+2. **Khóa lựa chọn BANK_TRANSFER tại Checkout**: Chỉ kích hoạt phương thức COD, vô hiệu hóa radio chọn chuyển khoản kèm thông báo "Sắp ra mắt" để đồng bộ nghiêm ngặt với quy tắc backend (`T14 chỉ hỗ trợ COD`).
+3. **Loại bỏ triệt để Silent Fallback**:
+   - `admin-products.tsx`: Xóa bỏ việc tự ý lưu vào `localStorage` khi gọi API cập nhật hoặc tạo sản phẩm thất bại; hiển thị lỗi trực tiếp lên form chỉnh sửa. Loại bỏ `.catch(() => {})` nuốt lỗi ngầm trong `applyBulkStatus` và `updateProductStatus`.
+   - `admin-orders.tsx`: Gỡ bỏ hàm và nút `confirmPayment()` tự bấm thành `PAID` ở client. Trạng thái thanh toán của đơn COD do backend tự động ghi nhận khi đơn chuyển sang `DELIVERED`.
+   - `orders/[id]/page.tsx` & `orders.tsx`: Gỡ bỏ hàm mock tĩnh `getOrder(id)` và `generateStaticParams()`. Chi tiết đơn hàng được nạp trực tiếp qua `orderApi.getById(id)` từ backend.
+4. **Tối ưu hóa cấu hình TypeScript**: Bổ sung `.next` vào `exclude` trong `tsconfig.json`, loại bỏ hoàn toàn lỗi Out-Of-Memory khi biên dịch.

@@ -46,7 +46,7 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [order, setOrder] = useState("");
   const [error, setError] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"COD" | "BANK_TRANSFER">("COD");
+  const [paymentMethod] = useState<"COD" | "BANK_TRANSFER">("COD");
   const [copied, setCopied] = useState(false);
 
   // Address selection
@@ -518,66 +518,49 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                       <label
-                        className={`flex items-start gap-3 p-4.5 border rounded-xl cursor-pointer transition-all bg-white ${
-                          paymentMethod === "COD"
-                            ? "border-[#006ce1] bg-blue-50/50 shadow-sm ring-1 ring-[#006ce1]"
-                            : "border-[#e0e0e0] hover:border-slate-300"
-                        }`}
+                        className="flex items-start gap-3 p-4.5 border rounded-xl cursor-pointer transition-all bg-white border-[#006ce1] bg-blue-50/50 shadow-sm ring-1 ring-[#006ce1]"
                       >
                         <input
                           type="radio"
                           name="payment_method"
                           value="COD"
-                          checked={paymentMethod === "COD"}
-                          onChange={() => setPaymentMethod("COD")}
+                          checked={true}
+                          readOnly
                           className="mt-1 text-[#006ce1]"
                         />
                         <div>
                           <div className="flex items-center gap-2 mb-1.5">
                             <strong className="text-sm text-ink">Thanh toán khi nhận hàng (COD)</strong>
-                            <span className="text-[10px] font-bold bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded">Tiền mặt</span>
+                            <span className="text-[10px] font-bold bg-blue-100 text-[#006ce1] px-1.5 py-0.5 rounded">Mặc định</span>
                           </div>
                           <p className="m-0 text-xs text-slate-600 leading-relaxed">
-                            Thanh toán trực tiếp cho nhân viên giao hàng sau khi đồng kiểm hàng hóa.
+                            Thanh toán trực tiếp bằng tiền mặt cho nhân viên giao hàng sau khi đồng kiểm hàng hóa.
                           </p>
                         </div>
                       </label>
 
-                      <label
-                        className={`flex items-start gap-3 p-4.5 border rounded-xl cursor-pointer transition-all bg-white ${
-                          paymentMethod === "BANK_TRANSFER"
-                            ? "border-[#006ce1] bg-blue-50/50 shadow-sm ring-1 ring-[#006ce1]"
-                            : "border-[#e0e0e0] hover:border-slate-300"
-                        }`}
+                      <div
+                        className="flex items-start gap-3 p-4.5 border rounded-xl bg-slate-50/70 border-dashed border-[#e0e0e0] opacity-60 cursor-not-allowed"
+                        title="Phương thức chuyển khoản VietQR / VNPAY đang được tích hợp ở task riêng"
                       >
                         <input
                           type="radio"
                           name="payment_method"
                           value="BANK_TRANSFER"
-                          checked={paymentMethod === "BANK_TRANSFER"}
-                          onChange={() => setPaymentMethod("BANK_TRANSFER")}
-                          className="mt-1 text-[#006ce1]"
+                          disabled
+                          className="mt-1 text-slate-400 cursor-not-allowed"
                         />
                         <div>
                           <div className="flex items-center gap-2 mb-1.5">
-                            <strong className="text-sm text-ink">Chuyển khoản VietQR 24/7</strong>
-                            <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">Khuyên dùng</span>
+                            <strong className="text-sm text-slate-500">Chuyển khoản VietQR / VNPAY</strong>
+                            <span className="text-[10px] font-bold bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">Sắp ra mắt</span>
                           </div>
-                          <p className="m-0 text-xs text-slate-600 leading-relaxed">
-                            Quét mã QR tiện lợi qua app ngân hàng bất kỳ, xác nhận đơn tự động.
+                          <p className="m-0 text-xs text-slate-500 leading-relaxed">
+                            Cổng thanh toán trực tuyến đang được triển khai riêng trong module thanh toán tiếp theo.
                           </p>
                         </div>
-                      </label>
-                    </div>
-
-                    {paymentMethod === "BANK_TRANSFER" && (
-                      <div className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-200 rounded-xl p-3 px-4 mt-4 text-xs md:text-sm text-emerald-900">
-                        <QrCode size={20} className="text-emerald-700 shrink-0" />
-                        <span>
-                          Mã QR VietQR và thông tin tài khoản chuyển khoản sẽ xuất hiện ngay sau khi bạn bấm Xác nhận đơn hàng.
-                        </span>
                       </div>
-                    )}
+                    </div>
                   </div>
 
                   {error && (

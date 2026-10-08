@@ -315,7 +315,7 @@ export function AdminProducts() {
       for (const id of selectedIds) {
         const numId = /^\d+$/.test(id) ? Number(id) : null;
         if (numId !== null) {
-          await adminProductApi.setStatus(numId, bulkStatus).catch(() => {});
+          await adminProductApi.setStatus(numId, bulkStatus);
         }
       }
       setItems((current) => {
@@ -368,7 +368,7 @@ export function AdminProducts() {
     try {
       const numId = /^\d+$/.test(productId) ? Number(productId) : null;
       if (numId !== null) {
-        await adminProductApi.setStatus(numId, status).catch(() => {});
+        await adminProductApi.setStatus(numId, status);
       }
       setItems((current) => {
         const next = current.map((product) => (product.id === productId ? { ...product, status } : product));
@@ -432,7 +432,10 @@ export function AdminProducts() {
             quantityOnHand: stockNum,
           });
         } catch (backendErr) {
-          console.warn("Backend update error, saving locally:", backendErr);
+          const msg = backendErr instanceof Error ? backendErr.message : "Không thể cập nhật sản phẩm lên máy chủ.";
+          setDrawerError(msg);
+          setIsSubmitting(false);
+          return;
         }
 
         savedProduct = {
@@ -450,10 +453,9 @@ export function AdminProducts() {
         });
         setFeedback(`Đã lưu thay đổi cho sản phẩm #${numId}.`);
       } else {
-        let createdId: number = Date.now();
-        let serverSuccess = false;
+        let createdProduct: AdminProductItem;
         try {
-          const created = await adminProductApi.create({
+          createdProduct = await adminProductApi.create({
             name: trimmedName,
             description: editingProduct.description || null,
             price: priceNum,
@@ -462,21 +464,14 @@ export function AdminProducts() {
             status: editingProduct.status,
             quantityOnHand: stockNum,
           });
-          createdId = created.productId;
-          serverSuccess = true;
         } catch (backendErr) {
-          console.warn("Backend create error, saving locally:", backendErr);
+          const msg = backendErr instanceof Error ? backendErr.message : "Không thể tạo sản phẩm mới trên máy chủ.";
+          setDrawerError(msg);
+          setIsSubmitting(false);
+          return;
         }
 
-        savedProduct = {
-          ...editingProduct,
-          id: String(createdId),
-          sku: editingProduct.sku.trim() || `PCS-${createdId.toString().slice(-4)}`,
-          name: trimmedName,
-          price: priceNum,
-          stock: stockNum,
-          updatedAt: new Date().toISOString(),
-        };
+        savedProduct = fromAdminProductItem(createdProduct);
 
         setItems((current) => {
           const next = [savedProduct, ...current.filter((item) => item.id !== savedProduct.id)];
@@ -484,11 +479,7 @@ export function AdminProducts() {
           return next;
         });
 
-        if (serverSuccess) {
-          setFeedback(`Đã thêm sản phẩm mới "${savedProduct.name}" (#${createdId}) thành công.`);
-        } else {
-          setFeedback(`Đã thêm sản phẩm mới "${savedProduct.name}" vào danh mục quản trị.`);
-        }
+        setFeedback(`Đã thêm sản phẩm mới "${savedProduct.name}" (#${createdProduct.productId}) thành công.`);
       }
 
       try {
