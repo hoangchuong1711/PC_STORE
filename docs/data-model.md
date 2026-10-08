@@ -4,7 +4,7 @@
 
 Tài liệu mô tả mô hình dữ liệu mục tiêu của PC Store, dựa trên `Bản sao của PC-Store-Class-Diagram-One-Page.drawio.xml` và các phương án hiệu chỉnh đã được người dùng yêu cầu áp dụng ngày 01/10/2026. Các quyết định dưới đây thay thế những điểm thiếu/mâu thuẫn của bản mô tả trước; đây không còn là bản chép nguyên sơ đồ. Danh sách thay đổi để đồng bộ lại class diagram nằm ở mục 7.
 
-Phạm vi gồm tài khoản, địa chỉ, catalog, tồn kho, giỏ hàng, đơn hàng, thanh toán, thông số linh kiện, PC Builder, Recommendation, Community, Promotion, Warranty và Review. Thứ tự triển khai vẫn là CORE → FEATURE → ADVANCED theo [scope.md](scope.md); mô tả đầy đủ không có nghĩa triển khai tất cả cùng lúc. Backend giữ Java Servlet → Service → DAO → JPA/Hibernate → PostgreSQL theo [hướng dẫn backend](../backend/BACKEND_GUIDE.md).
+Phạm vi mô hình gồm tài khoản, địa chỉ, catalog, tồn kho, giỏ hàng, đơn hàng, thanh toán, thông số linh kiện, PC Builder, Recommendation, Community, Promotion, Warranty và Review. Thứ tự triển khai CORE → FEATURE → ADVANCED được tóm tắt trong [mục lục tài liệu](README.md); mô tả đầy đủ ở đây không có nghĩa tất cả đã được triển khai. Backend giữ Java Servlet → Service → DAO → JPA/Hibernate → PostgreSQL.
 
 **Trạng thái:** T03 (01/10/2026) triển khai 12 bảng CORE bằng Flyway V1 + V2 và entity JPA; Hibernate dùng `validate`. T10 (04/10/2026) thêm V3 với 21 bảng cho 8 Spec Builder, PC Builder, Review/Media/Like và Setup. T21 thêm V5–V8 cho `media_assets`, video ngắn và dọn/retry; backend đã có API upload/đọc có kiểm tra quyền cùng service gắn/tháo media cho T26/T29 gọi khi tạo bài. `CoreDatabaseIT` kiểm tra CORE/JPA; `FeatureMigrationIT` kiểm tra V3. Xem [hướng dẫn media T21](../backend/T21_MEDIA.md). File draw.io chưa được chỉnh sửa.
 
