@@ -4,9 +4,9 @@
 
 Tài liệu mô tả mô hình dữ liệu mục tiêu của PC Store, dựa trên `Bản sao của PC-Store-Class-Diagram-One-Page.drawio.xml` và các phương án hiệu chỉnh đã được người dùng yêu cầu áp dụng ngày 01/10/2026. Các quyết định dưới đây thay thế những điểm thiếu/mâu thuẫn của bản mô tả trước; đây không còn là bản chép nguyên sơ đồ. Danh sách thay đổi để đồng bộ lại class diagram nằm ở mục 7.
 
-Phạm vi gồm tài khoản, địa chỉ, catalog, tồn kho, giỏ hàng, đơn hàng, thanh toán, thông số linh kiện, PC Builder, Recommendation, Community, Promotion, Warranty và Review. Thứ tự triển khai vẫn là CORE → FEATURE → ADVANCED theo [scope.md](scope.md); mô tả đầy đủ không có nghĩa triển khai tất cả cùng lúc. Backend giữ Java Servlet → Service → DAO → JPA/Hibernate → PostgreSQL theo [hướng dẫn backend](../backend/BACKEND_GUIDE.md).
+Phạm vi mô hình gồm tài khoản, địa chỉ, catalog, tồn kho, giỏ hàng, đơn hàng, thanh toán, thông số linh kiện, PC Builder, Recommendation, Community, Promotion, Warranty và Review. Thứ tự triển khai CORE → FEATURE → ADVANCED được tóm tắt trong [mục lục tài liệu](README.md); mô tả đầy đủ ở đây không có nghĩa tất cả đã được triển khai. Backend giữ Java Servlet → Service → DAO → JPA/Hibernate → PostgreSQL.
 
-**Trạng thái:** T03 (01/10/2026) triển khai 12 bảng CORE bằng Flyway V1 + V2 và entity JPA; Hibernate dùng `validate`. T10 (04/10/2026) thêm V3 với 21 bảng cho 8 Spec Builder, PC Builder, Review/Media/Like và Setup; mới có schema, chưa có entity/API FEATURE. `CoreDatabaseIT` kiểm tra CORE/JPA; `FeatureMigrationIT` kiểm tra V3, nâng cấp T03 có dữ liệu, lên/xuống, UNIQUE, FK chủ sở hữu, CHECK, index và chính sách xóa trên PostgreSQL thật. MonitorSpec/GearSpec và các phần ADVANCED khác còn là thiết kế. Xem [hướng dẫn T10](../backend/T10_MIGRATION.md). File draw.io chưa được chỉnh sửa.
+**Trạng thái:** T03 (01/10/2026) triển khai 12 bảng CORE bằng Flyway V1 + V2 và entity JPA; Hibernate dùng `validate`. T10 (04/10/2026) thêm V3 với 21 bảng cho 8 Spec Builder, PC Builder, Review/Media/Like và Setup. T21 thêm V5–V8 cho `media_assets`, video ngắn và dọn/retry; backend đã có API upload/đọc có kiểm tra quyền cùng service gắn/tháo media cho T26/T29 gọi khi tạo bài. `CoreDatabaseIT` kiểm tra CORE/JPA; `FeatureMigrationIT` kiểm tra V3. Xem [hướng dẫn media T21](../backend/T21_MEDIA.md). File draw.io chưa được chỉnh sửa.
 
 ## 2. Quy ước và quyết định chung
 
@@ -720,6 +720,10 @@ UNIQUE(order_item_id); rating BETWEEN 1 AND 5; content không trống; DEFAULT s
 | `sortOrder` | `sort_order` | `INTEGER` | NN |
 
 UNIQUE(review_id, sort_order), UNIQUE(storage_key); sort_order >= 0; size_bytes > 0. IMAGE có duration_second NULL; VIDEO có duration_second > 0. Tối đa 6 file/review: khóa dòng Review trước khi đếm và thêm media. Không ghi URL công khai cố định thay cho storage_key.
+
+#### MediaAsset → `media_assets` (T21, Flyway V5–V8)
+
+Mỗi file upload tạm có `media_id` UUID, `user_id` (chủ upload), `module` (`SETUP`/`REVIEW`), `status` (`UPLOADING`/`TEMP`/`ATTACHED`/`DELETE_PENDING`/`DELETED`), `public_id` Cloudinary duy nhất, `cloudinary_asset_id` tùy chọn, MIME, dung lượng, chiều rộng/cao, `created_at`, `expires_at`, `attached_at`, `cleanup_attempts` và `next_cleanup_at` (hai trường cuối từ V6). V7 thêm `duration_second` cho video Review tối đa 10 giây; V8 thêm `resource_type` (`image`/`video`) từ lúc giữ chỗ để dọn file lỗi đúng Cloudinary endpoint. Chỉ `TEMP`/`ATTACHED` có đủ metadata; `ATTACHED` có `attached_at`. `DELETED` là tombstone giữ thống kê rate limit. `public_id` luôn ở namespace tạm riêng của module, không phải URL xem công khai. `setup_images.media_asset_id` và `review_media.media_asset_id` là FK tùy chọn, duy nhất để giữ dữ liệu V3 cũ hợp lệ; dịch vụ tạo bài sau này bắt buộc gắn media mới bằng FK này. Service T21 kiểm tra chủ, module, thời hạn và số lượng trong transaction; FK không tự xác nhận các quy tắc đó.
 
 #### ReviewLike → `review_likes` (bổ sung T10)
 

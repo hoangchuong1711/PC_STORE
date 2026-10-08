@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, X, ArrowRight, Sparkles } from "lucide-react";
-import { products, formatPrice, Product } from "../lib/products";
+import { Search, X, ArrowRight, Sparkles, Loader2 } from "lucide-react";
+import { catalogApi, type CatalogProduct } from "../lib/catalog-api";
+import { formatPrice } from "../lib/products";
 
 export function QuickSearch({
   isOpen,
@@ -13,10 +14,13 @@ export function QuickSearch({
   onClose: () => void;
 }) {
   const [query, setQuery] = useState("");
+  const [results, setResults] = useState<CatalogProduct[]>([]);
+  const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleClose = useCallback(() => {
     setQuery("");
+    setResults([]);
     onClose();
   }, [onClose]);
 
@@ -39,28 +43,40 @@ export function QuickSearch({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, handleClose]);
 
-  if (!isOpen) return null;
+  // Fetch search results from backend API with debouncing
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
 
-  const results: Product[] = query.trim()
-    ? products.filter(
-        (p) =>
-          p.name.toLowerCase().includes(query.toLowerCase()) ||
-          p.brand.toLowerCase().includes(query.toLowerCase()) ||
-          p.category.toLowerCase().includes(query.toLowerCase()) ||
-          p.description.toLowerCase().includes(query.toLowerCase()) ||
-          Object.values(p.specs).some((val) =>
-            val.toLowerCase().includes(query.toLowerCase()),
-          ),
-      )
-    : [];
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const page = await catalogApi.list({ q: trimmed, size: 6 });
+        setResults(page.items);
+      } catch {
+        // If network error, clear results
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  if (!isOpen) return null;
 
   const popularKeywords = [
     "RTX 4070",
-    "Intel i7",
+    "Ryzen 5",
     "Ryzen 7",
-    "Kingston DDR5",
-    "Laptop ROG",
-    "Samsung 990",
+    "Kingston",
+    "ASUS",
+    "Samsung",
   ];
 
   return (
@@ -82,7 +98,8 @@ export function QuickSearch({
             placeholder="Tìm kiếm CPU, GPU, Laptop, RAM..."
             className="search-modal-input"
           />
-          {query && (
+          {loading && <Loader2 size={18} className="animate-spin text-muted-foreground" />}
+          {query && !loading && (
             <button
               onClick={() => setQuery("")}
               className="search-modal-clear"
@@ -117,44 +134,46 @@ export function QuickSearch({
           ) : results.length > 0 ? (
             <div className="search-results-list">
               <span className="search-modal-section-title">
-                Tìm thấy {results.length} sản phẩm phù hợp
+                Tìm thấy {results.length} sản phẩm phù hợp từ máy chủ
               </span>
-              {results.slice(0, 5).map((product) => (
-                <Link
-                  key={product.id}
-                  href={`/products/${product.slug}`}
-                  className="search-result-item"
-                  onClick={handleClose}
-                >
-                  <div
-                    className="search-result-mark"
-                    style={{ background: product.accent }}
+              {results.slice(0, 5).map((product) => {
+                const brandName = product.brand?.name ?? "PC Store";
+                const catName = product.category?.name ?? "Linh kiện";
+                const isOutOfStock = !product.inStock || product.availableQuantity === 0;
+
+                return (
+                  <Link
+                    key={product.productId}
+                    href={`/products/${product.productId}`}
+                    className="search-result-item"
+                    onClick={handleClose}
                   >
-                    {product.name.slice(0, 1)}
-                  </div>
-                  <div className="search-result-info">
-                    <div className="search-result-meta">
-                      <span className="search-result-brand">
-                        {product.brand}
-                      </span>
-                      <span className="search-result-cat">
-                        {product.category}
+                    <div
+                      className="search-result-mark"
+                      style={{ background: "#00539b" }}
+                    >
+                      <span>{product.name.slice(0, 1)}</span>
+                    </div>
+                    <div className="search-result-info">
+                      <div className="search-result-meta">
+                        <span className="search-result-brand">{brandName}</span>
+                        <span className="search-result-cat">{catName}</span>
+                      </div>
+                      <span className="search-result-name">{product.name}</span>
+                    </div>
+                    <div className="search-result-price-col">
+                      <strong className="search-result-price">
+                        {formatPrice(product.price)}
+                      </strong>
+                      <span
+                        className={`search-result-stock ${isOutOfStock ? "out" : ""}`}
+                      >
+                        {isOutOfStock ? "Hết hàng" : `Còn ${product.availableQuantity}`}
                       </span>
                     </div>
-                    <span className="search-result-name">{product.name}</span>
-                  </div>
-                  <div className="search-result-price-col">
-                    <strong className="search-result-price">
-                      {formatPrice(product.price)}
-                    </strong>
-                    <span
-                      className={`search-result-stock ${product.stock === 0 ? "out" : ""}`}
-                    >
-                      {product.stock === 0 ? "Hết hàng" : "Còn hàng"}
-                    </span>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
               {results.length > 5 && (
                 <Link
                   href={`/products?q=${encodeURIComponent(query)}`}
@@ -165,17 +184,17 @@ export function QuickSearch({
                 </Link>
               )}
             </div>
-          ) : (
+          ) : !loading ? (
             <div className="search-modal-empty">
               <p>
                 Không tìm thấy sản phẩm nào khớp với &quot;<b>{query}</b>&quot;.
               </p>
               <small>
                 Hãy thử kiểm tra lại chính tả hoặc tìm theo từ khóa chung như
-                &quot;RAM&quot;, &quot;GPU&quot;.
+                &quot;RAM&quot;, &quot;GPU&quot;, &quot;AMD&quot;.
               </small>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>

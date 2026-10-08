@@ -1,6 +1,6 @@
 # Hướng dẫn làm việc trong PC Store
 
-- Dùng `README.md` để nắm cách chạy và kiến trúc dự án. Khi công việc liên quan đến phạm vi, đọc `docs/scope.md`; khi liên quan API, database hoặc authentication, đọc thêm `backend/BACKEND_GUIDE.md` và `docs/data-model.md` nếu phù hợp.
+- Dùng `README.md` để nắm cách chạy và kiến trúc dự án; `docs/README.md` là mục lục và nguồn tóm tắt phạm vi. Khi công việc liên quan đến database hoặc quy tắc dữ liệu, đọc `docs/data-model.md`; khi liên quan API, đối chiếu `backend/src/main/webapp/api-docs/openapi.yaml` với Servlet và DTO hiện có. Kế hoạch task nằm ở `docs/plane.md`.
 - Bám thứ tự CORE → FEATURE → ADVANCED. Không tự mở rộng scope khi Work Item chỉ yêu cầu một lát cắt nhỏ. Nếu tài liệu chưa quyết định một lựa chọn ảnh hưởng nhiều module, nêu lựa chọn cần chốt thay vì âm thầm mặc định.
 - Backend chính dùng Java 21, Java Servlet trên Tomcat 10.1, Service → DAO → JPA/Hibernate → PostgreSQL. Giữ yêu cầu Servlet + JPA + DAO của môn học. Không chuyển sang Spring Boot hoặc JDBC thuần để thay kiến trúc đã chốt.
 - Frontend dùng Next.js + TypeScript; nghiệp vụ và truy cập database thuộc Java backend. Trao đổi qua HTTP/JSON. Không đưa logic nghiệp vụ chính vào Next.js API routes hay Server Actions.

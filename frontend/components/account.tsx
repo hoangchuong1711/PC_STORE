@@ -33,7 +33,6 @@ import { formatPrice } from "../lib/products";
 import { useCart } from "./cart-provider";
 import { useToast } from "./toast";
 import { Header, Footer } from "./storefront";
-import "./account.css";
 
 type AccountTab = "profile" | "addresses" | "builds" | "setups";
 
@@ -104,48 +103,54 @@ export function AccountDashboard() {
   return (
     <>
       <Header />
-      <main className="container account-page">
+      <main className="container py-10 pb-24 min-h-[75vh]">
         {/* User Card Header */}
-        <section className="account-header-card">
-          <div className="account-user-meta">
-            <div className="account-avatar-wrap">
+        <section className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[20px] p-7 md:p-9 text-white flex justify-between items-center gap-6 mb-8 border border-white/10 shadow-xl flex-wrap">
+          <div className="flex items-center gap-5">
+            <div className="relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={profile.avatar}
                 alt={profile.name}
-                className="account-avatar-img"
+                className="w-[72px] h-[72px] rounded-full object-cover border-[3px] border-sky-400"
               />
             </div>
-            <div className="account-names">
-              <h1>{profile.name}</h1>
-              <p>{profile.email}</p>
-              <div className="account-tier-badge">
+            <div>
+              <h1 className="font-heading text-2xl font-extrabold text-slate-50 mb-1 tracking-tight">
+                {profile.name}
+              </h1>
+              <p className="font-sans text-xs md:text-sm text-slate-400 mb-2">{profile.email}</p>
+              <div className="inline-flex items-center gap-1.5 bg-[#edf5fe] border border-[#006ce1]/30 text-[#006ce1] font-specs text-[11px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-md">
                 <Crown size={13} /> {profile.tier} (Giảm {profile.tierDiscount}% mọi đơn hàng)
               </div>
             </div>
           </div>
 
-          <div className="account-quick-stats">
-            <div className="quick-stat-box">
-              <strong>{addresses.length}</strong>
-              <span>Địa chỉ</span>
+          <div className="flex gap-6 pl-6 border-l border-white/10 max-md:border-l-0 max-md:border-t max-md:pt-4 max-md:w-full max-md:justify-between max-md:pl-0">
+            <div className="text-right max-md:text-left">
+              <strong className="block font-specs text-2xl font-bold text-slate-100">{addresses.length}</strong>
+              <span className="text-xs text-slate-400">Địa chỉ</span>
             </div>
-            <div className="quick-stat-box">
-              <strong>{builds.length}</strong>
-              <span>Dàn PC đã lưu</span>
+            <div className="text-right max-md:text-left">
+              <strong className="block font-specs text-2xl font-bold text-slate-100">{builds.length}</strong>
+              <span className="text-xs text-slate-400">Dàn PC đã lưu</span>
             </div>
-            <div className="quick-stat-box">
-              <strong>{userSetups.length}</strong>
-              <span>Góc máy đã đăng</span>
+            <div className="text-right max-md:text-left">
+              <strong className="block font-specs text-2xl font-bold text-slate-100">{userSetups.length}</strong>
+              <span className="text-xs text-slate-400">Góc máy đã đăng</span>
             </div>
           </div>
         </section>
 
         {/* Navigation Tabs */}
-        <div className="account-tabs-bar" role="tablist" aria-label="Các mục tài khoản">
+        <div className="flex gap-2 border-b border-[#e0e0e0] mb-8 overflow-x-auto" role="tablist" aria-label="Các mục tài khoản">
           <button
             type="button"
-            className={`account-tab-btn ${activeTab === "profile" ? "active" : ""}`}
+            className={`inline-flex items-center gap-2 px-5 py-3 font-nav text-sm font-semibold transition-all whitespace-nowrap border-b-2 cursor-pointer ${
+              activeTab === "profile"
+                ? "text-[#006ce1] border-[#006ce1]"
+                : "text-muted border-transparent hover:text-ink"
+            }`}
             onClick={() => setActiveTab("profile")}
             role="tab"
             aria-selected={activeTab === "profile"}
@@ -154,7 +159,11 @@ export function AccountDashboard() {
           </button>
           <button
             type="button"
-            className={`account-tab-btn ${activeTab === "addresses" ? "active" : ""}`}
+            className={`inline-flex items-center gap-2 px-5 py-3 font-nav text-sm font-semibold transition-all whitespace-nowrap border-b-2 cursor-pointer ${
+              activeTab === "addresses"
+                ? "text-[#006ce1] border-[#006ce1]"
+                : "text-muted border-transparent hover:text-ink"
+            }`}
             onClick={() => setActiveTab("addresses")}
             role="tab"
             aria-selected={activeTab === "addresses"}
@@ -163,7 +172,11 @@ export function AccountDashboard() {
           </button>
           <button
             type="button"
-            className={`account-tab-btn ${activeTab === "builds" ? "active" : ""}`}
+            className={`inline-flex items-center gap-2 px-5 py-3 font-nav text-sm font-semibold transition-all whitespace-nowrap border-b-2 cursor-pointer ${
+              activeTab === "builds"
+                ? "text-[#006ce1] border-[#006ce1]"
+                : "text-muted border-transparent hover:text-ink"
+            }`}
             onClick={() => setActiveTab("builds")}
             role="tab"
             aria-selected={activeTab === "builds"}
@@ -172,7 +185,11 @@ export function AccountDashboard() {
           </button>
           <button
             type="button"
-            className={`account-tab-btn ${activeTab === "setups" ? "active" : ""}`}
+            className={`inline-flex items-center gap-2 px-5 py-3 font-nav text-sm font-semibold transition-all whitespace-nowrap border-b-2 cursor-pointer ${
+              activeTab === "setups"
+                ? "text-[#006ce1] border-[#006ce1]"
+                : "text-muted border-transparent hover:text-ink"
+            }`}
             onClick={() => setActiveTab("setups")}
             role="tab"
             aria-selected={activeTab === "setups"}
@@ -183,63 +200,70 @@ export function AccountDashboard() {
 
         {/* Tab 1: Profile */}
         {activeTab === "profile" && (
-          <div className="account-panel">
-            <div className="profile-card">
-              <div className="panel-section-title">
+          <div className="flex flex-col gap-7">
+            <div className="bg-white border border-[#e0e0e0] rounded-[18px] p-7 md:p-8 max-w-[680px]">
+              <div className="flex justify-between items-center mb-5">
                 <div>
-                  <h2>Hồ sơ cá nhân</h2>
-                  <p>Cập nhật thông tin liên hệ và nghề nghiệp hiển thị trong cộng đồng</p>
+                  <h2 className="font-heading text-xl font-bold text-ink m-0 tracking-tight">Hồ sơ cá nhân</h2>
+                  <p className="text-xs text-muted mt-1 mb-0">Cập nhật thông tin liên hệ và nghề nghiệp hiển thị trong cộng đồng</p>
                 </div>
               </div>
 
-              <form onSubmit={handleSaveProfile} className="profile-form">
-                <div className="profile-form-row">
-                  <div className="profile-field">
-                    <label htmlFor="pName">Họ và tên</label>
+              <form onSubmit={handleSaveProfile} className="flex flex-col gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="pName" className="text-xs font-bold text-ink">Họ và tên</label>
                     <input
                       id="pName"
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       required
+                      className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
                     />
                   </div>
-                  <div className="profile-field">
-                    <label htmlFor="pEmail">Email đăng nhập</label>
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="pEmail" className="text-xs font-bold text-ink">Email đăng nhập</label>
                     <input
                       id="pEmail"
                       type="email"
                       value={profile.email}
                       disabled
                       title="Email tài khoản không thể chỉnh sửa"
+                      className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none bg-slate-50 text-muted"
                     />
                   </div>
                 </div>
 
-                <div className="profile-form-row">
-                  <div className="profile-field">
-                    <label htmlFor="pPhone">Số điện thoại liên hệ</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="pPhone" className="text-xs font-bold text-ink">Số điện thoại liên hệ</label>
                     <input
                       id="pPhone"
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       required
+                      className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
                     />
                   </div>
-                  <div className="profile-field">
-                    <label htmlFor="pRole">Sở thích / Nghề nghiệp</label>
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="pRole" className="text-xs font-bold text-ink">Sở thích / Nghề nghiệp</label>
                     <input
                       id="pRole"
                       type="text"
                       value={role}
                       onChange={(e) => setRole(e.target.value)}
+                      className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
                     />
                   </div>
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <button type="submit" className="button button-primary">
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm cursor-pointer"
+                  >
                     Lưu thông tin cá nhân
                   </button>
                 </div>
@@ -247,18 +271,18 @@ export function AccountDashboard() {
             </div>
 
             {/* Password Change Form */}
-            <div className="profile-card">
-              <div className="panel-section-title">
+            <div className="bg-white border border-[#e0e0e0] rounded-[18px] p-7 md:p-8 max-w-[680px]">
+              <div className="flex justify-between items-center mb-5">
                 <div>
-                  <h2>Bảo mật tài khoản</h2>
-                  <p>Đổi mật khẩu định kỳ để bảo vệ giỏ hàng và dữ liệu đơn hàng</p>
+                  <h2 className="font-heading text-xl font-bold text-ink m-0 tracking-tight">Bảo mật tài khoản</h2>
+                  <p className="text-xs text-muted mt-1 mb-0">Đổi mật khẩu định kỳ để bảo vệ giỏ hàng và dữ liệu đơn hàng</p>
                 </div>
               </div>
 
-              <form onSubmit={handleChangePassword} className="profile-form">
-                <div className="profile-form-row">
-                  <div className="profile-field">
-                    <label htmlFor="pOldPass">Mật khẩu hiện tại</label>
+              <form onSubmit={handleChangePassword} className="flex flex-col gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="pOldPass" className="text-xs font-bold text-ink">Mật khẩu hiện tại</label>
                     <input
                       id="pOldPass"
                       type="password"
@@ -266,10 +290,11 @@ export function AccountDashboard() {
                       onChange={(e) => setOldPassword(e.target.value)}
                       placeholder="••••••••"
                       required
+                      className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
                     />
                   </div>
-                  <div className="profile-field">
-                    <label htmlFor="pNewPass">Mật khẩu mới (tối thiểu 6 ký tự)</label>
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="pNewPass" className="text-xs font-bold text-ink">Mật khẩu mới (tối thiểu 6 ký tự)</label>
                     <input
                       id="pNewPass"
                       type="password"
@@ -278,12 +303,16 @@ export function AccountDashboard() {
                       placeholder="••••••••"
                       required
                       minLength={6}
+                      className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
                     />
                   </div>
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <button type="submit" className="button button-outline">
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-ink border border-[#e0e0e0] hover:border-slate-400 bg-white transition-colors cursor-pointer"
+                  >
                     <Lock size={15} /> Đổi mật khẩu
                   </button>
                 </div>
@@ -294,56 +323,60 @@ export function AccountDashboard() {
 
         {/* Tab 2: Addresses */}
         {activeTab === "addresses" && (
-          <div className="account-panel">
-            <div className="panel-section-title">
+          <div className="flex flex-col gap-7">
+            <div className="flex justify-between items-center mb-1">
               <div>
-                <h2>Sổ địa chỉ giao hàng</h2>
-                <p>Quản lý các địa chỉ nhận hàng để thanh toán nhanh hơn</p>
+                <h2 className="font-heading text-xl font-bold text-ink m-0 tracking-tight">Sổ địa chỉ giao hàng</h2>
+                <p className="text-xs text-muted mt-1 mb-0">Quản lý các địa chỉ nhận hàng để thanh toán nhanh hơn</p>
               </div>
               <button
                 type="button"
-                className="button button-primary"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm cursor-pointer"
                 onClick={() => setIsAddAddressOpen(true)}
               >
                 <Plus size={16} /> Thêm địa chỉ mới
               </button>
             </div>
 
-            <div className="addresses-grid">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5">
               {addresses.map((addr) => (
                 <article
                   key={addr.id}
-                  className={`address-card ${addr.isDefault ? "is-default" : ""}`}
+                  className={`bg-white border rounded-2xl p-6 flex flex-col relative transition-all ${
+                    addr.isDefault ? "border-[#006ce1] ring-1 ring-[#006ce1]" : "border-[#e0e0e0]"
+                  }`}
                 >
-                  <div className="address-card-header">
-                    <span className="address-label-badge">{addr.label}</span>
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-[11px] font-bold uppercase bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                      {addr.label}
+                    </span>
                     {addr.isDefault && (
-                      <span className="address-default-badge">
+                      <span className="text-[11px] font-bold bg-blue-50 text-[#006ce1] px-2 py-0.5 rounded-md border border-blue-200 flex items-center gap-1">
                         <CheckCircle2 size={13} /> Mặc định
                       </span>
                     )}
                   </div>
-                  <h3 className="address-recipient">{addr.recipientName}</h3>
-                  <span className="address-phone">{addr.phone}</span>
-                  <p className="address-text">{addr.address}</p>
+                  <h3 className="m-0 mb-1 text-base font-bold text-ink">{addr.recipientName}</h3>
+                  <span className="text-xs text-muted mb-2">{addr.phone}</span>
+                  <p className="text-xs md:text-sm leading-relaxed text-slate-700 mb-4 flex-1">{addr.address}</p>
 
-                  <div className="address-card-actions">
+                  <div className="flex items-center justify-between gap-2 pt-3.5 border-t border-slate-100">
                     {!addr.isDefault ? (
                       <button
                         type="button"
-                        className="set-default-btn"
+                        className="text-xs font-semibold text-muted hover:text-[#006ce1] bg-transparent border-none cursor-pointer"
                         onClick={() => handleSetDefaultAddress(addr.id)}
                       >
                         Đặt làm mặc định
                       </button>
                     ) : (
-                      <span style={{ fontSize: 12, color: "#15803d", fontWeight: 600 }}>
+                      <span className="text-xs text-emerald-700 font-semibold">
                         Địa chỉ ưu tiên
                       </span>
                     )}
                     <button
                       type="button"
-                      className="delete-address-btn"
+                      className="text-xs font-semibold text-red-500 hover:text-red-700 bg-transparent border-none cursor-pointer flex items-center gap-1"
                       onClick={() => handleDeleteAddress(addr.id)}
                       aria-label="Xóa địa chỉ"
                     >
@@ -358,71 +391,74 @@ export function AccountDashboard() {
 
         {/* Tab 3: Saved PC Builds */}
         {activeTab === "builds" && (
-          <div className="account-panel">
-            <div className="panel-section-title">
+          <div className="flex flex-col gap-7">
+            <div className="flex justify-between items-center mb-1">
               <div>
-                <h2>Cấu hình PC đã lưu</h2>
-                <p>Các dàn máy bạn đã thiết kế trên công cụ Tự ráp PC (Builder)</p>
+                <h2 className="font-heading text-xl font-bold text-ink m-0 tracking-tight">Cấu hình PC đã lưu</h2>
+                <p className="text-xs text-muted mt-1 mb-0">Các dàn máy bạn đã thiết kế trên công cụ Tự ráp PC (Builder)</p>
               </div>
-              <Link href="/builder" className="button button-primary">
+              <Link
+                href="/builder"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm cursor-pointer"
+              >
                 <Plus size={16} /> Tự ráp cấu hình mới
               </Link>
             </div>
 
             {builds.length > 0 ? (
-              <div className="saved-builds-list">
+              <div className="flex flex-col gap-5">
                 {builds.map((build) => (
-                  <article key={build.id} className="saved-build-card">
-                    <div className="saved-build-header">
-                      <div className="saved-build-title">
-                        <h3>{build.name}</h3>
-                        <div className="saved-build-meta">
+                  <article key={build.id} className="bg-white border border-[#e0e0e0] rounded-[18px] p-6 md:p-7 flex flex-col gap-4">
+                    <div className="flex justify-between items-start flex-wrap gap-4">
+                      <div>
+                        <h3 className="text-lg font-bold text-ink m-0 mb-1">{build.name}</h3>
+                        <div className="text-xs text-muted flex gap-3 items-center">
                           <span>Lưu ngày: {formatAccountDate(build.createdAt)}</span>
                           <span>·</span>
                           <span>{build.components.length} linh kiện</span>
                           <span>·</span>
-                          <span style={{ color: "#15803d", fontWeight: 700 }}>
+                          <span className="text-emerald-700 font-bold">
                             ✓ Tương thích 100%
                           </span>
                         </div>
                       </div>
 
-                      <div className="saved-build-price-box">
-                        <div className="saved-build-price">
+                      <div className="text-right">
+                        <div className="text-xl font-extrabold text-ink">
                           {formatPrice(build.totalPrice)}
                         </div>
-                        <span className="saved-build-watt">
+                        <span className="text-xs text-emerald-700 font-semibold">
                           Ước lượng: {build.estimatedWattage}W
                         </span>
                       </div>
                     </div>
 
-                    <div className="saved-build-items-preview">
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2.5 bg-slate-50 rounded-xl p-3.5 md:p-4 border border-slate-100">
                       {build.components.map((c, idx) => (
-                        <div key={idx} className="saved-build-item">
-                          <span>{c.slotLabel}</span>
-                          <strong title={c.name}>{c.name}</strong>
+                        <div key={idx} className="text-xs flex flex-col">
+                          <span className="text-[10px] font-bold uppercase text-muted">{c.slotLabel}</span>
+                          <strong className="text-ink truncate" title={c.name}>{c.name}</strong>
                         </div>
                       ))}
                     </div>
 
-                    <div className="saved-build-actions">
+                    <div className="flex justify-end gap-3 pt-2">
                       <button
                         type="button"
-                        className="button button-outline"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-ink border border-[#e0e0e0] hover:border-slate-400 bg-white transition-colors cursor-pointer"
                         onClick={() => handleDeleteBuild(build.id)}
                       >
                         <Trash2 size={14} /> Xóa
                       </button>
                       <Link
                         href="/builder"
-                        className="button button-outline"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-ink border border-[#e0e0e0] hover:border-slate-400 bg-white transition-colors cursor-pointer"
                       >
                         Nạp vào Builder
                       </Link>
                       <button
                         type="button"
-                        className="button button-primary"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm cursor-pointer"
                         onClick={() => handleAddBuildToCart(build.components)}
                       >
                         <ShoppingCart size={15} /> Thêm cả dàn vào giỏ
@@ -432,10 +468,13 @@ export function AccountDashboard() {
                 ))}
               </div>
             ) : (
-              <div className="community-empty">
-                <h3>Bạn chưa lưu cấu hình PC nào</h3>
-                <p>Hãy trải nghiệm công cụ Tự ráp PC để thiết kế cấu hình tối ưu.</p>
-                <Link href="/builder" className="button button-primary">
+              <div className="text-center py-12 px-6 bg-white border border-[#e0e0e0] rounded-2xl">
+                <h3 className="text-lg font-bold text-ink mb-2">Bạn chưa lưu cấu hình PC nào</h3>
+                <p className="text-sm text-muted mb-4">Hãy trải nghiệm công cụ Tự ráp PC để thiết kế cấu hình tối ưu.</p>
+                <Link
+                  href="/builder"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm cursor-pointer"
+                >
                   Khám phá PC Builder ngay
                 </Link>
               </div>
@@ -445,40 +484,47 @@ export function AccountDashboard() {
 
         {/* Tab 4: Setups */}
         {activeTab === "setups" && (
-          <div className="account-panel">
-            <div className="panel-section-title">
+          <div className="flex flex-col gap-7">
+            <div className="flex justify-between items-center mb-1">
               <div>
-                <h2>Góc máy của tôi</h2>
-                <p>Các không gian làm việc bạn đã chia sẻ lên cộng đồng</p>
+                <h2 className="font-heading text-xl font-bold text-ink m-0 tracking-tight">Góc máy của tôi</h2>
+                <p className="text-xs text-muted mt-1 mb-0">Các không gian làm việc bạn đã chia sẻ lên cộng đồng</p>
               </div>
-              <Link href="/community" className="button button-primary">
+              <Link
+                href="/community"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm cursor-pointer"
+              >
                 <Camera size={16} /> Chia sẻ góc máy mới
               </Link>
             </div>
 
-            <div className="setups-grid">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {userSetups.map((post) => (
-                <article key={post.id} className="setup-card">
-                  <Link href={`/community/${post.id}`} className="setup-card-cover-wrap">
+                <article key={post.id} className="bg-white border border-[#e0e0e0] rounded-2xl overflow-hidden flex flex-col">
+                  <Link href={`/community/${post.id}`} className="relative block aspect-video overflow-hidden">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={post.coverImage}
                       alt={post.title}
-                      className="setup-card-cover"
+                      className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                     />
-                    <span className="setup-card-tag">{post.style}</span>
+                    <span className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-sm text-white text-[11px] font-bold px-2.5 py-1 rounded-md">
+                      {post.style}
+                    </span>
                   </Link>
 
-                  <div className="setup-card-body">
-                    <h3 className="setup-card-title">
-                      <Link href={`/community/${post.id}`}>{post.title}</Link>
+                  <div className="p-5 flex flex-col flex-1">
+                    <h3 className="font-heading text-base font-bold text-ink mb-2">
+                      <Link href={`/community/${post.id}`} className="hover:text-[#006ce1] transition-colors">
+                        {post.title}
+                      </Link>
                     </h3>
-                    <p style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 14px" }}>
+                    <p className="text-xs text-muted leading-relaxed mb-4 flex-1">
                       {post.description.slice(0, 100)}...
                     </p>
-                    <div className="setup-card-footer">
+                    <div className="flex justify-between items-center text-xs text-muted pt-3 border-t border-slate-100">
                       <span>Đã đăng: {formatAccountDate(post.createdAt)}</span>
-                      <Link href={`/community/${post.id}`} style={{ fontWeight: 600, color: "var(--blue)" }}>
+                      <Link href={`/community/${post.id}`} className="font-semibold text-[#006ce1] flex items-center gap-1 hover:underline">
                         Xem bài viết <ArrowRight size={13} />
                       </Link>
                     </div>
@@ -542,18 +588,18 @@ function AddAddressModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 grid place-items-center p-5" onClick={onClose}>
       <div
-        className="modal-content address-modal"
+        className="bg-white rounded-2xl p-7 md:p-8 max-w-[480px] w-full shadow-2xl"
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="address-modal-header">
-          <h2>Thêm địa chỉ giao hàng</h2>
+        <div className="flex justify-between items-start mb-5">
+          <h2 className="text-xl font-bold text-ink m-0">Thêm địa chỉ giao hàng</h2>
           <button
             type="button"
-            className="picker-close-btn"
+            className="text-muted hover:text-ink p-1 rounded-lg bg-transparent border-none cursor-pointer"
             onClick={onClose}
             aria-label="Đóng"
           >
@@ -561,9 +607,9 @@ function AddAddressModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="address-form">
-          <div className="profile-field">
-            <label htmlFor="addrLabel">Tên gợi nhớ (Nhãn)</label>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="addrLabel" className="text-xs font-bold text-ink">Tên gợi nhớ (Nhãn)</label>
             <input
               id="addrLabel"
               type="text"
@@ -571,34 +617,37 @@ function AddAddressModal({
               onChange={(e) => setLabel(e.target.value)}
               placeholder="VD: Nhà riêng, Công ty, Kho..."
               required
+              className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
             />
           </div>
 
-          <div className="profile-form-row">
-            <div className="profile-field">
-              <label htmlFor="addrRecipient">Người nhận</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="addrRecipient" className="text-xs font-bold text-ink">Người nhận</label>
               <input
                 id="addrRecipient"
                 type="text"
                 value={recipientName}
                 onChange={(e) => setRecipientName(e.target.value)}
                 required
+                className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
               />
             </div>
-            <div className="profile-field">
-              <label htmlFor="addrPhone">Số điện thoại</label>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="addrPhone" className="text-xs font-bold text-ink">Số điện thoại</label>
               <input
                 id="addrPhone"
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 required
+                className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
               />
             </div>
           </div>
 
-          <div className="profile-field">
-            <label htmlFor="addrText">Địa chỉ chi tiết</label>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="addrText" className="text-xs font-bold text-ink">Địa chỉ chi tiết</label>
             <input
               id="addrText"
               type="text"
@@ -606,27 +655,32 @@ function AddAddressModal({
               onChange={(e) => setAddress(e.target.value)}
               placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành..."
               required
+              className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
             />
           </div>
 
-          <label className="checkbox-row">
+          <label className="flex items-center gap-2 text-xs md:text-sm cursor-pointer mt-1">
             <input
               type="checkbox"
               checked={isDefault}
               onChange={(e) => setIsDefault(e.target.checked)}
+              className="rounded border-[#e0e0e0] text-[#006ce1] focus:ring-[#006ce1]"
             />
             <span>Đặt làm địa chỉ nhận hàng mặc định</span>
           </label>
 
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
+          <div className="flex justify-end gap-2.5 mt-3 pt-2 border-t border-slate-100">
             <button
               type="button"
-              className="button button-outline"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-ink border border-[#e0e0e0] hover:border-slate-400 bg-white transition-colors cursor-pointer"
               onClick={onClose}
             >
               Hủy
             </button>
-            <button type="submit" className="button button-primary">
+            <button
+              type="submit"
+              className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm cursor-pointer"
+            >
               Lưu địa chỉ
             </button>
           </div>

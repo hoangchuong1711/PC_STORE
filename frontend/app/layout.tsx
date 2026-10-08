@@ -3,6 +3,7 @@ import "./globals.css";
 import { CartProvider } from "../components/cart-provider";
 import { CartDrawer } from "../components/cart-drawer";
 import { ToastProvider } from "../components/toast";
+import { AuthProvider } from "../components/auth-provider";
 
 export const metadata: Metadata = {
   title: "PC Store · Build your next level",
@@ -15,12 +16,12 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body>
-        <ToastProvider>
+        <AuthProvider><ToastProvider>
           <CartProvider>
             {children}
             <CartDrawer />
           </CartProvider>
-        </ToastProvider>
+        </ToastProvider></AuthProvider>
       </body>
     </html>
   );

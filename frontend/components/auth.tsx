@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { Header, Footer } from "./storefront";
+import { useRouter } from "next/navigation";
+import { useAuth } from "./auth-provider";
+import { authDestination, createAuthApi } from "../lib/auth-api";
 
 type AuthMode = "login" | "register";
 
@@ -11,20 +14,35 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
   const [showPassword, setShowPassword] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
+  const { login } = useAuth();
+  const router = useRouter();
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pending) return;
     setError("");
     setSubmitted(false);
     const form = new FormData(event.currentTarget);
     const password = String(form.get("password") ?? "");
 
-    if (password.length < 6) {
-      setError("Mật khẩu cần có ít nhất 6 ký tự.");
+    if (!isLogin && (password.length < 8 || password.length > 128)) {
+      setError("Mật khẩu phải dài từ 8 đến 128 ký tự.");
       return;
     }
 
-    setSubmitted(true);
+    setPending(true);
+    try {
+      const email = String(form.get("email") ?? "").trim();
+      if (isLogin) {
+        const user = await login(email, password);
+        router.replace(authDestination(user));
+      } else {
+        await createAuthApi().register({ fullName: String(form.get("name") ?? "").trim(), email, password });
+        setSubmitted(true);
+      }
+    } catch (cause) { setError((cause as Error).message); }
+    finally { setPending(false); }
   }
 
   return (
@@ -62,8 +80,9 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
             {submitted && (
               <div className="form-message success" role="status">
                 {isLogin
-                  ? "Đăng nhập mẫu thành công. API sẽ được kết nối sau."
-                  : "Tài khoản mẫu đã được tạo. API sẽ được kết nối sau."}
+                  ? "Đăng nhập thành công."
+                  : "Đã tạo tài khoản. Hãy đăng nhập để tiếp tục."}
+                {!isLogin && <Link href="/auth/login"> Đăng nhập</Link>}
               </div>
             )}
             {error && <div className="form-message error" role="alert">{error}</div>}
@@ -72,12 +91,12 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
               {!isLogin && (
                 <label>
                   Họ và tên
-                  <input name="name" type="text" placeholder="Nguyễn Văn A" required />
+                  <input name="name" type="text" placeholder="Nguyễn Văn A" maxLength={255} autoComplete="name" required />
                 </label>
               )}
               <label>
                 Email
-                <input name="email" type="email" placeholder="ban@example.com" required />
+                <input name="email" type="email" placeholder="ban@example.com" maxLength={254} autoComplete="email" required />
               </label>
               <label>
                 Mật khẩu
@@ -85,8 +104,10 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                   <input
                     name="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Tối thiểu 6 ký tự"
-                    minLength={6}
+                    placeholder={isLogin ? "Mật khẩu" : "Từ 8 đến 128 ký tự"}
+                    minLength={isLogin ? 1 : 8}
+                    maxLength={128}
+                    autoComplete={isLogin ? "current-password" : "new-password"}
                     required
                   />
                   <button type="button" onClick={() => setShowPassword(!showPassword)}>
@@ -100,9 +121,8 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                   <span>Tôi đồng ý với điều khoản sử dụng của PC Store.</span>
                 </label>
               )}
-              {isLogin && <Link className="forgot-link" href="/auth/login">Quên mật khẩu?</Link>}
-              <button className="button button-primary auth-submit" type="submit">
-                {isLogin ? "Đăng nhập" : "Tạo tài khoản"}
+              <button className="button button-primary auth-submit" type="submit" disabled={pending || submitted}>
+                {pending ? "Đang xử lý…" : isLogin ? "Đăng nhập" : "Tạo tài khoản"}
                 <span>↗</span>
               </button>
             </form>

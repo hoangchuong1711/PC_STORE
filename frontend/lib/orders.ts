@@ -1,3 +1,5 @@
+import type { OrderResponse } from "./order-api";
+
 export const orderStatuses = [
   "PENDING",
   "CONFIRMED",
@@ -186,4 +188,35 @@ export function formatOrderDate(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+
+export function toOrderModel(res: OrderResponse): Order {
+  const method = (res.payment?.method === "BANK_TRANSFER" ? "BANK_TRANSFER" : "COD") as PaymentMethod;
+  const payStatus = (res.payment?.status === "PAID" ? "PAID" : "PENDING") as PaymentStatus;
+  const validStatuses: OrderStatus[] = ["PENDING", "CONFIRMED", "SHIPPING", "DELIVERED", "CANCELLED"];
+  const status = (validStatuses.includes(res.status as OrderStatus) ? res.status : "PENDING") as OrderStatus;
+
+  return {
+    id: String(res.orderId),
+    code: `#${res.orderId}`,
+    createdAt: res.orderDate,
+    status,
+    paymentMethod: method,
+    paymentStatus: payStatus,
+    recipient: {
+      name: res.shippingName,
+      phone: res.shippingPhone,
+      address: res.shippingAddressText,
+    },
+    lines: (res.items || []).map((item) => ({
+      productId: String(item.productId),
+      slug: String(item.productId),
+      name: item.productName,
+      category: "Linh kiện",
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+    })),
+    total: res.totalAmount,
+  };
 }
