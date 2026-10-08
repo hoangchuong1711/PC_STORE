@@ -470,6 +470,8 @@ UNIQUE(order_id); DEFAULT status = PENDING; CHECK amount >= 0. CHECK (status = P
 
 source_type là MANUAL hoặc RECOMMENDATION. Build không có tổng tiền lưu cố định; tính lại theo giá hiện tại. Build gắn RecommendationResult là snapshot bất biến; khi người dùng muốn chỉnh sửa, tạo bản sao MANUAL.
 
+T24 hiện chỉ tạo build MANUAL. API lọc theo user_id, cho phép lưu build chưa đủ linh kiện; phản hồi tính lại giá từ products.price và chạy T23 để trả PASS/FAIL/UNKNOWN. Chỉ build PASS được thêm vào giỏ sau khi kiểm tra trạng thái bán, tồn khả dụng và lượng giỏ hiện có; thao tác gộp chạy trong một transaction.
+
 #### PcBuildItem → `pc_build_items`
 
 | Thuộc tính Java | Cột | Kiểu PostgreSQL | Ràng buộc |
