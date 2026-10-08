@@ -11,6 +11,7 @@
 | Cách chạy kiểm thử | [Hướng dẫn kiểm thử](testing.md) | Lệnh kiểm thử và môi trường cần chuẩn bị. |
 | API đã khai báo | [OpenAPI](../backend/src/main/webapp/api-docs/openapi.yaml) | Đặc tả HTTP; đối chiếu Servlet/DTO khi sửa endpoint. |
 | Upload và truy cập media | [T21 media](../backend/T21_MEDIA.md) | Giới hạn, quyền và vòng đời file của dịch vụ media. |
+| Dữ liệu kiểm thử Builder | [T22 Builder](T22_BUILDER.md) | Seed spec và đáp án PASS/FAIL/UNKNOWN cho T23/T24. |
 
 ## Phạm vi và thứ tự
 
