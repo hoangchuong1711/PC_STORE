@@ -14,6 +14,8 @@
         <class>com.pcstore.entity.Inventory</class>
         <class>com.pcstore.entity.Cart</class>
         <class>com.pcstore.entity.CartItem</class>
+        <class>com.pcstore.entity.PcBuild</class>
+        <class>com.pcstore.entity.PcBuildItem</class>
         <class>com.pcstore.entity.Order</class>
         <class>com.pcstore.entity.OrderItem</class>
         <class>com.pcstore.entity.Payment</class>

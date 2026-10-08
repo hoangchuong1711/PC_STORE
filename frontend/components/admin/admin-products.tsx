@@ -8,7 +8,6 @@ import {
   CheckSquare,
   ChevronLeft,
   ChevronRight,
-  Cpu,
   Edit3,
   Layers,
   Loader2,
@@ -17,10 +16,10 @@ import {
   RotateCcw,
   Search,
   Square,
-  Trash2,
   X,
 } from "lucide-react";
-import type { ComponentSlot } from "../../lib/builder";
+import { ProductSpecEditor } from "./product-spec-editor";
+import { collectProductSpec, isProductComponentType } from "../../lib/product-spec-fields";
 import {
   adminBrands,
   adminCategories,
@@ -39,6 +38,21 @@ import { adminTaxonomyApi } from "../../lib/admin-taxonomy-api";
 
 const STORAGE_KEY = "pcstore_admin_products_v2";
 const DRAFT_KEY = "pcstore_admin_product_draft_v2";
+
+function loadDraftProduct(): AdminProductFormState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const draft = JSON.parse(raw);
+    if (!draft || typeof draft !== "object" || typeof draft.name !== "string") return null;
+    return {
+      ...draft,
+      price: draft.price === 0 || draft.price === "0" ? "" : draft.price,
+      stock: draft.stock === 0 || draft.stock === "0" ? "" : draft.stock,
+    };
+  } catch { return null; }
+}
 
 function loadStoredProducts(): AdminProduct[] | null {
   if (typeof window === "undefined") return null;
@@ -96,6 +110,7 @@ function fromAdminProductItem(p: AdminProductItem): AdminProduct {
     imageColor: "#e6e9ef",
     description: p.description ?? "",
     updatedAt: new Date().toISOString(),
+    spec: p.spec ?? null,
   };
 }
 
@@ -233,22 +248,11 @@ export function AdminProducts() {
   };
 
   useEffect(() => {
-    try {
-      const draftRaw = sessionStorage.getItem(DRAFT_KEY);
-      if (draftRaw) {
-        const draft = JSON.parse(draftRaw);
-        if (draft && typeof draft === "object" && typeof draft.name === "string") {
-          setEditingProduct({
-            ...draft,
-            price: draft.price === 0 || draft.price === "0" ? "" : draft.price,
-            stock: draft.stock === 0 || draft.stock === "0" ? "" : draft.stock,
-          });
-        }
-      }
-    } catch {
-      // ignore
-    }
-    void fetchData();
+    const frame = requestAnimationFrame(() => {
+      setEditingProduct((current) => current ?? loadDraftProduct());
+      void fetchData();
+    });
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   useEffect(() => {
@@ -256,8 +260,6 @@ export function AdminProducts() {
     try {
       if (editingProduct) {
         sessionStorage.setItem(DRAFT_KEY, JSON.stringify(editingProduct));
-      } else {
-        sessionStorage.removeItem(DRAFT_KEY);
       }
     } catch {
       // ignore
@@ -266,6 +268,11 @@ export function AdminProducts() {
 
   const availableCategories = categoriesList.length > 0 ? categoriesList.map((c) => c.name) : adminCategories;
   const availableBrands = brandsList.length > 0 ? brandsList.map((b) => b.name) : adminBrands;
+  const categoryComponentType = editingProduct
+    ? categoriesList.find((category) => category.name === editingProduct.category)?.componentType
+    : null;
+  const selectedComponentType = isProductComponentType(categoryComponentType)
+    ? categoryComponentType : null;
 
   const filteredProducts = useMemo(() => filterAdminProducts(items, filters), [items, filters]);
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
@@ -343,7 +350,7 @@ export function AdminProducts() {
     });
   }
 
-  function openEdit(product: AdminProduct) {
+  async function openEdit(product: AdminProduct) {
     setFeedback("");
     setDrawerError(null);
     setEditingProduct({
@@ -351,6 +358,17 @@ export function AdminProducts() {
       price: product.price === 0 ? "" : product.price,
       stock: product.stock === 0 ? "" : product.stock,
     });
+    const productId = /^\d+$/.test(product.id) ? Number(product.id) : null;
+    if (productId !== null) {
+      try {
+        const detail = await adminProductApi.get(productId);
+        setEditingProduct((current) => current?.id === product.id
+          ? { ...current, category: detail.categoryName, brand: detail.brandName, spec: detail.spec ?? null }
+          : current);
+      } catch (error) {
+        setDrawerError(error instanceof Error ? error.message : "Không đọc được thông số sản phẩm.");
+      }
+    }
   }
 
   function closeDrawer() {
@@ -415,6 +433,9 @@ export function AdminProducts() {
       const numId = /^\d+$/.test(editingProduct.id) ? Number(editingProduct.id) : null;
       const cat = categoriesList.find((c) => c.name === editingProduct.category) ?? categoriesList[0];
       const br = brandsList.find((b) => b.name === editingProduct.brand) ?? brandsList[0];
+      if (!cat || !br) throw new Error("Cần chọn danh mục và thương hiệu có trên máy chủ.");
+      const componentType = isProductComponentType(cat.componentType) ? cat.componentType : null;
+      const spec = componentType ? collectProductSpec(componentType, editingProduct.spec) : undefined;
 
       let savedProduct: AdminProduct;
 
@@ -424,9 +445,10 @@ export function AdminProducts() {
             name: trimmedName,
             description: editingProduct.description || null,
             price: priceNum,
-            categoryId: cat?.categoryId ?? 1,
-            brandId: br?.brandId ?? 1,
+            categoryId: cat.categoryId,
+            brandId: br.brandId,
             status: editingProduct.status,
+            spec,
           });
           await adminProductApi.updateInventory(numId, {
             quantityOnHand: stockNum,
@@ -443,6 +465,7 @@ export function AdminProducts() {
           name: trimmedName,
           price: priceNum,
           stock: stockNum,
+          spec: spec ?? null,
           updatedAt: new Date().toISOString(),
         };
 
@@ -459,10 +482,11 @@ export function AdminProducts() {
             name: trimmedName,
             description: editingProduct.description || null,
             price: priceNum,
-            categoryId: cat?.categoryId ?? 1,
-            brandId: br?.brandId ?? 1,
+            categoryId: cat.categoryId,
+            brandId: br.brandId,
             status: editingProduct.status,
             quantityOnHand: stockNum,
+            spec,
           });
         } catch (backendErr) {
           const msg = backendErr instanceof Error ? backendErr.message : "Không thể tạo sản phẩm mới trên máy chủ.";
@@ -876,7 +900,10 @@ export function AdminProducts() {
                   Danh mục
                   <select
                     value={editingProduct.category}
-                    onChange={(event) => setEditingProduct({ ...editingProduct, category: event.target.value })}
+                    onChange={(event) => setEditingProduct({
+                      ...editingProduct, category: event.target.value,
+                      spec: event.target.value === editingProduct.category ? editingProduct.spec : null,
+                    })}
                     className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors cursor-pointer"
                   >
                     {availableCategories.map((category) => (
@@ -956,218 +983,12 @@ export function AdminProducts() {
                 />
               </label>
 
-              {(editingProduct.category === "Linh kiện" || editingProduct.builderSpecs?.slot) && (
-                <div className="rounded-lg border border-slate-300 bg-slate-50/70 p-3.5 my-1">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-800 pb-2.5 mb-3 border-b border-slate-200">
-                    <Cpu size={15} className="text-blue-600" />
-                    <strong>Thông số kỹ thuật PC Builder</strong>
-                    <small className="font-normal text-slate-500">(Phục vụ kiểm tra tương thích tự động)</small>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2.5">
-                    <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
-                      Loại linh kiện PC
-                      <select
-                        value={editingProduct.builderSpecs?.slot || ""}
-                        onChange={(e) => {
-                          const slot = (e.target.value as ComponentSlot) || undefined;
-                          setEditingProduct({
-                            ...editingProduct,
-                            builderSpecs: { ...editingProduct.builderSpecs, slot },
-                          });
-                        }}
-                        className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors cursor-pointer"
-                      >
-                        <option value="">-- Chọn linh kiện ráp PC --</option>
-                        <option value="cpu">Bộ vi xử lý (CPU)</option>
-                        <option value="motherboard">Bo mạch chủ (Mainboard)</option>
-                        <option value="ram">Bộ nhớ RAM</option>
-                        <option value="gpu">Card đồ họa (VGA)</option>
-                        <option value="storage">Ổ cứng SSD / HDD</option>
-                        <option value="psu">Nguồn máy tính (PSU)</option>
-                        <option value="case">Vỏ case</option>
-                        <option value="cooler">Tản nhiệt CPU</option>
-                      </select>
-                    </label>
-
-                    {(editingProduct.builderSpecs?.slot === "cpu" || editingProduct.builderSpecs?.slot === "motherboard") && (
-                      <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
-                        Chuẩn Socket
-                        <input
-                          placeholder="LGA1700, AM5, AM4..."
-                          value={editingProduct.builderSpecs?.socket || ""}
-                          onChange={(e) =>
-                            setEditingProduct({
-                              ...editingProduct,
-                              builderSpecs: { ...editingProduct.builderSpecs, socket: e.target.value },
-                            })
-                          }
-                          className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
-                        />
-                      </label>
-                    )}
-
-                    {(editingProduct.builderSpecs?.slot === "motherboard" || editingProduct.builderSpecs?.slot === "case") && (
-                      <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
-                        Kích thước Form Factor
-                        <input
-                          placeholder="ATX, Micro-ATX, Mini-ITX..."
-                          value={editingProduct.builderSpecs?.formFactor || ""}
-                          onChange={(e) =>
-                            setEditingProduct({
-                              ...editingProduct,
-                              builderSpecs: { ...editingProduct.builderSpecs, formFactor: e.target.value },
-                            })
-                          }
-                          className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
-                        />
-                      </label>
-                    )}
-
-                    {(editingProduct.builderSpecs?.slot === "ram" || editingProduct.builderSpecs?.slot === "motherboard") && (
-                      <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
-                        Chuẩn RAM hỗ trợ
-                        <input
-                          placeholder="DDR5, DDR4..."
-                          value={editingProduct.builderSpecs?.ramType || ""}
-                          onChange={(e) =>
-                            setEditingProduct({
-                              ...editingProduct,
-                              builderSpecs: { ...editingProduct.builderSpecs, ramType: e.target.value },
-                            })
-                          }
-                          className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
-                        />
-                      </label>
-                    )}
-
-                    {editingProduct.builderSpecs?.slot === "cpu" && (
-                      <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
-                        Công suất tỏa nhiệt TDP (W)
-                        <input
-                          type="number"
-                          placeholder="125"
-                          value={editingProduct.builderSpecs?.tdpWatts ?? ""}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setEditingProduct({
-                              ...editingProduct,
-                              builderSpecs: { ...editingProduct.builderSpecs, tdpWatts: val === "" ? undefined : Number(val) },
-                            });
-                          }}
-                          className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
-                        />
-                      </label>
-                    )}
-
-                    {editingProduct.builderSpecs?.slot === "gpu" && (
-                      <>
-                        <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
-                          VRAM dung lượng (GB)
-                          <input
-                            type="number"
-                            placeholder="12"
-                            value={editingProduct.builderSpecs?.vramGb ?? ""}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setEditingProduct({
-                                ...editingProduct,
-                                builderSpecs: { ...editingProduct.builderSpecs, vramGb: val === "" ? undefined : Number(val) },
-                              });
-                            }}
-                            className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
-                          />
-                        </label>
-                        <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
-                          Nguồn đề xuất tối thiểu (W)
-                          <input
-                            type="number"
-                            placeholder="650"
-                            value={editingProduct.builderSpecs?.recommendedPsuW ?? ""}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setEditingProduct({
-                                ...editingProduct,
-                                builderSpecs: { ...editingProduct.builderSpecs, recommendedPsuW: val === "" ? undefined : Number(val) },
-                              });
-                            }}
-                            className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
-                          />
-                        </label>
-                        <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
-                          Chiều dài VGA tối đa (mm)
-                          <input
-                            type="number"
-                            placeholder="269"
-                            value={editingProduct.builderSpecs?.maxGpuLengthMm ?? ""}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setEditingProduct({
-                                ...editingProduct,
-                                builderSpecs: { ...editingProduct.builderSpecs, maxGpuLengthMm: val === "" ? undefined : Number(val) },
-                              });
-                            }}
-                            className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
-                          />
-                        </label>
-                      </>
-                    )}
-
-                    {editingProduct.builderSpecs?.slot === "psu" && (
-                      <>
-                        <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
-                          Công suất danh định (W)
-                          <input
-                            type="number"
-                            placeholder="850"
-                            value={editingProduct.builderSpecs?.wattage ?? ""}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setEditingProduct({
-                                ...editingProduct,
-                                builderSpecs: { ...editingProduct.builderSpecs, wattage: val === "" ? undefined : Number(val) },
-                              });
-                            }}
-                            className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
-                          />
-                        </label>
-                        <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
-                          Chuẩn hiệu suất
-                          <input
-                            placeholder="80 Plus Gold..."
-                            value={editingProduct.builderSpecs?.efficiency || ""}
-                            onChange={(e) =>
-                              setEditingProduct({
-                                ...editingProduct,
-                                builderSpecs: { ...editingProduct.builderSpecs, efficiency: e.target.value },
-                              })
-                            }
-                            className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
-                          />
-                        </label>
-                      </>
-                    )}
-
-                    {editingProduct.builderSpecs?.slot === "storage" && (
-                      <label className="flex flex-col gap-1.5 text-[11px] font-bold text-admin-muted">
-                        Dung lượng bộ nhớ (GB)
-                        <input
-                          type="number"
-                          placeholder="1000"
-                          value={editingProduct.builderSpecs?.capacityGb ?? ""}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setEditingProduct({
-                              ...editingProduct,
-                              builderSpecs: { ...editingProduct.builderSpecs, capacityGb: val === "" ? undefined : Number(val) },
-                            });
-                          }}
-                          className="w-full h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue focus:ring-1 focus:ring-admin-blue transition-colors"
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
+              {selectedComponentType && (
+                <ProductSpecEditor
+                  type={selectedComponentType}
+                  value={editingProduct.spec}
+                  onChange={(spec) => setEditingProduct({ ...editingProduct, spec })}
+                />
               )}
 
               <div className="grid grid-cols-[116px_minmax(0,1fr)] gap-3.5 items-start">

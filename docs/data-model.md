@@ -470,6 +470,8 @@ UNIQUE(order_id); DEFAULT status = PENDING; CHECK amount >= 0. CHECK (status = P
 
 source_type là MANUAL hoặc RECOMMENDATION. Build không có tổng tiền lưu cố định; tính lại theo giá hiện tại. Build gắn RecommendationResult là snapshot bất biến; khi người dùng muốn chỉnh sửa, tạo bản sao MANUAL.
 
+T24 hiện chỉ tạo build MANUAL. API lọc theo user_id, cho phép lưu build chưa đủ linh kiện; phản hồi tính lại giá từ products.price và chạy T23 để trả PASS/FAIL/UNKNOWN. Chỉ build PASS được thêm vào giỏ sau khi kiểm tra trạng thái bán, tồn khả dụng và lượng giỏ hiện có; thao tác gộp chạy trong một transaction.
+
 #### PcBuildItem → `pc_build_items`
 
 | Thuộc tính Java | Cột | Kiểu PostgreSQL | Ràng buộc |
@@ -855,6 +857,8 @@ User/Product có lịch sử giao dịch được vô hiệu hóa bằng status,
 Cascade trên ReviewMedia chỉ mô tả hành vi nếu có thao tác dọn dữ liệu được quản trị cho phép; soft delete Review không kích hoạt cascade. Xóa hàng media không tự xóa file storage: phải có tác vụ dọn file sau commit và khả năng retry.
 
 ### 6.7. Spec và giới hạn kiểm tra tương thích
+
+- Form Admin chọn trường spec theo `Category.componentType` cho tám nhóm Builder. `POST /api/admin/products` và `PATCH /api/admin/products/{id}` có thể nhận object `spec`; nếu gửi thì phải đủ thuộc tính của đúng loại. Service kiểm tra trường bắt buộc, kiểu số, mã Socket/FormFactor, rồi lưu cùng Product/Inventory trong một transaction. `GET /api/admin/products/{id}` trả lại spec đã lưu; `spec: null` nghĩa là sản phẩm chưa có dòng spec. PATCH bỏ qua `spec` giữ nguyên spec cũ; đổi loại danh mục của sản phẩm đã có spec phải gửi bộ spec mới hợp lệ. Không dùng dữ liệu nhập dở để đánh dấu PASS.
 
 - CPU/MOTHERBOARD/RAM/GPU/STORAGE/PSU/CASE/COOLER ánh xạ đúng loại Spec theo Category.componentType. MonitorSpec/GearSpec chỉ dùng cho Category có componentType NULL và đúng nhóm sản phẩm do catalog quản lý; Service không cho một Product có nhiều loại Spec. Catalog ngoài PC không được đưa vào Recommendation.
 - Số lõi, luồng, xung nhịp, dung lượng, tốc độ RAM, moduleCount, công suất định mức, kích thước vật lý và thông số màn hình phải > 0. threads >= cores; boostClockGhz >= baseClockGhz; moduleCount >= 1; ramSlots/maxRamGb > 0. Các đại lượng tiêu thụ điện, tốc độ đọc/ghi và giới hạn radiator có thể = 0 khi mang nghĩa không tiêu thụ/không hỗ trợ; không dùng 0 để giả vờ biết dữ liệu còn thiếu.

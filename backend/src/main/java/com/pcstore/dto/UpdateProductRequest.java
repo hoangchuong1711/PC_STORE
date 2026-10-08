@@ -1,6 +1,7 @@
 package com.pcstore.dto;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 import com.pcstore.entity.enums.ProductStatus;
 
@@ -11,5 +12,11 @@ public record UpdateProductRequest(
         BigDecimal price,
         Integer categoryId,
         Integer brandId,
-        ProductStatus status
-) {}
+        ProductStatus status,
+        Map<String, Object> spec
+) {
+    public UpdateProductRequest(String name, String description, BigDecimal price, Integer categoryId,
+                                Integer brandId, ProductStatus status) {
+        this(name, description, price, categoryId, brandId, status, null);
+    }
+}

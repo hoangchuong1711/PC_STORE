@@ -1,6 +1,7 @@
 package com.pcstore.dto;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 public record AdminProductResponse(
         Integer productId,
@@ -14,5 +15,6 @@ public record AdminProductResponse(
         String brandName,
         int quantityOnHand,
         int reservedQuantity,
-        int availableQuantity
+        int availableQuantity,
+        Map<String, Object> spec
 ) {}

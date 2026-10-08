@@ -52,6 +52,7 @@ export type AdminProduct = {
   imageColor: string;
   updatedAt: string;
   builderSpecs?: AdminProductSpecs;
+  spec?: Record<string, unknown> | null;
 };
 
 export type AdminProductFilters = {

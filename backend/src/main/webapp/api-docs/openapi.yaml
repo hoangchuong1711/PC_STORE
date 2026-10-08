@@ -293,6 +293,26 @@ paths:
           format: "int32"
           minimum: 1
         description: "ID sản phẩm"
+    get:
+      tags:
+        - "Admin products"
+      operationId: "getAdminProduct"
+      summary: "Đọc sản phẩm và thông số kỹ thuật (ADMIN)"
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: "Chi tiết sản phẩm gồm spec đã lưu"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AdminProductResponse"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
     patch:
       tags:
         - "Admin products"
@@ -372,6 +392,117 @@ paths:
                 "$ref": "#/components/schemas/ErrorResponse"
         "500":
           "$ref": "#/components/responses/InternalError"
+  "/api/customer/builds":
+    get:
+      tags: [Builder]
+      operationId: listBuilds
+      summary: Danh sách build của Customer hiện tại
+      security: [{sessionCookie: []}]
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/BuildResponse'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "403": {$ref: '#/components/responses/Forbidden'}
+    post:
+      tags: [Builder]
+      operationId: createBuild
+      summary: Lưu build MANUAL, cho phép thiếu linh kiện
+      security: [{sessionCookie: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/BuildRequest'}
+      responses:
+        "201":
+          description: Đã lưu build
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BuildResponse'}
+        "400": {$ref: '#/components/responses/BadRequest'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "403": {$ref: '#/components/responses/Forbidden'}
+        "404": {$ref: '#/components/responses/NotFound'}
+  "/api/customer/builds/{id}":
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer, minimum: 1}
+    get:
+      tags: [Builder]
+      operationId: getBuild
+      summary: Xem build thuộc Customer hiện tại
+      security: [{sessionCookie: []}]
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BuildResponse'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "403": {$ref: '#/components/responses/Forbidden'}
+        "404": {$ref: '#/components/responses/NotFound'}
+    put:
+      tags: [Builder]
+      operationId: updateBuild
+      summary: Thay tên và toàn bộ linh kiện build MANUAL
+      security: [{sessionCookie: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/BuildRequest'}
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BuildResponse'}
+        "400": {$ref: '#/components/responses/BadRequest'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "403": {$ref: '#/components/responses/Forbidden'}
+        "404": {$ref: '#/components/responses/NotFound'}
+        "409": {$ref: '#/components/responses/Conflict'}
+    delete:
+      tags: [Builder]
+      operationId: deleteBuild
+      summary: Xóa build MANUAL thuộc Customer hiện tại
+      security: [{sessionCookie: []}]
+      responses:
+        "204": {description: Đã xóa}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "403": {$ref: '#/components/responses/Forbidden'}
+        "404": {$ref: '#/components/responses/NotFound'}
+        "409": {$ref: '#/components/responses/Conflict'}
+  "/api/customer/builds/{id}/cart":
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer, minimum: 1}
+    post:
+      tags: [Builder]
+      operationId: addBuildToCart
+      summary: Thêm toàn bộ build PASS vào giỏ trong một transaction
+      description: Chỉ build MANUAL có kết quả PASS; kiểm tra sản phẩm đang bán, tồn khả dụng và lượng đã có trong giỏ. Giá trả về là giá catalog hiện tại.
+      security: [{sessionCookie: []}]
+      responses:
+        "200":
+          description: Giỏ sau khi gộp linh kiện
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CartResponse'}
+        "400": {$ref: '#/components/responses/BadRequest'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "403": {$ref: '#/components/responses/Forbidden'}
+        "404": {$ref: '#/components/responses/NotFound'}
+        "409": {$ref: '#/components/responses/Conflict'}
   "/api/customer/cart":
     "get":
       "tags":
@@ -1224,6 +1355,59 @@ components:
           schema:
             "$ref": "#/components/schemas/ErrorResponse"
   schemas:
+    BuildRequest:
+      type: object
+      additionalProperties: false
+      required: [name, items]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 255}
+        items:
+          type: array
+          description: Danh sách rỗng được lưu như build chưa hoàn chỉnh.
+          items: {$ref: '#/components/schemas/BuildSelection'}
+    BuildSelection:
+      type: object
+      additionalProperties: false
+      required: [productId, quantity]
+      properties:
+        productId: {type: integer, minimum: 1}
+        quantity: {type: integer, minimum: 1}
+    BuildResponse:
+      type: object
+      required: [buildId, name, sourceType, items, totalAmount, compatibility]
+      properties:
+        buildId: {type: integer}
+        name: {type: string}
+        sourceType: {type: string, enum: [MANUAL, RECOMMENDATION]}
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/BuildItemResponse'}
+        totalAmount: {type: number, minimum: 0}
+        compatibility: {$ref: '#/components/schemas/CompatibilityReport'}
+    BuildItemResponse:
+      type: object
+      required: [productId, productName, quantity, unitPrice, lineTotal]
+      properties:
+        productId: {type: integer}
+        productName: {type: string}
+        quantity: {type: integer, minimum: 1}
+        unitPrice: {type: number, minimum: 0}
+        lineTotal: {type: number, minimum: 0}
+    CompatibilityReport:
+      type: object
+      required: [status, rules]
+      properties:
+        status: {type: string, enum: [PASS, FAIL, UNKNOWN]}
+        rules:
+          type: array
+          items: {$ref: '#/components/schemas/CompatibilityRule'}
+    CompatibilityRule:
+      type: object
+      required: [id, status, reason]
+      properties:
+        id: {type: string}
+        status: {type: string, enum: [PASS, FAIL, UNKNOWN]}
+        reason: {type: string}
     AdminCategoryInput:
       type: object
       additionalProperties: false
@@ -1686,6 +1870,8 @@ components:
           type: "integer"
           format: "int32"
           minimum: 0
+        spec:
+          "$ref": "#/components/schemas/BuilderProductSpec"
     UpdateProductRequest:
       type: "object"
       properties:
@@ -1717,6 +1903,8 @@ components:
             -
               "$ref": "#/components/schemas/ProductStatus"
           nullable: true
+        spec:
+          "$ref": "#/components/schemas/BuilderProductSpec"
       description: "Phải có ít nhất một trường khác null. Trường null/bỏ qua không thay đổi. description rỗng xóa mô tả. status HIDDEN ẩn sản phẩm, không xóa cứng."
       minProperties: 1
     UpdateInventoryRequest:
@@ -1763,3 +1951,11 @@ components:
         availableQuantity:
           type: "integer"
           format: "int32"
+        spec:
+          allOf:
+            - "$ref": "#/components/schemas/BuilderProductSpec"
+          nullable: true
+    BuilderProductSpec:
+      type: "object"
+      description: "Bộ spec đầy đủ theo categories.component_type. CPU: socketCode, cores, threads, baseClockGhz, boostClockGhz, tdpWatts. MOTHERBOARD: socketCode, chipset, ramType, pcieVersion, formFactorCode, ramSlots, maxRamGb. RAM: ramType, capacityGb, speedMhz, moduleCount. GPU: vramGb, memoryType, interfaceType, lengthMm, powerConsumptionW, recommendedPsuW. STORAGE: storageType, interfaceType, capacityGb, readSpeedMBps, writeSpeedMBps. PSU: wattage, efficiencyRating, modularType. CASE: maxGpuLengthMm, maxCoolerHeightMm, maxRadiatorSizeMm, supportedFormFactors[]. COOLER: coolerType, maxTdpW, heightMm hoặc radiatorSizeMm, supportedSockets[]. Chi tiết ràng buộc tại docs/data-model.md mục 4.2 và 6.7. Nếu sản phẩm chưa có spec, response là null; không suy diễn PASS."
+      additionalProperties: true
