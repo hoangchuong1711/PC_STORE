@@ -314,17 +314,13 @@ export function OrderDetail({
       setLoading(true);
       setError(null);
       try {
-        const numId = /^\d+$/.test(id!) ? Number(id) : null;
-        if (numId !== null) {
+        const cleanId = id!.replace(/^#|^ord-?/i, "");
+        const numId = /^\d+$/.test(cleanId) ? Number(cleanId) : null;
+        if (numId !== null && numId > 0) {
           const res = await orderApi.getById(numId);
           if (isMounted) setOrder(toOrderModel(res));
         } else {
-          const fallback = getOrder(id!);
-          if (fallback) {
-            if (isMounted) setOrder(fallback);
-          } else {
-            if (isMounted) setError("Không tìm thấy đơn hàng yêu cầu.");
-          }
+          if (isMounted) setError("Mã đơn hàng không hợp lệ.");
         }
       } catch (err) {
         if (isMounted) {

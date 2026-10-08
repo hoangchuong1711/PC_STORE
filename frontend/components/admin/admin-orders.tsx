@@ -210,14 +210,6 @@ export function AdminOrders() {
     }
   }
 
-  function confirmPayment() {
-    if (!selectedOrder || selectedOrder.paymentStatus === "PAID") return;
-    const nextOrder = { ...selectedOrder, paymentStatus: "PAID" as const };
-    setItems((current) => current.map((order) => (order.id === selectedOrder.id ? nextOrder : order)));
-    setSelectedOrder(nextOrder);
-    setFeedback(`Đã xác nhận thanh toán cho ${selectedOrder.code}.`);
-  }
-
   function saveStaffNotes() {
     if (!selectedOrder) return;
     const nextOrder = { ...selectedOrder, staffNotes: staffNoteDraft.trim() };
@@ -536,15 +528,10 @@ export function AdminOrders() {
                     {paymentStatusLabels[selectedOrder.paymentStatus]}
                   </span>
                 </div>
-                {selectedOrder.paymentMethod === "BANK_TRANSFER" && selectedOrder.paymentStatus === "PENDING" && (
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center gap-2 min-h-[38px] px-4 rounded-lg text-xs font-bold border border-admin-line bg-white hover:bg-admin-bg text-admin-ink transition-colors cursor-pointer w-full"
-                    onClick={confirmPayment}
-                  >
-                    <CircleCheck size={16} className="text-admin-green" />
-                    Xác nhận đã nhận tiền chuyển khoản
-                  </button>
+                {selectedOrder.paymentMethod === "COD" && selectedOrder.paymentStatus === "PENDING" && (
+                  <p className="text-[11px] text-admin-muted m-0 leading-relaxed">
+                    * Hệ thống sẽ tự động cập nhật sang Đã thanh toán khi đơn hàng chuyển sang Đã giao hàng.
+                  </p>
                 )}
               </div>
 
