@@ -58,7 +58,7 @@ class FeatureMigrationIT {
         flyway("latest").migrate();
         for (String table : TABLES) assertEquals(1, scalar("SELECT count(*) FROM information_schema.tables WHERE table_schema='"
                 + schema + "' AND table_name='" + table + "'"), table);
-        assertEquals(4, scalar("SELECT count(*) FROM flyway_schema_history WHERE success AND version IS NOT NULL"));
+        assertEquals(8, scalar("SELECT count(*) FROM flyway_schema_history WHERE success AND version IS NOT NULL"));
         assertEquals(0, flyway("latest").migrate().migrationsExecuted);
         flyway("latest").validate();
     }
@@ -66,7 +66,7 @@ class FeatureMigrationIT {
     @Test void upgradesPopulatedT03WithoutChangingCoreData() throws Exception {
         flyway("2").migrate();
         coreFixture();
-        assertEquals(2, flyway("latest").migrate().migrationsExecuted);
+        assertEquals(6, flyway("latest").migrate().migrationsExecuted);
         assertEquals(2, scalar("SELECT count(*) FROM users"));
         assertEquals(1000000, scalar("SELECT total_amount FROM orders WHERE order_id=1"));
         assertEquals(1, scalar("SELECT user_id FROM orders WHERE order_id=1"));
@@ -86,7 +86,7 @@ class FeatureMigrationIT {
         assertEquals(2, scalar("SELECT count(*) FROM flyway_schema_history WHERE success AND version IS NOT NULL"));
         assertEquals(2, scalar("SELECT count(*) FROM users"));
         assertEquals(1, scalar("SELECT count(*) FROM order_items WHERE product_id=1 AND quantity=2"));
-        assertEquals(2, flyway("latest").migrate().migrationsExecuted);
+        assertEquals(6, flyway("latest").migrate().migrationsExecuted);
         flyway("latest").validate();
         assertEquals(0, scalar("SELECT count(*) FROM product_reviews"));
     }

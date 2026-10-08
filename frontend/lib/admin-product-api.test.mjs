@@ -126,4 +126,3 @@ test("lists products via GET /api/admin/products", async () => {
   assert.equal(res[0].productId, 101);
   assert.deepEqual(calls[0], ["/api/admin/products", "GET"]);
 });
-

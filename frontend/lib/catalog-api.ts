@@ -248,5 +248,3 @@ export function createCatalogApi(transport: typeof fetch = fetch) {
 }
 
 export const catalogApi = createCatalogApi();
-
-

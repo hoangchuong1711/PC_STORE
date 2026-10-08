@@ -1,4 +1,7 @@
 # KẾ HOẠCH TRIỂN KHAI DỰ ÁN WEBSITE PC STORE
+
+> Đây là bản kế hoạch T01–T38 tại thời điểm lập kế hoạch, giữ để tra cứu phạm vi và phụ thuộc của từng task. Trạng thái Work Item hiện tại theo dõi trên Plane; [mục lục tài liệu](README.md) tóm tắt thứ tự CORE → FEATURE → ADVANCED. Các mô tả triển khai trong file này không tự xác nhận tính năng đã hoàn thành.
+
 **Thời gian 30/09/2026 đến hết 13/10/2026**
 
 Nhóm 5 thành viên | 14 ngày | 4–5 giờ mỗi người mỗi ngày

@@ -17,6 +17,9 @@ tags:
   -
     name: "Admin products"
     description: "Chỉ ADMIN. DELETE trả 405; dùng PATCH status HIDDEN để ẩn."
+  -
+    name: "Media"
+    description: "Upload ảnh tạm cho Review và Setup"
 paths:
   "/api/auth/register":
     post:
@@ -742,6 +745,164 @@ paths:
           "application/json":
             "schema":
               "$ref": "#/components/schemas/OrderStatusUpdateRequest"
+  "/api/customer/media/images":
+    post:
+      tags:
+        - "Media"
+      operationId: "uploadTemporaryImage"
+      summary: "Upload một ảnh tạm đã xác thực"
+      description: "Gửi một JPEG/PNG làm body trực tiếp, tối đa 8 MB. Ảnh được chuẩn hóa thành JPEG. mediaId trả về chưa gắn vào bài và chưa có URL công khai. Yêu cầu Origin hợp lệ, session CUSTOMER và header X-Media-Module."
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: "X-Media-Module"
+          in: "header"
+          required: true
+          schema:
+            type: "string"
+            enum: ["SETUP", "REVIEW"]
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema:
+              type: "string"
+              format: "binary"
+          image/png:
+            schema:
+              type: "string"
+              format: "binary"
+      responses:
+        "201":
+          description: "Đã upload và lưu trạng thái TEMP"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required: ["mediaId", "module", "status"]
+                properties:
+                  mediaId:
+                    type: "string"
+                    format: "uuid"
+                  module:
+                    type: "string"
+                    enum: ["SETUP", "REVIEW"]
+                  status:
+                    type: "string"
+                    enum: ["TEMP"]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          description: "Ảnh đầu vào vượt 8 MB hoặc đầu ra vượt 1 MB"
+        "415":
+          description: "Chỉ hỗ trợ image/jpeg hoặc image/png"
+        "429":
+          description: "Vượt giới hạn upload"
+        "502":
+          description: "Cloudinary không sẵn sàng"
+  "/api/customer/media/videos":
+    post:
+      tags: ["Media"]
+      operationId: "uploadTemporaryReviewVideo"
+      summary: "Upload một video Review tạm"
+      description: "Body trực tiếp MP4/MOV H.264 và AAC, tối đa 20 MB, 10 giây. Backend chuyển mã thành MP4 tối đa 4 MB. Yêu cầu Origin hợp lệ, session CUSTOMER và X-Media-Module: REVIEW."
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: "X-Media-Module"
+          in: "header"
+          required: true
+          schema:
+            type: "string"
+            enum: ["REVIEW"]
+      requestBody:
+        required: true
+        content:
+          video/mp4:
+            schema:
+              type: "string"
+              format: "binary"
+          video/quicktime:
+            schema:
+              type: "string"
+              format: "binary"
+      responses:
+        "201":
+          description: "Đã upload và lưu trạng thái TEMP"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required: ["mediaId", "module", "status"]
+                properties:
+                  mediaId:
+                    type: "string"
+                    format: "uuid"
+                  module:
+                    type: "string"
+                    enum: ["REVIEW"]
+                  status:
+                    type: "string"
+                    enum: ["TEMP"]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          description: "Video nguồn hoặc đầu ra vượt giới hạn"
+        "415":
+          description: "Chỉ hỗ trợ video/mp4 hoặc video/quicktime"
+        "422":
+          description: "Video dài hơn 10 giây"
+        "429":
+          description: "Vượt hạn mức upload hoặc xử lý video đang bận"
+        "502":
+          description: "Cloudinary không sẵn sàng"
+  "/api/media/{mediaId}/content":
+    get:
+      tags: ["Media"]
+      operationId: "getAuthorizedMediaContent"
+      summary: "Xem ảnh hoặc video theo quyền hiện tại"
+      description: "File TEMP chỉ chủ sở hữu xem được. File đã gắn vào bài công khai được xem; bài ẩn chỉ chủ xem được. Review đã xóa mềm không xem được. Không lộ URL Cloudinary."
+      parameters:
+        - name: "mediaId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+        - name: "Range"
+          in: "header"
+          required: false
+          schema:
+            type: "string"
+          description: "Một byte range, ví dụ bytes=0-1023"
+      responses:
+        "200":
+          description: "Nội dung file"
+          content:
+            image/jpeg:
+              schema:
+                type: "string"
+                format: "binary"
+            video/mp4:
+              schema:
+                type: "string"
+                format: "binary"
+        "206":
+          description: "Một phần nội dung file theo Range"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "416":
+          description: "Byte range không hợp lệ"
+        "502":
+          description: "Cloudinary không sẵn sàng"
   "/api/admin/categories":
     get:
       tags: ["Admin taxonomy"]

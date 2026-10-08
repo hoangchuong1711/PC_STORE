@@ -79,4 +79,3 @@ export function createCartApi(transport: typeof fetch = fetch) {
 }
 
 export const cartApi = createCartApi();
-

@@ -62,4 +62,3 @@ export function createAdminTaxonomyApi(transport: typeof fetch = fetch) {
 }
 
 export const adminTaxonomyApi = createAdminTaxonomyApi();
-
