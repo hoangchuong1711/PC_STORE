@@ -18,6 +18,7 @@ Hai endpoint upload yêu cầu session CUSTOMER và Origin được phép. Mỗi
 
 - `attachSetupImages(em, ownerId, postId, mediaIds)` và `attachReviewMedia(em, ownerId, reviewId, mediaIds)` trong `MediaAttachmentService` phải được gọi sau khi tạo dòng bài, trước khi commit transaction. Service khóa bài và asset; xác nhận đúng owner, module, trạng thái `TEMP`, chưa hết hạn và giới hạn số file; chuyển asset sang `ATTACHED` cùng lúc thêm `setup_images`/`review_media`. Review owner được truy theo `OrderItem → Order → User`.
 - `detachSetupImage(...)` và `detachReviewMedia(...)` xóa liên kết trong cùng transaction, chuyển asset thành `DELETE_PENDING` để worker xóa Cloudinary. Setup không cho tháo ảnh cuối. Khi xóa cứng một bài trong các module tương lai, module phải tháo media trước; ẩn bài hoặc xóa mềm Review vẫn giữ media để có thể kiểm tra/khôi phục.
+- T29 dùng `replaceSetupImages(...)` cho PUT: danh sách cuối phải có 1–8 ảnh, cho phép giữ/đổi thứ tự/thay toàn bộ ảnh trong một transaction; ảnh bị bỏ chuyển `DELETE_PENDING`. Khi xóa bài Setup, `detachAllSetupImages(...)` chuyển mọi ảnh sang `DELETE_PENDING` trước khi xóa bài trong cùng transaction.
 - `MediaAccessService` cho chủ xem file `TEMP` chưa hết hạn và bài `HIDDEN`; khách chỉ xem media của bài `PUBLISHED`. Review `DELETED` không xem được kể cả chủ. File đang dọn hoặc đã dọn luôn trả 404.
 
 ## Lưu trữ và dọn file
