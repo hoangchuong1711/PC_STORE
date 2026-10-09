@@ -16,10 +16,24 @@ import java.util.Map;
 @WebServlet(name = "orderServlet", urlPatterns = {"/api/orders", "/api/orders/*"})
 public class OrderServlet extends HttpServlet {
     private OrderService orderService;
+    private com.pcstore.service.VNPayPaymentService vnPayPaymentService;
+
+    public OrderServlet() {
+    }
+
+    public OrderServlet(OrderService orderService, com.pcstore.service.VNPayPaymentService vnPayPaymentService) {
+        this.orderService = orderService;
+        this.vnPayPaymentService = vnPayPaymentService;
+    }
 
     @Override
     public void init() {
-        orderService = new OrderService();
+        if (orderService == null) {
+            orderService = new OrderService();
+        }
+        if (vnPayPaymentService == null) {
+            vnPayPaymentService = new com.pcstore.service.VNPayPaymentService();
+        }
     }
 
     @Override
@@ -59,12 +73,19 @@ public class OrderServlet extends HttpServlet {
                 return;
             }
             Integer cancelOrderId = actionId(path, "cancel");
-            if (cancelOrderId == null) {
-                notFound(response);
+            if (cancelOrderId != null) {
+                JsonUtil.write(response, HttpServletResponse.SC_OK,
+                        orderService.cancelOwnedOrder(userId, cancelOrderId));
                 return;
             }
-            JsonUtil.write(response, HttpServletResponse.SC_OK,
-                    orderService.cancelOwnedOrder(userId, cancelOrderId));
+            Integer vnpayOrderId = paymentActionId(path, "vnpay-url");
+            if (vnpayOrderId != null) {
+                String clientIp = clientIp(request);
+                var paymentUrlResponse = vnPayPaymentService.createPaymentUrl(userId, vnpayOrderId, clientIp);
+                JsonUtil.write(response, HttpServletResponse.SC_OK, paymentUrlResponse);
+                return;
+            }
+            notFound(response);
         } catch (AppException exception) {
             writeError(response, exception);
         } catch (IOException exception) {
@@ -98,6 +119,21 @@ public class OrderServlet extends HttpServlet {
         String[] parts = path.split("/", -1);
         if (parts.length != 2 || !action.equals(parts[1])) return null;
         return positiveId(parts[0]);
+    }
+
+    static Integer paymentActionId(String path, String action) {
+        if (path == null) return null;
+        String[] parts = path.split("/", -1);
+        if (parts.length != 3 || !"payment".equals(parts[1]) || !action.equals(parts[2])) return null;
+        return positiveId(parts[0]);
+    }
+
+    static String clientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 
     private static Integer positiveId(String value) {

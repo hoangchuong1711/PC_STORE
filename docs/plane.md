@@ -226,6 +226,17 @@ Ba task độc lập: T20 nối mua hàng, T21 sở hữu hạ tầng media, T22
 
 **Cần trước:** T12–T19
 
+#### T20-B Cổng thanh toán trực tuyến VNPay và đối soát
+
+**Owner / phạm vi mã:** BE payment & FE checkout/admin
+
+**Việc cần làm:** Tích hợp cổng thanh toán trực tuyến VNPay Sandbox; quy định thời hạn thanh toán 15 phút; lưu trữ `payment_attempts`; chuyển trạng thái `EXPIRED_PENDING_RECONCILIATION`; xử lý IPN và QueryDR đối soát; bảo vệ giữ chỗ tồn kho; cập nhật giao diện khách hàng và Admin.
+
+**Điều kiện hoàn thành:** Mọi trạng thái xác định được quyền thanh toán, quyền giao hàng và giữ/nhả kho; IPN và QueryDR ghi nhận tiền chính xác; không làm ảnh hưởng luồng COD; hoàn thành kiểm thử nghiệm thu.
+
+**Cần trước:** T20
+
+
 #### T21 Dịch vụ media dùng chung
 
 **Owner / phạm vi mã:** BE media

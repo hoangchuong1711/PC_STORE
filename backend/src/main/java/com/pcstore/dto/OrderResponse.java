@@ -13,6 +13,21 @@ public record OrderResponse(
         String shippingPhone,
         String shippingAddressText,
         LocalDateTime deliveredAt,
+        LocalDateTime paymentExpiresAt,
         List<OrderItemResponse> items,
         OrderPaymentResponse payment) {
+
+    public OrderResponse(
+            Integer orderId,
+            LocalDateTime orderDate,
+            String status,
+            BigDecimal totalAmount,
+            String shippingName,
+            String shippingPhone,
+            String shippingAddressText,
+            LocalDateTime deliveredAt,
+            List<OrderItemResponse> items,
+            OrderPaymentResponse payment) {
+        this(orderId, orderDate, status, totalAmount, shippingName, shippingPhone, shippingAddressText, deliveredAt, null, items, payment);
+    }
 }

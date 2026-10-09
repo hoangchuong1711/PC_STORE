@@ -107,7 +107,7 @@ class CoreDatabaseIT {
         rejects("23505", "INSERT INTO users(full_name,email,password_hash) VALUES ('Other','customer@example.test','hash')");
         rejects("23505", "INSERT INTO carts(user_id,created_at,updated_at) VALUES (1,now(),now())");
         rejects("23505", "INSERT INTO order_items(order_id,product_id,quantity,base_unit_price,unit_price) VALUES (1,1,1,1,1)");
-        rejects("23505", "INSERT INTO payments(order_id,method,amount) VALUES (1,'BANK_TRANSFER',1000000)");
+        rejects("23505", "INSERT INTO payments(order_id,method,amount) VALUES (1,'VNPAY',1000000)");
         execute("UPDATE orders SET status='DELIVERED', delivered_at='2026-10-02 10:00'");
         execute("UPDATE payments SET status='PAID', paid_at='2026-10-02 10:00'");
     }
@@ -233,7 +233,7 @@ class CoreDatabaseIT {
             em.persist(item);
             var payment = new Payment();
             payment.setOrder(order);
-            payment.setMethod(PaymentMethod.BANK_TRANSFER);
+            payment.setMethod(PaymentMethod.VNPAY);
             payment.setAmount(new BigDecimal("1000000"));
             em.persist(payment);
             em.getTransaction().commit();
@@ -250,7 +250,7 @@ class CoreDatabaseIT {
             assertTrue(loaded.getUser().getAddresses().getFirst().isDefault());
             assertTrue(em.find(Product.class, product.getProductId()).getImages().getFirst().isPrimary());
             assertEquals(1, em.find(Inventory.class, inventory.getInventoryId()).getReservedQuantity());
-            assertEquals(PaymentMethod.BANK_TRANSFER, em.find(Payment.class, payment.getPaymentId()).getMethod());
+            assertEquals(PaymentMethod.VNPAY, em.find(Payment.class, payment.getPaymentId()).getMethod());
             assertEquals(PaymentStatus.PENDING, em.find(Payment.class, payment.getPaymentId()).getStatus());
             assertNull(em.find(Payment.class, payment.getPaymentId()).getPaidAt());
             assertEquals(ProductStatus.DRAFT, em.find(Product.class, product.getProductId()).getStatus());

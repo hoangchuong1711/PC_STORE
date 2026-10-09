@@ -791,7 +791,7 @@ paths:
           "application/json":
             "schema":
               "$ref": "#/components/schemas/CheckoutRequest"
-      "description": "Implementation hiện nhận COD. BANK_TRANSFER đã được chốt trong hướng dẫn nghiệp vụ nhưng checkout/confirm-payment chưa triển khai. Cùng key khác nội dung trả 409 IDEMPOTENCY_KEY_REUSED."
+      "description": "Implementation nhận COD hoặc VNPAY. Cùng key khác nội dung trả 409 IDEMPOTENCY_KEY_REUSED."
       "parameters":
         -
           "in": "header"
@@ -897,6 +897,55 @@ paths:
           "$ref": "#/components/responses/NotFound"
         "409":
           "$ref": "#/components/responses/Conflict"
+  "/api/orders/{id}/payment/vnpay-url":
+    "parameters":
+      -
+        "name": "id"
+        "in": "path"
+        "required": true
+        "schema":
+          "type": "integer"
+          "minimum": 1
+    "post":
+      "tags":
+        - "Orders"
+      "operationId": "createVNPayPaymentUrl"
+      "summary": "Tạo URL thanh toán VNPay Sandbox cho đơn hàng"
+      "description": "Chỉ chủ sở hữu đơn hàng PENDING có thể tạo URL. Trả về URL thanh toán sang VNPay Sandbox, mã tham chiếu và thời điểm hết hạn (tối đa 15 phút từ lúc checkout)."
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Tạo URL thành công hoặc trả lại attempt đang chờ xử lý"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/VNPayUrlResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+  "/api/payment/vnpay/ipn":
+    "get":
+      "tags":
+        - "Orders"
+      "operationId": "processVNPayIpn"
+      "summary": "Webhook nhận IPN từ VNPay Sandbox"
+      "description": "Gọi bởi hệ thống VNPay server-to-server. Xác thực chữ ký HMAC-SHA512, cập nhật trạng thái đơn và thanh toán."
+      "responses":
+        "200":
+          "description": "Phản hồi kết quả xử lý cho VNPay theo định dạng JSON chuẩn"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/VNPayIpnResponse"
   "/api/admin/orders":
     "get":
       "tags":
@@ -999,6 +1048,40 @@ paths:
           "application/json":
             "schema":
               "$ref": "#/components/schemas/OrderStatusUpdateRequest"
+  "/api/admin/orders/{id}/reconcile":
+    "parameters":
+      -
+        "name": "id"
+        "in": "path"
+        "required": true
+        "schema":
+          "type": "integer"
+          "minimum": 1
+    "post":
+      "tags":
+        - "Admin orders"
+      "operationId": "reconcileAdminOrder"
+      "summary": "Admin kích hoạt đối soát QueryDR cho đơn hàng"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/OrderResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
   "/api/customer/media/images":
     post:
       tags:
@@ -1717,6 +1800,7 @@ components:
           "type": "string"
           "enum":
             - "COD"
+            - "VNPAY"
       "additionalProperties": false
     OrderStatusUpdateRequest:
       "type": "object"
@@ -1731,6 +1815,7 @@ components:
             - "SHIPPING"
             - "DELIVERED"
             - "CANCELLED"
+            - "EXPIRED_PENDING_RECONCILIATION"
     OrderResponse:
       "type": "object"
       "required":
@@ -1766,6 +1851,10 @@ components:
           "type": "string"
           "nullable": true
           "description": "LocalDateTime ISO-8601 không có timezone"
+        "paymentExpiresAt":
+          "type": "string"
+          "nullable": true
+          "description": "Thời điểm hết hạn thanh toán (order_date + 15 phút) cho đơn VNPay"
         "items":
           "type": "array"
           "items":
@@ -1815,7 +1904,7 @@ components:
           "type": "string"
           "enum":
             - "COD"
-            - "BANK_TRANSFER"
+            - "VNPAY"
         "status":
           "type": "string"
           "enum":
@@ -1829,6 +1918,42 @@ components:
           "type": "string"
           "nullable": true
           "description": "LocalDateTime ISO-8601 không có timezone"
+    VNPayUrlResponse:
+      "type": "object"
+      "required":
+        - "orderId"
+        - "paymentMethod"
+        - "referenceCode"
+        - "paymentUrl"
+        - "expiresAt"
+      "properties":
+        "orderId":
+          "type": "integer"
+        "paymentMethod":
+          "type": "string"
+          "enum":
+            - "VNPAY"
+        "referenceCode":
+          "type": "string"
+          "description": "Mã tham chiếu vnp_TxnRef duy nhất"
+        "paymentUrl":
+          "type": "string"
+          "description": "URL chuyển hướng sang VNPay Sandbox"
+        "expiresAt":
+          "type": "string"
+          "description": "Thời điểm hết hạn ISO-8601"
+    VNPayIpnResponse:
+      "type": "object"
+      "required":
+        - "RspCode"
+        - "Message"
+      "properties":
+        "RspCode":
+          "type": "string"
+          "description": "Mã phản hồi chuẩn VNPay: 00, 01, 02, 04, 97"
+        "Message":
+          "type": "string"
+          "description": "Thông điệp phản hồi chuẩn VNPay"
     ErrorResponse:
       type: "object"
       required:

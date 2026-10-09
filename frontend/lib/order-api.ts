@@ -1,9 +1,17 @@
-export type PaymentMethod = "COD" | "BANK_TRANSFER";
+export type PaymentMethod = "COD" | "VNPAY";
 export type CheckoutInput = { shippingName: string; shippingPhone: string; shippingAddressText: string; paymentMethod: PaymentMethod };
+export type VNPayUrlResponse = {
+  orderId: number;
+  paymentMethod: string;
+  referenceCode: string;
+  paymentUrl: string;
+  expiresAt: string;
+};
 export type OrderResponse = {
   orderId: number; orderDate: string; status: string; totalAmount: number;
   shippingName: string; shippingPhone: string; shippingAddressText: string;
-  deliveredAt: string | null; items: Array<{ orderItemId: number; productId: number; productName: string; quantity: number; baseUnitPrice: number; unitPrice: number; lineTotal: number }>;
+  deliveredAt: string | null; paymentExpiresAt?: string | null;
+  items: Array<{ orderItemId: number; productId: number; productName: string; quantity: number; baseUnitPrice: number; unitPrice: number; lineTotal: number }>;
   payment: { paymentId: number; method: string; status: string; amount: number; paidAt: string | null } | null;
 };
 export class OrderApiError extends Error {
@@ -73,6 +81,16 @@ export function createOrderApi(transport: typeof fetch = fetch) {
     async cancel(orderId: number): Promise<OrderResponse> {
       requireId(orderId);
       return requireOrder(await read(`/api/orders/${orderId}/cancel`, "POST"));
+    },
+    async createVNPayUrl(orderId: number): Promise<VNPayUrlResponse> {
+      requireId(orderId);
+      const data = await read(`/api/orders/${orderId}/payment/vnpay-url`, "POST");
+      if (!data || typeof data !== "object") throw new OrderApiError(502, "INVALID_RESPONSE", "Phản hồi tạo URL VNPay không hợp lệ.");
+      const res = data as Partial<VNPayUrlResponse>;
+      if (!res.paymentUrl || !res.referenceCode || !res.expiresAt) {
+        throw new OrderApiError(502, "INVALID_RESPONSE", "Thiếu thông tin URL thanh toán VNPay.");
+      }
+      return data as VNPayUrlResponse;
     },
     async checkout(input: CheckoutInput, idempotencyKey: string): Promise<{ order: OrderResponse; replayed: boolean }> {
       if (!/^[A-Za-z0-9._:-]{8,128}$/.test(idempotencyKey)) {

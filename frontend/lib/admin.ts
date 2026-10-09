@@ -69,11 +69,12 @@ export const adminOrderStatuses = [
   "SHIPPING",
   "DELIVERED",
   "CANCELLED",
+  "EXPIRED_PENDING_RECONCILIATION",
 ] as const;
 
 export type AdminOrderStatus = (typeof adminOrderStatuses)[number];
-export type AdminPaymentMethod = "COD" | "BANK_TRANSFER";
-export type AdminPaymentStatus = "PENDING" | "PAID";
+export type AdminPaymentMethod = "COD" | "VNPAY";
+export type AdminPaymentStatus = "PENDING" | "PAID" | "FAILED";
 export type AdminOrderDateFilter = "ALL" | "TODAY" | "7DAYS" | "30DAYS";
 
 export const orderDateFilterLabels: Record<AdminOrderDateFilter, string> = {
@@ -200,6 +201,7 @@ export function getNextOrderStatuses(status: AdminOrderStatus): AdminOrderStatus
   if (status === "PENDING") return ["CONFIRMED", "CANCELLED"];
   if (status === "CONFIRMED") return ["SHIPPING", "CANCELLED"];
   if (status === "SHIPPING") return ["DELIVERED"];
+  if (status === "EXPIRED_PENDING_RECONCILIATION") return ["CANCELLED"];
   return [];
 }
 
@@ -217,16 +219,18 @@ export const orderStatusLabels: Record<AdminOrderStatus, string> = {
   SHIPPING: "Đang giao",
   DELIVERED: "Đã giao",
   CANCELLED: "Đã hủy",
+  EXPIRED_PENDING_RECONCILIATION: "Hết hạn chờ đối soát",
 };
 
 export const paymentStatusLabels: Record<AdminPaymentStatus, string> = {
   PENDING: "Chờ thanh toán",
   PAID: "Đã thanh toán",
+  FAILED: "Thất bại",
 };
 
 export const paymentMethodLabels: Record<AdminPaymentMethod, string> = {
   COD: "COD",
-  BANK_TRANSFER: "Chuyển khoản",
+  VNPAY: "VNPAY",
 };
 
 export const initialAdminProducts: AdminProduct[] = [
@@ -252,7 +256,7 @@ export const initialAdminOrders: AdminOrder[] = [
     createdAt: "2026-10-01T09:30:00+07:00",
     total: 41_880_000,
     status: "PENDING",
-    paymentMethod: "BANK_TRANSFER",
+    paymentMethod: "VNPAY",
     paymentStatus: "PENDING",
     itemCount: 2,
     lines: [
@@ -285,7 +289,7 @@ export const initialAdminOrders: AdminOrder[] = [
     createdAt: "2026-09-28T11:05:00+07:00",
     total: 16_370_000,
     status: "SHIPPING",
-    paymentMethod: "BANK_TRANSFER",
+    paymentMethod: "VNPAY",
     paymentStatus: "PAID",
     itemCount: 3,
     lines: [
@@ -303,7 +307,7 @@ export const initialAdminOrders: AdminOrder[] = [
     createdAt: "2026-09-24T16:40:00+07:00",
     total: 52_990_000,
     status: "DELIVERED",
-    paymentMethod: "BANK_TRANSFER",
+    paymentMethod: "VNPAY",
     paymentStatus: "PAID",
     itemCount: 1,
     lines: [{ productName: "PC Creator Pro X", quantity: 1, unitPrice: 52_990_000 }],

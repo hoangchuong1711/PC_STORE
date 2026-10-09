@@ -6,12 +6,13 @@ export const orderStatuses = [
   "SHIPPING",
   "DELIVERED",
   "CANCELLED",
+  "EXPIRED_PENDING_RECONCILIATION",
 ] as const;
 
 export type OrderStatus = (typeof orderStatuses)[number];
 export type OrderFilter = "ALL" | OrderStatus;
-export type PaymentMethod = "COD" | "BANK_TRANSFER";
-export type PaymentStatus = "PENDING" | "PAID";
+export type PaymentMethod = "COD" | "VNPAY";
+export type PaymentStatus = "PENDING" | "PAID" | "FAILED";
 
 export type OrderLine = {
   productId: string;
@@ -29,6 +30,7 @@ export type Order = {
   status: OrderStatus;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
+  paymentExpiresAt?: string | null;
   cancelReason?: string;
   recipient: {
     name: string;
@@ -52,7 +54,7 @@ export const orders: Order[] = [
     code: "PCS-251018-01",
     createdAt: "2025-10-18T09:30:00+07:00",
     status: "SHIPPING",
-    paymentMethod: "BANK_TRANSFER",
+    paymentMethod: "VNPAY",
     paymentStatus: "PAID",
     recipient,
     lines: [
@@ -100,7 +102,7 @@ export const orders: Order[] = [
     code: "PCS-250927-03",
     createdAt: "2025-09-27T11:05:00+07:00",
     status: "DELIVERED",
-    paymentMethod: "BANK_TRANSFER",
+    paymentMethod: "VNPAY",
     paymentStatus: "PAID",
     recipient,
     lines: [
@@ -157,7 +159,7 @@ export function getOrder(id: string) {
 }
 
 export function getOrderProgress(status: OrderStatus): OrderStatus[] {
-  if (status === "CANCELLED") return [];
+  if (status === "CANCELLED" || status === "EXPIRED_PENDING_RECONCILIATION") return [];
   const flow: OrderStatus[] = ["PENDING", "CONFIRMED", "SHIPPING", "DELIVERED"];
   return flow.slice(0, flow.indexOf(status) + 1);
 }
@@ -168,16 +170,18 @@ export const orderStatusLabels: Record<OrderStatus, string> = {
   SHIPPING: "Đang giao",
   DELIVERED: "Đã giao",
   CANCELLED: "Đã hủy",
+  EXPIRED_PENDING_RECONCILIATION: "Hết hạn chờ đối soát",
 };
 
 export const paymentMethodLabels: Record<PaymentMethod, string> = {
   COD: "Thanh toán khi nhận hàng (COD)",
-  BANK_TRANSFER: "Chuyển khoản ngân hàng (VietQR)",
+  VNPAY: "Cổng thanh toán VNPAY Sandbox",
 };
 
 export const paymentStatusLabels: Record<PaymentStatus, string> = {
   PENDING: "Chờ thanh toán",
   PAID: "Đã thanh toán",
+  FAILED: "Thanh toán thất bại",
 };
 
 export function formatOrderDate(value: string) {
@@ -192,9 +196,20 @@ export function formatOrderDate(value: string) {
 
 
 export function toOrderModel(res: OrderResponse): Order {
-  const method = (res.payment?.method === "BANK_TRANSFER" ? "BANK_TRANSFER" : "COD") as PaymentMethod;
-  const payStatus = (res.payment?.status === "PAID" ? "PAID" : "PENDING") as PaymentStatus;
-  const validStatuses: OrderStatus[] = ["PENDING", "CONFIRMED", "SHIPPING", "DELIVERED", "CANCELLED"];
+  const method = (res.payment?.method === "VNPAY" ? "VNPAY" : "COD") as PaymentMethod;
+  const payStatus = (res.payment?.status === "PAID"
+    ? "PAID"
+    : res.payment?.status === "FAILED"
+      ? "FAILED"
+      : "PENDING") as PaymentStatus;
+  const validStatuses: OrderStatus[] = [
+    "PENDING",
+    "CONFIRMED",
+    "SHIPPING",
+    "DELIVERED",
+    "CANCELLED",
+    "EXPIRED_PENDING_RECONCILIATION",
+  ];
   const status = (validStatuses.includes(res.status as OrderStatus) ? res.status : "PENDING") as OrderStatus;
 
   return {
@@ -204,6 +219,7 @@ export function toOrderModel(res: OrderResponse): Order {
     status,
     paymentMethod: method,
     paymentStatus: payStatus,
+    paymentExpiresAt: res.paymentExpiresAt ?? null,
     recipient: {
       name: res.shippingName,
       phone: res.shippingPhone,

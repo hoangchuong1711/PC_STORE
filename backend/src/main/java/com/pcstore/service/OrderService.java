@@ -141,15 +141,18 @@ public class OrderService {
 
                 Payment payment = new Payment();
                 payment.setOrder(order);
-                payment.setMethod(PaymentMethod.COD);
+                payment.setMethod(checkout.paymentMethod());
                 payment.setStatus(PaymentStatus.PENDING);
                 payment.setAmount(total);
+                if (checkout.paymentMethod() == PaymentMethod.VNPAY) {
+                    order.setPaymentExpiresAt(now.plusMinutes(15));
+                }
                 orders.persist(payment);
 
                 orders.removeCartItems(cartItems);
                 cart.setUpdatedAt(now);
                 em.flush();
-                OrderResponse response = toResponse(order, order.getItems(), payment);
+                OrderResponse response = toResponse(orders, order);
                 tx.commit();
                 return new CheckoutOutcome(response, false);
             } catch (AppException exception) {
@@ -193,6 +196,10 @@ public class OrderService {
             if (order.getStatus() == OrderStatus.CANCELLED) return;
             if (order.getStatus() != OrderStatus.PENDING) {
                 throw conflict("INVALID_ORDER_STATUS", "Khách hàng chỉ có thể hủy đơn đang PENDING.");
+            }
+            Payment payment = requirePayment(orders, order);
+            if (payment.getStatus() == PaymentStatus.PAID) {
+                throw conflict("PAYMENT_ALREADY_PAID", "Đơn hàng đã thanh toán không thể hủy.");
             }
             cancel(orders, order);
         });
@@ -253,14 +260,14 @@ public class OrderService {
 
         switch (target) {
             case CONFIRMED -> {
-                requireTransition(current == OrderStatus.PENDING, current, target);
+                requireTransition(current == OrderStatus.PENDING || current == OrderStatus.EXPIRED_PENDING_RECONCILIATION, current, target);
                 order.setStatus(target);
             }
             case SHIPPING -> {
                 requireTransition(current == OrderStatus.CONFIRMED, current, target);
                 Payment payment = requirePayment(orders, order);
-                if (payment.getMethod() == PaymentMethod.BANK_TRANSFER && payment.getStatus() != PaymentStatus.PAID) {
-                    throw conflict("PAYMENT_REQUIRED", "Đơn chuyển khoản phải PAID trước khi giao.");
+                if (payment.getMethod() == PaymentMethod.VNPAY && payment.getStatus() != PaymentStatus.PAID) {
+                    throw conflict("PAYMENT_REQUIRED", "Đơn VNPAY phải PAID trước khi giao.");
                 }
                 ship(orders, order);
                 order.setStatus(target);
@@ -280,8 +287,16 @@ public class OrderService {
                 order.setStatus(target);
             }
             case CANCELLED -> {
-                requireTransition(current == OrderStatus.PENDING || current == OrderStatus.CONFIRMED, current, target);
+                requireTransition(current == OrderStatus.PENDING || current == OrderStatus.CONFIRMED || current == OrderStatus.EXPIRED_PENDING_RECONCILIATION, current, target);
+                Payment payment = requirePayment(orders, order);
+                if (payment.getStatus() == PaymentStatus.PAID) {
+                    throw conflict("PAYMENT_ALREADY_PAID", "Đơn hàng đã thanh toán không thể hủy.");
+                }
                 cancel(orders, order);
+            }
+            case EXPIRED_PENDING_RECONCILIATION -> {
+                requireTransition(current == OrderStatus.PENDING, current, target);
+                order.setStatus(target);
             }
             default -> throw conflict("INVALID_ORDER_STATUS", "Không thể chuyển từ " + current + " sang " + target + ".");
         }
@@ -382,11 +397,14 @@ public class OrderService {
         String name = requiredText(request.shippingName(), 255, "Tên người nhận");
         String phone = requiredText(request.shippingPhone(), 32, "Số điện thoại");
         String address = requiredText(request.shippingAddressText(), null, "Địa chỉ nhận hàng");
-        if (request.paymentMethod() != PaymentMethod.COD) {
-            throw new ValidationException("T14 chỉ hỗ trợ phương thức thanh toán COD.");
+        if (request.paymentMethod() == null) {
+            throw new ValidationException("Phương thức thanh toán là bắt buộc.");
         }
-        String hash = sha256(name + "\u0000" + phone + "\u0000" + address + "\u0000COD");
-        return new ValidCheckout(key, hash, name, phone, address);
+        if (request.paymentMethod() != PaymentMethod.COD && request.paymentMethod() != PaymentMethod.VNPAY) {
+            throw new ValidationException("Phương thức thanh toán không hợp lệ.");
+        }
+        String hash = sha256(name + "\0" + phone + "\0" + address + "\0" + request.paymentMethod().name());
+        return new ValidCheckout(key, hash, name, phone, address, request.paymentMethod());
     }
 
     private static String requiredText(String value, Integer maxLength, String field) {
@@ -459,7 +477,7 @@ public class OrderService {
         return new OrderResponse(
                 order.getOrderId(), order.getOrderDate(), order.getStatus().name(), order.getTotalAmount(),
                 order.getShippingName(), order.getShippingPhone(), order.getShippingAddressText(),
-                order.getDeliveredAt(), itemResponses, paymentResponse);
+                order.getDeliveredAt(), order.getPaymentExpiresAt(), itemResponses, paymentResponse);
     }
 
     private static AppException conflict(String code, String message) {
@@ -478,7 +496,8 @@ public class OrderService {
             String requestHash,
             String shippingName,
             String shippingPhone,
-            String shippingAddressText) {
+            String shippingAddressText,
+            PaymentMethod paymentMethod) {
     }
 
     @FunctionalInterface

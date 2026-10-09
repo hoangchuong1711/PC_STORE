@@ -12,7 +12,6 @@ import {
   Truck,
   RotateCcw,
   XCircle,
-  QrCode,
   CreditCard,
   Star,
   CheckCircle2,
@@ -46,6 +45,7 @@ const filters: { value: OrderFilter; label: string }[] = [
   { value: "SHIPPING", label: "Đang giao" },
   { value: "DELIVERED", label: "Đã giao" },
   { value: "CANCELLED", label: "Đã hủy" },
+  { value: "EXPIRED_PENDING_RECONCILIATION", label: "Chờ đối soát" },
 ];
 
 const progressSteps: {
@@ -66,6 +66,7 @@ function StatusBadge({ status }: { status: OrderStatus }) {
     SHIPPING: "bg-indigo-100 text-indigo-800 border-indigo-200",
     DELIVERED: "bg-emerald-100 text-emerald-800 border-emerald-200",
     CANCELLED: "bg-red-100 text-red-800 border-red-200",
+    EXPIRED_PENDING_RECONCILIATION: "bg-rose-100 text-rose-800 border-rose-200",
   };
 
   return (
@@ -106,7 +107,7 @@ function OrderRow({
       <div className="flex flex-col gap-1 items-start">
         <StatusBadge status={order.status} />
         <small className="text-[11px] text-slate-500 font-semibold">
-          {order.paymentMethod === "BANK_TRANSFER" ? "VietQR 24/7" : "COD"}
+          {order.paymentMethod === "VNPAY" ? "VNPAY" : "COD"}
         </small>
       </div>
 
@@ -281,6 +282,72 @@ export function OrdersPage() {
   );
 }
 
+function VNPayCountdown({
+  expiresAt,
+  onExpire,
+}: {
+  expiresAt?: string | null;
+  onExpire?: () => void;
+}) {
+  const [timeLeft, setTimeLeft] = useState<number>(() => {
+    if (!expiresAt) return 0;
+    const diff = Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000);
+    return Math.max(0, diff);
+  });
+
+  useEffect(() => {
+    if (!expiresAt) return;
+    const interval = setInterval(() => {
+      const diff = Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000);
+      if (diff <= 0) {
+        setTimeLeft(0);
+        clearInterval(interval);
+        onExpire?.();
+      } else {
+        setTimeLeft(diff);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [expiresAt, onExpire]);
+
+  if (!expiresAt) return null;
+
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
+  const isUrgent = timeLeft < 300; // less than 5 min
+
+  if (timeLeft <= 0) {
+    return (
+      <div className="flex items-center gap-2 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
+        <Clock3 size={15} className="shrink-0 text-rose-600" />
+        <span>Hết thời hạn thanh toán 15 phút</span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${
+        isUrgent
+          ? "bg-rose-50/80 border-rose-200 text-rose-900"
+          : "bg-blue-50/80 border-blue-200 text-blue-900"
+      }`}
+    >
+      <div className="flex items-center gap-2 text-xs">
+        <Clock3
+          size={16}
+          className={`shrink-0 ${isUrgent ? "text-rose-600 animate-pulse" : "text-[#006ce1]"}`}
+        />
+        <span className="font-medium">Thời gian giữ chỗ thanh toán:</span>
+      </div>
+      <span className="font-specs font-bold text-sm tabular-nums tracking-wide px-2 py-0.5 rounded-md bg-white border border-current shadow-xs">
+        {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+      </span>
+    </div>
+  );
+}
+
 export function OrderDetail({
   order: initialOrder,
   id,
@@ -293,7 +360,7 @@ export function OrderDetail({
   const [error, setError] = useState<string | null>(null);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("Đổi ý không muốn mua nữa");
-  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [isPayingVNPay, setIsPayingVNPay] = useState(false);
   const [reviewProduct, setReviewProduct] = useState<{
     slug: string;
     name: string;
@@ -376,6 +443,31 @@ export function OrderDetail({
         err instanceof Error ? err.message : "Không thể hủy đơn hàng",
         "error",
       );
+    }
+  };
+
+  const handlePayVNPay = async () => {
+    if (!order) return;
+    const numId = /^\d+$/.test(order.id) ? Number(order.id) : null;
+    if (!numId) {
+      toast("Mã đơn hàng không hợp lệ.", "error");
+      return;
+    }
+    setIsPayingVNPay(true);
+    try {
+      const res = await orderApi.createVNPayUrl(numId);
+      if (res.paymentUrl) {
+        window.location.href = res.paymentUrl;
+      } else {
+        toast("Không tạo được liên kết thanh toán VNPay.", "error");
+      }
+    } catch (err) {
+      toast(
+        err instanceof Error ? err.message : "Lỗi kết nối cổng thanh toán VNPay.",
+        "error",
+      );
+    } finally {
+      setIsPayingVNPay(false);
     }
   };
 
@@ -463,7 +555,7 @@ export function OrderDetail({
           </div>
         </div>
 
-        {/* Cancelled Alert or Progress Tracker */}
+        {/* Cancelled Alert, Expired Reconciliation Alert, or Progress Tracker */}
         {order.status === "CANCELLED" ? (
           <section className="flex items-start gap-4 my-7 p-5 border border-red-200 bg-red-50 rounded-2xl text-red-900" role="alert">
             <AlertCircle size={28} className="shrink-0 mt-0.5 text-red-600" />
@@ -472,6 +564,16 @@ export function OrderDetail({
               <p className="m-0 text-sm">
                 Lý do: {order.cancelReason || "Người mua yêu cầu hủy đơn."}.
                 Tồn kho linh kiện đã được giải phóng tự động.
+              </p>
+            </div>
+          </section>
+        ) : order.status === "EXPIRED_PENDING_RECONCILIATION" ? (
+          <section className="flex items-start gap-4 my-7 p-5 border border-rose-200 bg-rose-50 rounded-2xl text-rose-900" role="alert">
+            <Clock3 size={28} className="shrink-0 mt-0.5 text-rose-600" />
+            <div>
+              <strong className="block text-base mb-1">Đơn hàng hết hạn thanh toán — Chờ đối soát</strong>
+              <p className="m-0 text-sm leading-relaxed">
+                Đơn hàng đã vượt quá thời hạn 15 phút thanh toán trực tuyến. Hệ thống đang tiến hành đối soát kết quả giao dịch với VNPay. Linh kiện trong đơn hàng của bạn tạm thời vẫn được giữ chỗ an toàn. Nếu bạn đã hoàn tất thanh toán trên VNPay, trạng thái sẽ tự động cập nhật sau khi đối soát thành công. Vui lòng không thực hiện thanh toán mới.
               </p>
             </div>
           </section>
@@ -592,28 +694,64 @@ export function OrderDetail({
                   className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                     order.paymentStatus === "PAID"
                       ? "bg-emerald-100 text-emerald-800"
-                      : "bg-amber-100 text-amber-800"
+                      : order.paymentStatus === "FAILED"
+                        ? "bg-rose-100 text-rose-800"
+                        : "bg-amber-100 text-amber-800"
                   }`}
                 >
                   {paymentStatusLabels[order.paymentStatus]}
                 </span>
               </div>
 
-              {order.paymentMethod === "BANK_TRANSFER" && (
-                <div className="mt-2">
-                  {order.paymentStatus === "PENDING" && order.status !== "CANCELLED" ? (
-                    <button
-                      type="button"
-                      className="w-full inline-flex items-center justify-center gap-2 p-2.5 rounded-xl text-xs md:text-sm font-bold text-ink border border-[#e0e0e0] hover:border-slate-400 bg-white transition-colors cursor-pointer"
-                      onClick={() => setQrModalOpen(true)}
-                    >
-                      <QrCode size={16} /> Quét mã VietQR chuyển khoản
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-1.5 text-emerald-600 text-xs md:text-sm font-bold bg-emerald-50 p-2.5 rounded-xl">
-                      <CheckCircle2 size={16} /> Đã nhận được thanh toán
+              {order.paymentMethod === "VNPAY" && (
+                <div className="mt-2 flex flex-col gap-3">
+                  {order.paymentStatus === "PAID" ? (
+                    <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-xs md:text-sm font-semibold">
+                      <CheckCircle2 size={18} className="shrink-0 text-emerald-600" />
+                      <span>Đã thanh toán thành công qua VNPay</span>
                     </div>
-                  )}
+                  ) : order.status === "EXPIRED_PENDING_RECONCILIATION" ? (
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 text-xs space-y-1.5">
+                      <div className="flex items-center gap-1.5 font-bold text-rose-800">
+                        <AlertCircle size={15} className="shrink-0 text-rose-600" />
+                        <span>Hết hạn 15 phút — Đang đối soát</span>
+                      </div>
+                      <p className="m-0 text-[11px] text-rose-800 leading-relaxed">
+                        Đơn hàng đã hết thời gian thanh toán trực tuyến. Tồn kho vẫn được giữ chỗ trong khi hệ thống xác minh giao dịch với VNPay.
+                      </p>
+                    </div>
+                  ) : order.status !== "CANCELLED" ? (
+                    <>
+                      <VNPayCountdown
+                        expiresAt={order.paymentExpiresAt}
+                        onExpire={() => {
+                          const cleanId = order.id.replace(/^#|^ord-?/i, "");
+                          const numId = /^\d+$/.test(cleanId) ? Number(cleanId) : null;
+                          if (numId) {
+                            void orderApi.getById(numId).then((res) => setOrder(toOrderModel(res))).catch(() => {});
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        disabled={isPayingVNPay}
+                        className="w-full inline-flex items-center justify-center gap-2 p-3 rounded-xl text-xs md:text-sm font-bold text-white bg-[#006ce1] hover:bg-[#0051a8] disabled:opacity-50 transition-colors cursor-pointer shadow-sm"
+                        onClick={handlePayVNPay}
+                      >
+                        {isPayingVNPay ? (
+                          <>
+                            <Loader2 size={16} className="animate-spin" />
+                            Đang kết nối cổng VNPay...
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard size={16} />
+                            Thanh toán ngay qua VNPay
+                          </>
+                        )}
+                      </button>
+                    </>
+                  ) : null}
                 </div>
               )}
             </div>
@@ -676,38 +814,6 @@ export function OrderDetail({
                   Xác nhận hủy đơn
                 </button>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* VietQR View Modal */}
-        {qrModalOpen && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 grid place-items-center p-5" onClick={() => setQrModalOpen(false)}>
-            <div
-              className="bg-white rounded-2xl p-7 md:p-8 max-w-[400px] w-full shadow-2xl text-center"
-              role="dialog"
-              aria-modal="true"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2 className="text-xl font-bold text-ink mb-4">Mã QR chuyển khoản đơn {order.code}</h2>
-              <div className="grid place-items-center p-6 bg-slate-50 border border-slate-200 rounded-2xl mb-4 relative">
-                <QrCode size={140} className="text-ink" />
-                <span className="mt-2 font-specs text-xs font-bold uppercase text-[#006ce1]">VietQR 24/7</span>
-              </div>
-              <div className="bg-slate-50 border border-[#e0e0e0] rounded-xl p-4 mb-6 text-left text-xs md:text-sm">
-                <p className="my-1.5 flex justify-between"><span>Ngân hàng:</span> <b>MB Bank</b></p>
-                <p className="my-1.5 flex justify-between"><span>STK:</span> <b>090123456789</b></p>
-                <p className="my-1.5 flex justify-between"><span>Chủ tài khoản:</span> <b>PC STORE VIET NAM</b></p>
-                <p className="my-1.5 flex justify-between"><span>Số tiền:</span> <b>{formatPrice(order.total)}</b></p>
-                <p className="my-1.5 flex justify-between"><span>Nội dung:</span> <b>{order.code}</b></p>
-              </div>
-              <button
-                type="button"
-                className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm cursor-pointer"
-                onClick={() => setQrModalOpen(false)}
-              >
-                Đã hiểu, đóng cửa sổ
-              </button>
             </div>
           </div>
         )}

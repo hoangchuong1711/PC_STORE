@@ -45,8 +45,10 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [order, setOrder] = useState("");
+  const [createdOrderId, setCreatedOrderId] = useState<number | null>(null);
   const [error, setError] = useState("");
-  const [paymentMethod] = useState<"COD" | "BANK_TRANSFER">("COD");
+  const [paymentMethod, setPaymentMethod] = useState<"COD" | "VNPAY">("COD");
+  const [paymentUrl, setPaymentUrl] = useState<string>("");
   const [copied, setCopied] = useState(false);
 
   // Address selection
@@ -170,7 +172,22 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
 
       const orderCode = `#${res.order.orderId}`;
       setOrder(orderCode);
+      setCreatedOrderId(res.order.orderId);
       await clear();
+
+      if (paymentMethod === "VNPAY") {
+        try {
+          const vnpayRes = await orderApi.createVNPayUrl(res.order.orderId);
+          if (vnpayRes.paymentUrl) {
+            setPaymentUrl(vnpayRes.paymentUrl);
+            window.location.href = vnpayRes.paymentUrl;
+            return;
+          }
+        } catch (vnpayErr) {
+          console.error("Lỗi tạo URL VNPay:", vnpayErr);
+        }
+      }
+
       toast(
         res.replayed
           ? `Đơn hàng ${orderCode} đã được tạo trước đó.`
@@ -242,79 +259,48 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
               <strong className="text-lg text-[#006ce1] font-mono">{order}</strong>
             </div>
 
-            {paymentMethod === "BANK_TRANSFER" ? (
+            {paymentMethod === "VNPAY" ? (
               <div className="bg-slate-50 border border-[#e0e0e0] rounded-2xl p-6 text-left mb-7">
                 <div className="flex items-start gap-3 mb-5 text-ink">
-                  <QrCode size={24} className="text-[#006ce1] shrink-0 mt-0.5" />
+                  <CreditCard size={24} className="text-[#006ce1] shrink-0 mt-0.5" />
                   <div>
-                    <h3 className="m-0 mb-1 text-base md:text-lg font-bold">Thông tin chuyển khoản nhanh qua VietQR</h3>
-                    <p className="m-0 text-xs md:text-sm text-muted">Quét mã bên dưới hoặc chuyển khoản theo thông tin chính xác:</p>
+                    <h3 className="m-0 mb-1 text-base md:text-lg font-bold">Thanh toán trực tuyến VNPay Sandbox</h3>
+                    <p className="m-0 text-xs md:text-sm text-muted">Đơn hàng có thời hạn thanh toán 15 phút tính từ lúc đặt hàng:</p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-[160px_1fr] gap-6 items-center">
-                  <div className="text-center">
-                    <div className="bg-white border border-[#e0e0e0] rounded-xl p-3 inline-flex flex-col items-center shadow-sm">
-                      <QrCode size={110} className="text-ink" />
-                      <span className="block text-[10px] font-extrabold text-red-600 mt-1.5 tracking-wider">VietQR 24/7</span>
-                    </div>
-                    <small className="block text-[11px] text-muted mt-2">Mở App ngân hàng bất kỳ để quét mã</small>
+                <div className="flex flex-col gap-2.5 text-xs md:text-sm bg-white p-4 rounded-xl border border-slate-200 mb-4">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                    <span className="text-muted">Cổng thanh toán:</span>
+                    <strong className="text-ink">VNPay Sandbox (VietQR / ATM / Thẻ quốc tế)</strong>
                   </div>
-
-                  <div className="flex flex-col gap-2.5 text-xs md:text-sm">
-                    <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                      <span className="text-muted">Ngân hàng:</span>
-                      <strong className="text-ink">MB Bank (Quân Đội)</strong>
-                    </div>
-                    <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                      <span className="text-muted">Số tài khoản:</span>
-                      <div className="flex items-center gap-1.5">
-                        <strong className="text-ink">090123456789</strong>
-                        <button
-                          type="button"
-                          onClick={() => handleCopy("090123456789")}
-                          className="bg-slate-200 hover:bg-slate-300 text-slate-700 rounded p-1 cursor-pointer transition-colors border-none"
-                          aria-label="Sao chép số tài khoản"
-                        >
-                          {copied ? <Check size={14} /> : <Copy size={14} />}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                      <span className="text-muted">Chủ tài khoản:</span>
-                      <strong className="text-ink">CONG TY TNHH PC STORE VIET NAM</strong>
-                    </div>
-                    <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                      <span className="text-muted">Số tiền:</span>
-                      <strong className="text-base text-red-600 font-specs font-bold">
-                        {formatPrice(finalTotal)}
-                      </strong>
-                    </div>
-                    <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                      <span className="text-muted">Nội dung chuyển khoản:</span>
-                      <div className="flex items-center gap-1.5">
-                        <strong className="font-mono text-sm text-[#006ce1]">
-                          {order}
-                        </strong>
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(order)}
-                          className="bg-slate-200 hover:bg-slate-300 text-slate-700 rounded p-1 cursor-pointer transition-colors border-none"
-                          aria-label="Sao chép nội dung"
-                        >
-                          <Copy size={14} />
-                        </button>
-                      </div>
-                    </div>
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                    <span className="text-muted">Số tiền thanh toán:</span>
+                    <strong className="text-base text-red-600 font-specs font-bold">
+                      {formatPrice(finalTotal)}
+                    </strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted">Mã đơn hàng:</span>
+                    <strong className="font-mono text-sm text-[#006ce1]">{order}</strong>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg p-2.5 px-3.5 text-xs text-blue-900 mt-4.5">
-                  <ShieldCheck size={18} className="shrink-0 text-[#006ce1]" />
-                  <span>
-                    Hệ thống sẽ tự động xác nhận đơn hàng sau 2-5 phút khi nhận được thanh toán.
-                  </span>
-                </div>
+                {paymentUrl ? (
+                  <a
+                    href={paymentUrl}
+                    className="inline-flex items-center justify-center gap-2 w-full py-3 bg-[#006ce1] hover:bg-[#0051a8] text-white rounded-xl font-bold text-sm transition-colors text-center shadow-sm cursor-pointer"
+                  >
+                    Tiếp tục thanh toán trên VNPay <ArrowRight size={16} />
+                  </a>
+                ) : (
+                  <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg p-2.5 px-3.5 text-xs text-blue-900">
+                    <ShieldCheck size={18} className="shrink-0 text-[#006ce1]" />
+                    <span>
+                      Đơn hàng đã được ghi nhận. Bạn có thể mở chi tiết đơn trong mục Đơn hàng để thanh toán lại trong vòng 15 phút.
+                    </span>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 mb-6 text-left">
@@ -518,14 +504,18 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                       <label
-                        className="flex items-start gap-3 p-4.5 border rounded-xl cursor-pointer transition-all bg-white border-[#006ce1] bg-blue-50/50 shadow-sm ring-1 ring-[#006ce1]"
+                        className={`flex items-start gap-3 p-4.5 border rounded-xl cursor-pointer transition-all ${
+                          paymentMethod === "COD"
+                            ? "bg-blue-50/50 border-[#006ce1] shadow-sm ring-1 ring-[#006ce1]"
+                            : "bg-white border-[#e0e0e0] hover:border-slate-300"
+                        }`}
                       >
                         <input
                           type="radio"
                           name="payment_method"
                           value="COD"
-                          checked={true}
-                          readOnly
+                          checked={paymentMethod === "COD"}
+                          onChange={() => setPaymentMethod("COD")}
                           className="mt-1 text-[#006ce1]"
                         />
                         <div>
@@ -539,27 +529,31 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
                         </div>
                       </label>
 
-                      <div
-                        className="flex items-start gap-3 p-4.5 border rounded-xl bg-slate-50/70 border-dashed border-[#e0e0e0] opacity-60 cursor-not-allowed"
-                        title="Phương thức chuyển khoản VietQR / VNPAY đang được tích hợp ở task riêng"
+                      <label
+                        className={`flex items-start gap-3 p-4.5 border rounded-xl cursor-pointer transition-all ${
+                          paymentMethod === "VNPAY"
+                            ? "bg-blue-50/50 border-[#006ce1] shadow-sm ring-1 ring-[#006ce1]"
+                            : "bg-white border-[#e0e0e0] hover:border-slate-300"
+                        }`}
                       >
                         <input
                           type="radio"
                           name="payment_method"
-                          value="BANK_TRANSFER"
-                          disabled
-                          className="mt-1 text-slate-400 cursor-not-allowed"
+                          value="VNPAY"
+                          checked={paymentMethod === "VNPAY"}
+                          onChange={() => setPaymentMethod("VNPAY")}
+                          className="mt-1 text-[#006ce1]"
                         />
                         <div>
                           <div className="flex items-center gap-2 mb-1.5">
-                            <strong className="text-sm text-slate-500">Chuyển khoản VietQR / VNPAY</strong>
-                            <span className="text-[10px] font-bold bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">Sắp ra mắt</span>
+                            <strong className="text-sm text-ink">Cổng thanh toán VNPay Sandbox</strong>
+                            <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">VietQR / Thẻ ATM</span>
                           </div>
-                          <p className="m-0 text-xs text-slate-500 leading-relaxed">
-                            Cổng thanh toán trực tuyến đang được triển khai riêng trong module thanh toán tiếp theo.
+                          <p className="m-0 text-xs text-slate-600 leading-relaxed">
+                            Quét mã VietQR 24/7 từ mọi ứng dụng ngân hàng hoặc thẻ ATM nội địa. Thời hạn thanh toán 15 phút.
                           </p>
                         </div>
-                      </div>
+                      </label>
                     </div>
                   </div>
 
