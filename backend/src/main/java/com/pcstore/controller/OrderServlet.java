@@ -17,13 +17,19 @@ import java.util.Map;
 public class OrderServlet extends HttpServlet {
     private OrderService orderService;
     private com.pcstore.service.VNPayPaymentService vnPayPaymentService;
+    private com.pcstore.service.VNPayQueryDrService vnPayQueryDrService;
 
     public OrderServlet() {
     }
 
     public OrderServlet(OrderService orderService, com.pcstore.service.VNPayPaymentService vnPayPaymentService) {
+        this(orderService, vnPayPaymentService, null);
+    }
+
+    public OrderServlet(OrderService orderService, com.pcstore.service.VNPayPaymentService vnPayPaymentService, com.pcstore.service.VNPayQueryDrService vnPayQueryDrService) {
         this.orderService = orderService;
         this.vnPayPaymentService = vnPayPaymentService;
+        this.vnPayQueryDrService = vnPayQueryDrService;
     }
 
     @Override
@@ -33,6 +39,9 @@ public class OrderServlet extends HttpServlet {
         }
         if (vnPayPaymentService == null) {
             vnPayPaymentService = new com.pcstore.service.VNPayPaymentService();
+        }
+        if (vnPayQueryDrService == null) {
+            vnPayQueryDrService = new com.pcstore.service.VNPayQueryDrService();
         }
     }
 
@@ -83,6 +92,13 @@ public class OrderServlet extends HttpServlet {
                 String clientIp = clientIp(request);
                 var paymentUrlResponse = vnPayPaymentService.createPaymentUrl(userId, vnpayOrderId, clientIp);
                 JsonUtil.write(response, HttpServletResponse.SC_OK, paymentUrlResponse);
+                return;
+            }
+            Integer syncOrderId = paymentActionId(path, "sync");
+            if (syncOrderId != null) {
+                orderService.findOwnedOrder(userId, syncOrderId);
+                vnPayQueryDrService.reconcileOrder(syncOrderId);
+                JsonUtil.write(response, HttpServletResponse.SC_OK, orderService.findOwnedOrder(userId, syncOrderId));
                 return;
             }
             notFound(response);

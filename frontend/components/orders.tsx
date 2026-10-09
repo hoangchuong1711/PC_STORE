@@ -16,6 +16,7 @@ import {
   Star,
   CheckCircle2,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { Footer, Header } from "./storefront";
 import { useCart } from "./cart-provider";
@@ -104,11 +105,26 @@ function OrderRow({
         </strong>
       </div>
 
-      <div className="flex flex-col gap-1 items-start">
+      <div className="flex flex-col gap-1.5 items-start">
         <StatusBadge status={order.status} />
-        <small className="text-[11px] text-slate-500 font-semibold">
-          {order.paymentMethod === "VNPAY" ? "VNPAY" : "COD"}
-        </small>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <small className="text-[10px] text-slate-500 font-semibold">
+            {order.paymentMethod === "VNPAY" ? "VNPAY" : "COD"}
+          </small>
+          {order.paymentMethod === "VNPAY" && (
+            <span
+              className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                order.paymentStatus === "PAID"
+                  ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                  : order.paymentStatus === "FAILED"
+                    ? "bg-rose-100 text-rose-800 border border-rose-200"
+                    : "bg-amber-100 text-amber-800 border border-amber-200"
+              }`}
+            >
+              {paymentStatusLabels[order.paymentStatus]}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="text-left md:text-right flex flex-col">
@@ -361,6 +377,7 @@ export function OrderDetail({
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("Đổi ý không muốn mua nữa");
   const [isPayingVNPay, setIsPayingVNPay] = useState(false);
+  const [isSyncingVNPay, setIsSyncingVNPay] = useState(false);
   const [reviewProduct, setReviewProduct] = useState<{
     slug: string;
     name: string;
@@ -385,7 +402,19 @@ export function OrderDetail({
         const numId = /^\d+$/.test(cleanId) ? Number(cleanId) : null;
         if (numId !== null && numId > 0) {
           const res = await orderApi.getById(numId);
-          if (isMounted) setOrder(toOrderModel(res));
+          const model = toOrderModel(res);
+          if (isMounted) setOrder(model);
+
+          if (model.paymentMethod === "VNPAY" && model.paymentStatus === "PENDING") {
+            void orderApi
+              .syncPayment(numId)
+              .then((synced) => {
+                if (isMounted && synced.payment?.status === "PAID") {
+                  setOrder(toOrderModel(synced));
+                }
+              })
+              .catch(() => {});
+          }
         } else {
           if (isMounted) setError("Mã đơn hàng không hợp lệ.");
         }
@@ -468,6 +497,33 @@ export function OrderDetail({
       );
     } finally {
       setIsPayingVNPay(false);
+    }
+  };
+
+  const handleSyncVNPay = async () => {
+    if (!order) return;
+    const numId = /^\d+$/.test(order.id) ? Number(order.id) : null;
+    if (!numId) {
+      toast("Mã đơn hàng không hợp lệ.", "error");
+      return;
+    }
+    setIsSyncingVNPay(true);
+    try {
+      const res = await orderApi.syncPayment(numId);
+      const updatedModel = toOrderModel(res);
+      setOrder(updatedModel);
+      if (updatedModel.paymentStatus === "PAID") {
+        toast("Đồng bộ thành công: Đơn hàng đã được xác nhận thanh toán!", "success");
+      } else {
+        toast("Kết quả từ VNPay: Chưa có thông tin giao dịch thành công cho đơn này.", "info");
+      }
+    } catch (err) {
+      toast(
+        err instanceof Error ? err.message : "Không thể kiểm tra với VNPay lúc này.",
+        "error",
+      );
+    } finally {
+      setIsSyncingVNPay(false);
     }
   };
 
@@ -711,7 +767,7 @@ export function OrderDetail({
                       <span>Đã thanh toán thành công qua VNPay</span>
                     </div>
                   ) : order.status === "EXPIRED_PENDING_RECONCILIATION" ? (
-                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 text-xs space-y-1.5">
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 text-xs space-y-2">
                       <div className="flex items-center gap-1.5 font-bold text-rose-800">
                         <AlertCircle size={15} className="shrink-0 text-rose-600" />
                         <span>Hết hạn 15 phút — Đang đối soát</span>
@@ -719,6 +775,15 @@ export function OrderDetail({
                       <p className="m-0 text-[11px] text-rose-800 leading-relaxed">
                         Đơn hàng đã hết thời gian thanh toán trực tuyến. Tồn kho vẫn được giữ chỗ trong khi hệ thống xác minh giao dịch với VNPay.
                       </p>
+                      <button
+                        type="button"
+                        disabled={isSyncingVNPay}
+                        className="w-full inline-flex items-center justify-center gap-1.5 p-2 rounded-lg text-xs font-semibold text-rose-800 bg-rose-100/70 hover:bg-rose-200 border border-rose-300 transition-colors cursor-pointer disabled:opacity-50"
+                        onClick={handleSyncVNPay}
+                      >
+                        <RefreshCw size={13} className={isSyncingVNPay ? "animate-spin" : ""} />
+                        {isSyncingVNPay ? "Đang đối soát với VNPay..." : "Đối soát kết quả thanh toán ngay"}
+                      </button>
                     </div>
                   ) : order.status !== "CANCELLED" ? (
                     <>
@@ -749,6 +814,15 @@ export function OrderDetail({
                             Thanh toán ngay qua VNPay
                           </>
                         )}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSyncingVNPay}
+                        className="w-full inline-flex items-center justify-center gap-1.5 p-2.5 rounded-xl text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer disabled:opacity-50"
+                        onClick={handleSyncVNPay}
+                      >
+                        <RefreshCw size={14} className={isSyncingVNPay ? "animate-spin" : ""} />
+                        {isSyncingVNPay ? "Đang kiểm tra với VNPay..." : "Đã thanh toán? Bấm để kiểm tra / đồng bộ"}
                       </button>
                     </>
                   ) : null}

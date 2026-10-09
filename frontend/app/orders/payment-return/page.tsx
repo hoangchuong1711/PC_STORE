@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
-import { CheckCircle2, XCircle, ArrowRight, ShoppingBag, ShieldCheck } from "lucide-react";
+import { Suspense, useEffect, useState } from "react";
+import { CheckCircle2, XCircle, ArrowRight, ShoppingBag, ShieldCheck, Loader2 } from "lucide-react";
 import { Header, Footer } from "@/components/storefront";
 import { formatPrice } from "@/lib/products";
 
@@ -15,8 +15,39 @@ function PaymentReturnContent() {
   const transactionNo = searchParams.get("vnp_TransactionNo") || "";
   const bankCode = searchParams.get("vnp_BankCode") || "";
 
+  const [syncState, setSyncState] = useState<"idle" | "syncing" | "success" | "error">("idle");
+
   const isSuccess = responseCode === "00";
   const amount = Math.round(Number(amountStr) / 100);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.location.search) return;
+
+    let isMounted = true;
+    setSyncState("syncing");
+
+    // Gửi tham số đã được VNPay ký số trực tiếp vào backend IPN servlet
+    fetch(`/api/payment/vnpay/ipn${window.location.search}`, {
+      method: "GET",
+      cache: "no-store",
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!isMounted) return;
+        if (data && (data.RspCode === "00" || data.RspCode === "02")) {
+          setSyncState("success");
+        } else {
+          setSyncState("error");
+        }
+      })
+      .catch(() => {
+        if (isMounted) setSyncState("error");
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Extract orderId from referenceCode (PCS_{orderId}_{seq}_{timestamp})
   let orderId = "";
@@ -66,12 +97,28 @@ function PaymentReturnContent() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-xs text-emerald-900 mb-6 text-left">
-            <ShieldCheck size={18} className="shrink-0 text-emerald-600" />
-            <span>
-              Hệ thống đã nhận thanh toán và đang chuẩn bị đóng gói hàng theo thông tin địa chỉ của bạn.
-            </span>
-          </div>
+          {syncState === "syncing" && (
+            <div className="flex items-center justify-center gap-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg p-2.5 mb-6">
+              <Loader2 size={16} className="animate-spin text-[#006ce1]" />
+              <span>Đang đồng bộ kết quả thanh toán vào hệ thống máy chủ...</span>
+            </div>
+          )}
+          {syncState === "success" && (
+            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-xs text-emerald-900 mb-6 text-left">
+              <ShieldCheck size={18} className="shrink-0 text-emerald-600" />
+              <span>
+                Hệ thống máy chủ đã xác nhận thanh toán thành công và chuyển đơn hàng sang trạng thái chuẩn bị đóng gói.
+              </span>
+            </div>
+          )}
+          {syncState === "error" && (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 mb-6 text-left">
+              <ShieldCheck size={18} className="shrink-0 text-amber-600" />
+              <span>
+                Giao dịch VNPay thành công. Bạn có thể mở chi tiết đơn hàng để kiểm tra hoặc đồng bộ lại nếu chưa thấy cập nhật.
+              </span>
+            </div>
+          )}
 
           <div className="flex flex-col sm:flex-row justify-center gap-3">
             {orderId && (

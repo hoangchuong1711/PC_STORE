@@ -92,6 +92,10 @@ export function createOrderApi(transport: typeof fetch = fetch) {
       }
       return data as VNPayUrlResponse;
     },
+    async syncPayment(orderId: number): Promise<OrderResponse> {
+      requireId(orderId);
+      return requireOrder(await read(`/api/orders/${orderId}/payment/sync`, "POST"));
+    },
     async checkout(input: CheckoutInput, idempotencyKey: string): Promise<{ order: OrderResponse; replayed: boolean }> {
       if (!/^[A-Za-z0-9._:-]{8,128}$/.test(idempotencyKey)) {
         throw new OrderApiError(400, "INVALID_IDEMPOTENCY_KEY", "Idempotency-Key phải dài 8–128 ký tự hợp lệ.");

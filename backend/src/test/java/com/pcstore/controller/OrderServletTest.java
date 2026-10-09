@@ -30,6 +30,7 @@ class OrderServletTest {
     @Test
     void paymentActionId_parsesCorrectly() {
         assertEquals(12, OrderServlet.paymentActionId("12/payment/vnpay-url", "vnpay-url"));
+        assertEquals(12, OrderServlet.paymentActionId("12/payment/sync", "sync"));
         assertNull(OrderServlet.paymentActionId("12/cancel", "vnpay-url"));
         assertNull(OrderServlet.paymentActionId("12", "vnpay-url"));
         assertNull(OrderServlet.paymentActionId("-1/payment/vnpay-url", "vnpay-url"));
