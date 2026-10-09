@@ -38,6 +38,7 @@ class OpenApiContractTest {
                 "PUT /api/customer/setups/{id}", "DELETE /api/customer/setups/{id}",
                 "POST /api/auth/register", "POST /api/auth/login", "POST /api/auth/logout",
                 "GET /api/auth/me", "GET /api/products", "GET /api/products/{id}",
+                "GET /api/builder/products", "POST /api/builder/compatibility",
                 "GET /api/categories", "GET /api/brands", "POST /api/admin/products",
                 "GET /api/admin/products/{id}", "PATCH /api/admin/products/{id}",
                 "PATCH /api/admin/products/{id}/inventory",
