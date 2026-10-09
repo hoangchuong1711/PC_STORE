@@ -1495,6 +1495,7 @@ components:
         spec:
           allOf: [{$ref: '#/components/schemas/BuilderProductSpec'}]
           nullable: true
+
     BuilderPreviewRequest:
       type: object
       additionalProperties: false
@@ -1512,6 +1513,7 @@ components:
         description: {type: string, minLength: 1}
         mediaIds: {type: array, minItems: 1, maxItems: 8, uniqueItems: true, items: {type: string, format: uuid}}
         productIds: {type: array, minItems: 1, uniqueItems: true, items: {type: integer, minimum: 1}}
+        
     SetupResponse:
       type: object
       properties:
