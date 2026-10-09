@@ -2,7 +2,9 @@ openapi: "3.0.3"
 info:
   title: "PC Store API"
   version: "1.0.0"
-  description: "Danh sách API đã triển khai. Chọn endpoint → Try it out → Execute. Đăng nhập bằng POST /api/auth/login trước khi gọi /me hoặc Admin. Cookie được trình duyệt quản lý; nút Authorize không đặt được cookie HttpOnly. Request POST/PATCH thay đổi dữ liệu thật, nên dùng môi trường test. Backend có thể trả lỗi CORS 403 (ORIGIN_NOT_ALLOWED) nếu origin không được phép."
+  description: "Danh sách API đã triển khai. Chọn endpoint → Try it out → Execute. Đăng nhập bằng POST /api/auth/login trước khi gọi /me hoặc Admin.
+    Cookie được trình duyệt quản lý; nút Authorize không đặt được cookie HttpOnly. Request POST/PATCH thay đổi dữ liệu thật, nên dùng môi trường test. 
+    Backend có thể trả lỗi CORS 403 (ORIGIN_NOT_ALLOWED) nếu origin không được phép."
 servers:
   -
     url: ".."
@@ -20,7 +22,97 @@ tags:
   -
     name: "Media"
     description: "Upload ảnh tạm cho Review và Setup"
+  -
+    name: "Setup"
+    description: "Bài đăng Setup Community (T29)"
 paths:
+  "/api/setups":
+    get:
+      tags: [Setup]
+      operationId: listPublicSetups
+      summary: Danh sách bài PUBLISHED cho khách
+      parameters:
+        - {$ref: '#/components/parameters/SetupOffset'}
+        - {$ref: '#/components/parameters/SetupLimit'}
+      responses:
+        '200': {description: Danh sách bài, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/SetupResponse'}}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  "/api/setups/{id}":
+    get:
+      tags: [Setup]
+      operationId: getPublicSetup
+      summary: Chi tiết bài PUBLISHED; bài ẩn trả 404
+      parameters: [{ $ref: '#/components/parameters/SetupId' }]
+      responses:
+        '200': {description: Bài đăng, content: {application/json: {schema: {$ref: '#/components/schemas/SetupResponse'}}}}
+        '404': {$ref: '#/components/responses/NotFound'}
+  "/api/customer/setups/eligibility":
+    get:
+      tags: [Setup]
+      operationId: getSetupEligibility
+      security: [{sessionCookie: []}]
+      summary: Kiểm tra tài khoản có đơn DELIVERED
+      responses:
+        '200': {description: Điều kiện đăng, content: {application/json: {schema: {$ref: '#/components/schemas/SetupEligibility'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  "/api/customer/setups":
+    get:
+      tags: [Setup]
+      operationId: listOwnSetups
+      security: [{sessionCookie: []}]
+      summary: Bài của tôi, gồm bài HIDDEN
+      parameters:
+        - {$ref: '#/components/parameters/SetupOffset'}
+        - {$ref: '#/components/parameters/SetupLimit'}
+      responses:
+        '200': {description: Danh sách bài, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/SetupResponse'}}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+    post:
+      tags: [Setup]
+      operationId: createSetup
+      security: [{sessionCookie: []}]
+      summary: Tạo bài; cần đơn DELIVERED, 1-8 ảnh T21 và ít nhất một Product ACTIVE
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SetupRequest'}}}}
+      responses:
+        '201': {description: Bài đã tạo, content: {application/json: {schema: {$ref: '#/components/schemas/SetupResponse'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {description: Ảnh hoặc Product không hợp lệ, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  "/api/customer/setups/{id}":
+    parameters: [{ $ref: '#/components/parameters/SetupId' }]
+    get:
+      tags: [Setup]
+      operationId: getOwnSetup
+      security: [{sessionCookie: []}]
+      summary: Xem bài của tôi, gồm bài HIDDEN
+      responses:
+        '200': {description: Bài đăng, content: {application/json: {schema: {$ref: '#/components/schemas/SetupResponse'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    put:
+      tags: [Setup]
+      operationId: updateOwnSetup
+      security: [{sessionCookie: []}]
+      summary: Thay nội dung, danh sách ảnh và Product của bài PUBLISHED thuộc mình
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SetupRequest'}}}}
+      responses:
+        '200': {description: Bài đã sửa, content: {application/json: {schema: {$ref: '#/components/schemas/SetupResponse'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {description: Ảnh hoặc Product không hợp lệ, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+    delete:
+      tags: [Setup]
+      operationId: deleteOwnSetup
+      security: [{sessionCookie: []}]
+      summary: Xóa bài và đưa media vào hàng đợi dọn
+      responses:
+        '204': {description: Đã xóa}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
   "/api/auth/register":
     post:
       tags:
@@ -1346,6 +1438,10 @@ components:
       in: "cookie"
       name: "JSESSIONID"
       description: "Gọi login để trình duyệt nhận cookie; không dán cookie vào Authorize."
+  parameters:
+    SetupId: {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+    SetupOffset: {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
+    SetupLimit: {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
   responses:
     Conflict:
       description: "Xung đột kho, trạng thái, thanh toán hoặc idempotency; xem code/message"
@@ -1384,6 +1480,7 @@ components:
           schema:
             "$ref": "#/components/schemas/ErrorResponse"
   schemas:
+
     BuilderCatalogProduct:
       type: object
       required: [productId, name, brand, componentType, price, availableQuantity, imageUrl, spec]
@@ -1406,6 +1503,38 @@ components:
         items:
           type: array
           items: {$ref: '#/components/schemas/BuildSelection'}
+
+    SetupRequest:
+      type: object
+      required: [title, description, mediaIds, productIds]
+      properties:
+        title: {type: string, minLength: 1, maxLength: 255}
+        description: {type: string, minLength: 1}
+        mediaIds: {type: array, minItems: 1, maxItems: 8, uniqueItems: true, items: {type: string, format: uuid}}
+        productIds: {type: array, minItems: 1, uniqueItems: true, items: {type: integer, minimum: 1}}
+    SetupResponse:
+      type: object
+      properties:
+        postId: {type: integer}
+        authorId: {type: integer}
+        title: {type: string}
+        description: {type: string}
+        status: {type: string, enum: [PUBLISHED, HIDDEN]}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+        mediaIds: {type: array, items: {type: string, format: uuid}}
+        products: {type: array, items: {$ref: '#/components/schemas/SetupProduct'}}
+    SetupProduct:
+      type: object
+      properties:
+        productId: {type: integer}
+        name: {type: string}
+    SetupEligibility:
+      type: object
+      properties:
+        eligible: {type: boolean}
+        reason: {type: string, nullable: true, enum: [SETUP_PURCHASE_REQUIRED]}
+
     BuildRequest:
       type: object
       additionalProperties: false

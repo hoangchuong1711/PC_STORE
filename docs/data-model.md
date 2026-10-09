@@ -598,7 +598,7 @@ UNIQUE(post_id, sort_order); CHECK sort_order >= 0. Không cho xóa ảnh cuối
 | `product` | `product_id` | `INTEGER` | PK, NN; FK → products.product_id; PK ghép |
 
 PK ghép: `(post_id, product_id)`.
-PK ghép(post_id, product_id). Một bài có 0..* sản phẩm; một sản phẩm xuất hiện ở 0..* bài.
+PK ghép(post_id, product_id). T29 yêu cầu bài đang tồn tại có ít nhất một Product thuộc catalog; Service kiểm tra khi tạo/sửa. Một sản phẩm xuất hiện ở 0..* bài. FK không tự đảm bảo số liên kết tối thiểu.
 
 #### SetupLike → `setup_likes`
 
@@ -829,7 +829,7 @@ Mốc bắt đầu là deliveredAt. Cộng tháng lịch bằng quy tắc LocalD
 - User chỉ tạo/sửa review thuộc OrderItem của chính mình và đơn đã DELIVERED. Một dòng mua quantity > 1 vẫn chỉ có một Review. rating từ 1..5; content không trống.
 - Chủ review có thể xóa mềm PUBLISHED → DELETED và khôi phục DELETED → PUBLISHED trên cùng bản ghi. Chủ review không được khôi phục HIDDEN. Admin ẩn/khôi phục bằng HIDDEN ↔ PUBLISHED và cập nhật moderatedBy/moderatedAt/moderationReason; không tự chuyển DELETED của người dùng sang công khai. Bản HIDDEN không được chủ sửa để vượt kiểm duyệt.
 - ReviewMedia gắn với Review; tối đa 6, cả IMAGE và VIDEO cùng tính vào giới hạn. Service khóa Review trước mọi thao tác thêm media; validate MIME thực, kích thước và thời lượng. Giới hạn dung lượng/thời lượng upload là cấu hình ứng dụng, không phải bội số database. Review HIDDEN/DELETED không hiển thị media công khai.
-- SetupPost có ít nhất một SetupImage ngay khi tạo. Các lần sửa/xóa ảnh phải khóa Post và bảo đảm không còn 0 ảnh; ảnh được sắp theo sort_order. Người đăng cần từng có đơn DELIVERED; sản phẩm gắn vào bài không bắt buộc trùng sản phẩm từng mua vì có thể đã sở hữu từ nơi khác.
+- SetupPost có ít nhất một SetupImage và một SetupPostProduct ngay khi tạo. Các lần sửa/xóa ảnh phải khóa Post và bảo đảm không còn 0 ảnh; ảnh được sắp theo sort_order. Người đăng cần từng có đơn DELIVERED; sản phẩm gắn vào bài không bắt buộc trùng sản phẩm từng mua vì có thể đã sở hữu từ nơi khác. Khi tạo/sửa, Product phải ACTIVE và Category/Brand của nó cũng ACTIVE; không yêu cầu còn hàng.
 - SetupPostProduct chỉ lưu liên kết; SetupLike chỉ lưu một like/User/Post. User phải đăng nhập để like; quyền xem bài HIDDEN được kiểm tra ở Service.
 - ReviewLike chỉ lưu một like/User/Review; không tự like review của mình theo T27. Việc đối chiếu user đăng nhập với chủ OrderItem/Build/Setup, đơn DELIVERED, giới hạn media, ảnh bắt buộc, trạng thái và quyền ADMIN là trách nhiệm Service trong transaction. T10 kiểm thử đường FK xác định chủ sở hữu, không thay thế kiểm thử phân quyền API của T24/T26–T30.
 
