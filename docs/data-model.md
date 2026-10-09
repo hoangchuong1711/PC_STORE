@@ -611,6 +611,8 @@ PK ghép(post_id, product_id). T29 yêu cầu bài đang tồn tại có ít nh�
 PK ghép: `(post_id, user_id)`.
 PK ghép(post_id, user_id): một người chỉ like một bài một lần. Unlike xóa bản ghi; likeCount tính COUNT, không lưu thêm cột.
 
+T30 triển khai [API social](T30_SETUP_SOCIAL.md): User ACTIVE chỉ like/unlike bài PUBLISHED, không cần đơn DELIVERED và không cấm tác giả/Admin like. Ranking dùng tổng like giảm dần, rồi created_at/post_id giảm dần, chỉ lấy PUBLISHED. Like và kiểm duyệt khóa cùng Post; ẩn/khôi phục giữ like và yêu cầu lý do, cập nhật metadata kiểm duyệt gần nhất.
+
 ### 4.6. Khuyến mãi
 
 #### Promotion → `promotions`

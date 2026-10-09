@@ -28,12 +28,15 @@ class OpenApiContractTest {
             assertNotNull(op.getOperationId());
             assertTrue(ids.add(op.getOperationId()), "Duplicate operationId");
             assertFalse(op.getResponses().isEmpty());
-            if (path.startsWith("/api/admin/") || path.startsWith("/api/customer/") || path.startsWith("/api/orders") || path.endsWith("/me") || path.endsWith("/logout")) {
+            if (path.startsWith("/api/admin/") || path.startsWith("/api/customer/") || path.startsWith("/api/orders") || path.endsWith("/me") || path.endsWith("/logout")
+                    || (path.startsWith("/api/setup-likes/") && !"GET".equals(method.name()))) {
                 assertNotNull(op.getSecurity(), path);
                 assertTrue(op.getSecurity().stream().anyMatch(s -> s.containsKey("sessionCookie")), path);
             }
         }));
-        assertEquals(Set.of("GET /api/setups", "GET /api/setups/{id}", "GET /api/customer/setups/eligibility",
+        assertEquals(Set.of("GET /api/setups/ranking", "GET /api/setup-likes/{id}", "PUT /api/setup-likes/{id}", "DELETE /api/setup-likes/{id}",
+                "GET /api/admin/setups", "GET /api/admin/setups/{id}", "PUT /api/admin/setups/{id}/status",
+                "GET /api/setups", "GET /api/setups/{id}", "GET /api/customer/setups/eligibility",
                 "GET /api/customer/setups", "POST /api/customer/setups", "GET /api/customer/setups/{id}",
                 "PUT /api/customer/setups/{id}", "DELETE /api/customer/setups/{id}",
                 "POST /api/auth/register", "POST /api/auth/login", "POST /api/auth/logout",

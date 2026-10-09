@@ -24,8 +24,93 @@ tags:
     description: "Upload ảnh tạm cho Review và Setup"
   -
     name: "Setup"
-    description: "Bài đăng Setup Community (T29)"
+    description: "Bài đăng Setup Community (T29), like/ranking/kiểm duyệt (T30)"
 paths:
+  "/api/setups/ranking":
+    get:
+      tags: [Setup]
+      operationId: rankSetups
+      summary: PUBLISHED; tổng like DESC, createdAt DESC, postId DESC
+      parameters:
+        - {$ref: '#/components/parameters/SetupOffset'}
+        - {$ref: '#/components/parameters/SetupLimit'}
+      responses:
+        '200': {description: Ranking, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/SetupRanked'}}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  "/api/setup-likes/{id}":
+    parameters: [{$ref: '#/components/parameters/SetupId'}]
+    get:
+      tags: [Setup]
+      operationId: getSetupLike
+      summary: Số like và trạng thái phiên; Guest liked=false; HIDDEN trả 404
+      responses:
+        '200': {description: Like, content: {application/json: {schema: {$ref: '#/components/schemas/SetupLike'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    put:
+      tags: [Setup]
+      operationId: likeSetup
+      security: [{sessionCookie: []}]
+      summary: Like idempotent; user ACTIVE, kể cả tác giả hoặc Admin
+      responses:
+        '200': {description: Like, content: {application/json: {schema: {$ref: '#/components/schemas/SetupLike'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    delete:
+      tags: [Setup]
+      operationId: unlikeSetup
+      security: [{sessionCookie: []}]
+      summary: Unlike idempotent; user ACTIVE; HIDDEN trả 404
+      responses:
+        '200': {description: Like, content: {application/json: {schema: {$ref: '#/components/schemas/SetupLike'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  "/api/admin/setups":
+    get:
+      tags: [Setup]
+      operationId: listModeratedSetups
+      security: [{sessionCookie: []}]
+      summary: Admin xem mọi bài hoặc lọc theo status; mới nhất trước
+      parameters:
+        - {$ref: '#/components/parameters/SetupOffset'}
+        - {$ref: '#/components/parameters/SetupLimit'}
+        - {name: status, in: query, schema: {type: string, enum: [PUBLISHED, HIDDEN]}}
+      responses:
+        '200': {description: Danh sách, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/SetupModerated'}}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  "/api/admin/setups/{id}":
+    get:
+      tags: [Setup]
+      operationId: getModeratedSetup
+      security: [{sessionCookie: []}]
+      summary: Admin xem bài và metadata kiểm duyệt
+      parameters: [{$ref: '#/components/parameters/SetupId'}]
+      responses:
+        '200': {description: Bài đăng, content: {application/json: {schema: {$ref: '#/components/schemas/SetupModerated'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  "/api/admin/setups/{id}/status":
+    put:
+      tags: [Setup]
+      operationId: moderateSetup
+      security: [{sessionCookie: []}]
+      summary: Ẩn hoặc khôi phục; cần lý do cho cả hai, giữ like và ảnh
+      parameters: [{$ref: '#/components/parameters/SetupId'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SetupModerationRequest'}}}}
+      responses:
+        '200': {description: Bài đã kiểm duyệt, content: {application/json: {schema: {$ref: '#/components/schemas/SetupModerated'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
   "/api/setups":
     get:
       tags: [Setup]
@@ -1440,7 +1525,7 @@ components:
       description: "Gọi login để trình duyệt nhận cookie; không dán cookie vào Authorize."
   parameters:
     SetupId: {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
-    SetupOffset: {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
+    SetupOffset: {name: offset, in: query, schema: {type: integer, minimum: 0, maximum: 1000000, default: 0}}
     SetupLimit: {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
   responses:
     Conflict:
@@ -1480,6 +1565,36 @@ components:
           schema:
             "$ref": "#/components/schemas/ErrorResponse"
   schemas:
+    SetupLike:
+      type: object
+      required: [postId, likeCount, liked]
+      properties:
+        postId: {type: integer}
+        likeCount: {type: integer, format: int64, minimum: 0}
+        liked: {type: boolean}
+    SetupRanked:
+      type: object
+      required: [post, likeCount, liked]
+      properties:
+        post: {$ref: '#/components/schemas/SetupResponse'}
+        likeCount: {type: integer, format: int64, minimum: 0}
+        liked: {type: boolean}
+    SetupModerationRequest:
+      type: object
+      additionalProperties: false
+      required: [status, reason]
+      properties:
+        status: {type: string, enum: [PUBLISHED, HIDDEN]}
+        reason: {type: string, minLength: 1, description: 'Không chỉ gồm khoảng trắng; server strip trước khi lưu.'}
+    SetupModerated:
+      type: object
+      required: [post, likeCount, moderationReason, moderatedBy, moderatedAt]
+      properties:
+        post: {$ref: '#/components/schemas/SetupResponse'}
+        likeCount: {type: integer, format: int64, minimum: 0}
+        moderationReason: {type: string, nullable: true}
+        moderatedBy: {type: integer, nullable: true}
+        moderatedAt: {type: string, format: date-time, nullable: true}
 
     BuilderCatalogProduct:
       type: object
