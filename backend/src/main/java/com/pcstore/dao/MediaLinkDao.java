@@ -70,6 +70,26 @@ public final class MediaLinkDao {
                 .setParameter("parent", postId).setParameter("media", mediaId).executeUpdate();
     }
 
+    public void reorderSetup(int postId, List<UUID> ids) {
+        // Move existing positions out of the target range before assigning the final order.
+        em.createNativeQuery("UPDATE setup_images SET sort_order=sort_order+100 WHERE post_id=:post")
+                .setParameter("post", postId).executeUpdate();
+        for (int i = 0; i < ids.size(); i++)
+            em.createNativeQuery("UPDATE setup_images SET sort_order=:position WHERE post_id=:post AND media_asset_id=:media")
+                    .setParameter("position", i).setParameter("post", postId).setParameter("media", ids.get(i)).executeUpdate();
+    }
+
+    public void detachAllSetupImages(int ownerId, int postId) {
+        if (!lockSetup(ownerId, postId)) throw new com.pcstore.exception.AppException(404, "SETUP_NOT_FOUND", "Không tìm thấy bài đăng.");
+        for (Object value : new java.util.ArrayList<>(em.createNativeQuery(
+                "SELECT media_asset_id FROM setup_images WHERE post_id=:post").setParameter("post", postId).getResultList())) {
+            UUID id = (UUID) value;
+            MediaAsset asset = lockAsset(id);
+            deleteSetup(postId, id);
+            asset.detach();
+        }
+    }
+
     public int deleteReview(int reviewId, UUID mediaId) {
         return em.createNativeQuery("DELETE FROM review_media WHERE review_id=:parent AND media_asset_id=:media")
                 .setParameter("parent", reviewId).setParameter("media", mediaId).executeUpdate();
