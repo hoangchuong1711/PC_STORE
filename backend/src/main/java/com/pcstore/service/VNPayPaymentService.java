@@ -154,8 +154,8 @@ public class VNPayPaymentService {
         vnpParams.put("vnp_ReturnUrl", vnpayConfig.getReturnUrl());
         vnpParams.put("vnp_IpAddr", (clientIp != null && !clientIp.isBlank()) ? clientIp : "127.0.0.1");
 
-        ZonedDateTime createZdt = createdAt.atZone(VN_ZONE);
-        ZonedDateTime expireZdt = expiresAt.atZone(VN_ZONE);
+        ZonedDateTime createZdt = createdAt.atZone(clock.getZone()).withZoneSameInstant(VN_ZONE);
+        ZonedDateTime expireZdt = expiresAt.atZone(clock.getZone()).withZoneSameInstant(VN_ZONE);
         vnpParams.put("vnp_CreateDate", createZdt.format(DATE_TIME_FORMATTER));
         vnpParams.put("vnp_ExpireDate", expireZdt.format(DATE_TIME_FORMATTER));
 

@@ -18,6 +18,7 @@ services:
   backend:
     build: ./backend
     environment:
+      TZ: Asia/Ho_Chi_Minh
       DB_URL: jdbc:postgresql://db:5432/pc_store
       DB_USER: pc_store_app
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Create a local .env file}

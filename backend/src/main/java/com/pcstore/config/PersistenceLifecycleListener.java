@@ -18,6 +18,7 @@ public class PersistenceLifecycleListener implements ServletContextListener {
 
     @Override
     public void contextInitialized(ServletContextEvent event) {
+        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
         try {
             orderExpirationScheduler = new MediaCleanupScheduler(() -> {
                 try {
