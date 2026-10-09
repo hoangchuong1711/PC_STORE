@@ -103,30 +103,53 @@ export function Header() {
                     <small>{user?.email ?? "Chưa đăng nhập"}</small>
                   </div>
                   <div className="user-menu-divider" />
-                  {user?.role === "ADMIN" && <Link href="/admin" className="user-menu-item">Quản trị cửa hàng</Link>}
-                  {user && <button type="button" className="user-menu-item" onClick={() => void handleLogout()}>Đăng xuất</button>}
-                  <Link href="/account" className="user-menu-item">
-                    Hồ sơ tài khoản
-                  </Link>
-                  <Link href="/orders" className="user-menu-item">
-                    Đơn hàng của tôi
-                  </Link>
-                  <Link href="/builder" className="user-menu-item">
-                    Cấu hình PC đã lưu
-                  </Link>
-                  <Link href="/community" className="user-menu-item">
-                    Góc máy của tôi
-                  </Link>
-                  <div className="user-menu-divider" />
-                  <Link href="/auth/login" className="user-menu-item text-muted">
-                    Chuyển tài khoản khác
-                  </Link>
-                  <Link
-                    href="/auth/register"
-                    className="user-menu-item text-muted"
-                  >
-                    Đăng ký tài khoản mới
-                  </Link>
+                  {user ? (
+                    <>
+                      {user.role === "ADMIN" && (
+                        <Link href="/admin" className="user-menu-item">
+                          Quản trị cửa hàng
+                        </Link>
+                      )}
+                      <Link href="/account" className="user-menu-item">
+                        Hồ sơ tài khoản
+                      </Link>
+                      <Link href="/orders" className="user-menu-item">
+                        Đơn hàng của tôi
+                      </Link>
+                      <Link href="/builder" className="user-menu-item">
+                        Cấu hình PC đã lưu
+                      </Link>
+                      <Link href="/community" className="user-menu-item">
+                        Góc máy của tôi
+                      </Link>
+                      <div className="user-menu-divider" />
+                      <Link href="/auth/login" className="user-menu-item text-muted">
+                        Chuyển tài khoản khác
+                      </Link>
+                      <button
+                        type="button"
+                        className="user-menu-item text-muted w-full text-left bg-transparent border-none cursor-pointer"
+                        onClick={() => void handleLogout()}
+                      >
+                        Đăng xuất
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        href="/auth/login"
+                        className="user-menu-item font-semibold text-[#006ce1]"
+                      >
+                        Đăng nhập
+                      </Link>
+                      <Link
+                        href="/auth/register"
+                        className="user-menu-item text-muted"
+                      >
+                        Đăng ký tài khoản mới
+                      </Link>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -166,15 +189,30 @@ export function Header() {
             <Link href="/#categories" onClick={() => setOpen(false)}>
               Danh mục
             </Link>
-            <Link href="/account" onClick={() => setOpen(false)}>
-              Tài khoản của tôi
-            </Link>
-            <Link href="/orders" onClick={() => setOpen(false)}>
-              Đơn hàng của tôi
-            </Link>
-            <Link href="/auth/login" onClick={() => setOpen(false)}>
-              Đăng nhập / Đăng ký
-            </Link>
+            {user ? (
+              <>
+                <Link href="/account" onClick={() => setOpen(false)}>
+                  Tài khoản của tôi
+                </Link>
+                <Link href="/orders" onClick={() => setOpen(false)}>
+                  Đơn hàng của tôi
+                </Link>
+                <button
+                  type="button"
+                  className="text-left bg-transparent border-none p-0 text-inherit font-inherit cursor-pointer"
+                  onClick={() => {
+                    setOpen(false);
+                    void handleLogout();
+                  }}
+                >
+                  Đăng xuất
+                </button>
+              </>
+            ) : (
+              <Link href="/auth/login" onClick={() => setOpen(false)}>
+                Đăng nhập / Đăng ký
+              </Link>
+            )}
           </nav>
         )}
       </header>

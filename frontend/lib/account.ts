@@ -164,6 +164,22 @@ export function getUserProfile(): UserProfile {
   return { ...userProfile };
 }
 
+export function syncUserProfileFromAuth(auth: {
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  role?: string;
+}): UserProfile {
+  userProfile = {
+    ...userProfile,
+    name: auth.fullName,
+    email: auth.email,
+    phone: auth.phone || userProfile.phone,
+    role: auth.role === "ADMIN" ? "Quản trị viên hệ thống" : "Khách hàng PC Store",
+  };
+  return { ...userProfile };
+}
+
 export function updateUserProfile(data: Partial<UserProfile>): UserProfile {
   userProfile = { ...userProfile, ...data };
   return { ...userProfile };
