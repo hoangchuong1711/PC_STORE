@@ -36,6 +36,15 @@ public class ProductDao {
         return results.isEmpty() ? null : results.getFirst();
     }
 
+    public List<Product> findPublicBuilderProducts() {
+        return em.createQuery("select distinct p from Product p join fetch p.category c join fetch p.brand b " +
+                "join Inventory i on i.product = p where p.status = com.pcstore.entity.enums.ProductStatus.ACTIVE " +
+                "and c.status = com.pcstore.entity.enums.ActiveStatus.ACTIVE " +
+                "and b.status = com.pcstore.entity.enums.ActiveStatus.ACTIVE " +
+                "and c.componentType is not null and (i.quantityOnHand - i.reservedQuantity) > 0 " +
+                "order by p.productId", Product.class).getResultList();
+    }
+
     public Map<Integer, Integer> availableQuantities(List<Integer> ids) {
         if (ids.isEmpty()) return Map.of();
         List<Object[]> rows = em.createQuery("select i.product.productId, (i.quantityOnHand - i.reservedQuantity) from Inventory i where i.product.productId in :ids", Object[].class)

@@ -50,6 +50,7 @@ type CartContextValue = {
   remove: (id: string | number) => Promise<void>;
   clear: () => Promise<void>;
   refreshCart: () => Promise<void>;
+  acceptServerCart: (cart: CartResponse) => void;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -111,14 +112,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
+  const acceptServerCart = useCallback((cart: CartResponse) => {
+    setItems(mapServerCart(cart));
+    setTotalAmount(cart.totalAmount);
+    setIsOpen(true);
+    setError(null);
+  }, []);
+
   useEffect(() => {
-    if (user) {
-      void refreshCart();
-    } else {
-      // When logged out, reset cart or clear server bindings
-      setItems([]);
-      setTotalAmount(0);
-    }
+    const frame = requestAnimationFrame(() => {
+      if (user) {
+        void refreshCart();
+      } else {
+        // When logged out, reset cart or clear server bindings
+        setItems([]);
+        setTotalAmount(0);
+      }
+    });
+    return () => cancelAnimationFrame(frame);
   }, [user, refreshCart]);
 
   const add = useCallback(
@@ -297,6 +308,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         remove,
         clear,
         refreshCart,
+        acceptServerCart,
       }}
     >
       {children}

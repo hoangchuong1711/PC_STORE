@@ -2,7 +2,9 @@ package com.pcstore.service;
 
 import com.pcstore.config.PersistenceManager;
 import com.pcstore.dto.BuildDto;
+import com.pcstore.dto.CheckoutRequest;
 import com.pcstore.dto.CompatibilityDto.Selection;
+import com.pcstore.entity.enums.PaymentMethod;
 import com.pcstore.exception.AppException;
 import jakarta.persistence.EntityManagerFactory;
 import org.flywaydb.core.Flyway;
@@ -121,6 +123,68 @@ class BuildServiceIT {
         rejects(400, "INVALID_BUILD", () -> call(s -> s.create(1,
                 new BuildDto.Request("Duplicate", List.of(validParts.getFirst(), validParts.getFirst())))));
         assertEquals(0, scalar("SELECT count(*) FROM pc_builds"));
+    }
+
+    @Test void completeBuilderCartChecksOutToAnOrder() throws Exception {
+        execute("UPDATE inventory SET quantity_on_hand=10, reserved_quantity=0");
+        int buildId = call(s -> s.create(1, new BuildDto.Request("PC mua mới", validParts))).buildId();
+        var cart = call(s -> s.addToCart(1, buildId));
+        var outcome = new OrderService(factory).checkout(1, "builder-checkout-001",
+                new CheckoutRequest("Nguyen Van A", "0901234567", "123 Test Street", PaymentMethod.COD));
+        assertFalse(outcome.replayed());
+        assertEquals(8, outcome.order().items().size());
+        assertEquals(0, cart.totalAmount().compareTo(outcome.order().totalAmount()));
+        for (Selection selection : validParts) {
+            assertTrue(outcome.order().items().stream().anyMatch(item -> item.productId() == selection.productId()));
+        }
+        assertEquals(0, scalar("SELECT count(*) FROM cart_items"));
+    }
+
+    @Test void publicBuilderCatalogUsesRealProductsAndSpecs() throws Exception {
+        execute("UPDATE inventory SET quantity_on_hand=10, reserved_quantity=0");
+        try (var em = factory.createEntityManager()) {
+            var catalog = new BuilderCatalogService(em);
+            var rows = catalog.products();
+            assertEquals(40, rows.size());
+            assertEquals(8, rows.stream().map(row -> row.componentType()).distinct().count());
+            var cpu = rows.stream().filter(row -> row.productId() == validParts.getFirst().productId())
+                    .findFirst().orElseThrow();
+            assertEquals("AM4", cpu.spec().get("socketCode"));
+            assertTrue(cpu.availableQuantity() > 0);
+            assertEquals("PASS", catalog.preview(validParts).status().name());
+            assertEquals("UNKNOWN", catalog.preview(List.of(validParts.getFirst())).status().name());
+        }
+    }
+
+    @Test void previewDoesNotExposeHiddenProducts() throws Exception {
+        execute("UPDATE inventory SET quantity_on_hand=10, reserved_quantity=0");
+        int id = validParts.getFirst().productId();
+        execute("UPDATE products SET status='HIDDEN' WHERE product_id=" + id);
+        try (var em = factory.createEntityManager()) {
+            var catalog = new BuilderCatalogService(em);
+            assertTrue(catalog.products().stream().noneMatch(row -> row.productId() == id));
+            rejects(404, "RESOURCE_NOT_FOUND", () -> catalog.preview(List.of(validParts.getFirst())));
+        } finally {
+            execute("UPDATE products SET status='ACTIVE' WHERE product_id=" + id);
+        }
+    }
+
+    @Test void missingSpecRemainsUnknownInPublicBuilder() throws Exception {
+        int id = validParts.getFirst().productId();
+        execute("UPDATE inventory SET quantity_on_hand=10, reserved_quantity=0");
+        try (var em = factory.createEntityManager()) {
+            em.getTransaction().begin();
+            try {
+                em.createNativeQuery("DELETE FROM cpu_specs WHERE product_id=:id")
+                        .setParameter("id", id).executeUpdate();
+                var catalog = new BuilderCatalogService(em);
+                var cpu = catalog.products().stream().filter(row -> row.productId() == id).findFirst().orElseThrow();
+                assertNull(cpu.spec());
+                assertEquals("UNKNOWN", catalog.preview(validParts).status().name());
+            } finally {
+                em.getTransaction().rollback();
+            }
+        }
     }
 
     private static Selection part(String name) throws Exception {
