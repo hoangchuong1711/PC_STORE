@@ -60,6 +60,25 @@ public final class MediaAttachmentService {
         detachLinked(dao, mediaId, ownerId, "SETUP", postId);
     }
 
+    public void replaceSetupImages(EntityManager em, int ownerId, int postId, List<UUID> ids) {
+        requireTransaction(em);
+        checkCount(ids, 1, 8);
+        var dao = new MediaLinkDao(em);
+        if (!dao.lockSetup(ownerId, postId)) throw targetMissing();
+        List<UUID> previous = em.createNativeQuery("SELECT media_asset_id FROM setup_images WHERE post_id=:post")
+                .setParameter("post", postId).getResultList();
+        for (UUID id : previous) {
+            if (!ids.contains(id)) {
+                var asset = dao.lockAsset(id);
+                dao.deleteSetup(postId, id);
+                asset.detach();
+            }
+        }
+        List<UUID> added = ids.stream().filter(id -> !previous.contains(id)).toList();
+        if (!added.isEmpty()) attachSetupImages(em, ownerId, postId, added);
+        dao.reorderSetup(postId, ids);
+    }
+
     public void detachReviewMedia(EntityManager em, int ownerId, int reviewId, UUID mediaId) {
         requireTransaction(em);
         var dao = new MediaLinkDao(em);
