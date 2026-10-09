@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -16,6 +16,7 @@ import {
   Lock,
   ArrowRight,
   X,
+  Loader2,
 } from "lucide-react";
 import {
   getUserProfile,
@@ -24,12 +25,13 @@ import {
   addSavedAddress,
   deleteSavedAddress,
   setDefaultAddress,
-  getSavedBuilds,
-  deleteSavedBuild,
+  syncUserProfileFromAuth,
   formatAccountDate,
 } from "../lib/account";
 import { getCommunityPosts } from "../lib/community";
 import { formatPrice } from "../lib/products";
+import { useAuth } from "./auth-provider";
+import { builderApi, type SavedBuild as ApiSavedBuild } from "../lib/builder-api";
 import { useCart } from "./cart-provider";
 import { useToast } from "./toast";
 import { Header, Footer } from "./storefront";
@@ -38,28 +40,56 @@ type AccountTab = "profile" | "addresses" | "builds" | "setups";
 
 export function AccountDashboard() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<AccountTab>("profile");
-  const [profile, setProfile] = useState(() => getUserProfile());
   const [addresses, setAddresses] = useState(() => getUserAddresses());
-  const [builds, setBuilds] = useState(() => getSavedBuilds());
+  const [serverBuilds, setServerBuilds] = useState<ApiSavedBuild[]>([]);
+  const [buildsLoading, setBuildsLoading] = useState(false);
   const [isAddAddressOpen, setIsAddAddressOpen] = useState(false);
 
   // Profile Form States
-  const [name, setName] = useState(profile.name);
-  const [phone, setPhone] = useState(profile.phone);
-  const [role, setRole] = useState(profile.role);
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [role, setRole] = useState("");
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
 
-  const { add } = useCart();
+  const { acceptServerCart, openCart } = useCart();
   const { toast } = useToast();
 
   const userSetups = getCommunityPosts("all").slice(0, 2);
 
+  // Redirect to login if guest
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace("/auth/login?redirect=/account");
+    }
+  }, [authLoading, user, router]);
+
+  // Sync profile form states when user is resolved
+  useEffect(() => {
+    if (user) {
+      syncUserProfileFromAuth(user);
+      setName(user.fullName);
+      setPhone(user.phone || "");
+      setRole(user.role === "ADMIN" ? "Quản trị viên hệ thống" : "Khách hàng PC Store");
+    }
+  }, [user]);
+
+  // Fetch real saved builds for authenticated user
+  useEffect(() => {
+    if (!user) return;
+    setBuildsLoading(true);
+    builderApi
+      .list()
+      .then((data) => setServerBuilds(data))
+      .catch(() => setServerBuilds([]))
+      .finally(() => setBuildsLoading(false));
+  }, [user]);
+
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    const updated = updateUserProfile({ name, phone, role });
-    setProfile(updated);
+    updateUserProfile({ name, phone, role });
     toast("Đã lưu thông tin tài khoản thành công!", "success");
   };
 
@@ -86,19 +116,49 @@ export function AccountDashboard() {
     toast("Đã xóa địa chỉ khỏi sổ tay.", "info");
   };
 
-  const handleDeleteBuild = (id: string) => {
-    deleteSavedBuild(id);
-    setBuilds(getSavedBuilds());
-    toast("Đã gỡ bỏ cấu hình đã lưu.", "info");
+  const handleDeleteBuild = async (buildId: number) => {
+    try {
+      await builderApi.remove(buildId);
+      setServerBuilds((prev) => prev.filter((b) => b.buildId !== buildId));
+      toast("Đã gỡ bỏ cấu hình đã lưu.", "info");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Không thể xóa cấu hình.", "error");
+    }
   };
 
-  const handleAddBuildToCart = (components: Array<{ productId: string; name: string }>) => {
-    components.forEach((c) => {
-      add(c.productId, 1);
-    });
-    toast(`Đã thêm ${components.length} linh kiện của cấu hình vào giỏ hàng!`, "success");
-    router.push("/cart");
+  const handleAddBuildToCart = async (buildId: number) => {
+    try {
+      const cart = await builderApi.addToCart(buildId);
+      acceptServerCart(cart);
+      toast("Đã thêm toàn bộ linh kiện của cấu hình vào giỏ hàng!", "success");
+      openCart();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Không thể thêm cấu hình vào giỏ hàng.", "error");
+    }
   };
+
+  // While checking auth or redirecting guest
+  if (authLoading || !user) {
+    return (
+      <>
+        <Header />
+        <main className="container py-20 min-h-[75vh] flex flex-col items-center justify-center text-center">
+          <div className="w-10 h-10 border-4 border-[#006ce1] border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-muted text-sm font-sans font-medium">
+            {authLoading ? "Đang kiểm tra phiên đăng nhập..." : "Đang chuyển hướng đến trang đăng nhập..."}
+          </p>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
+  const initials = (user.fullName || "PC")
+    .trim()
+    .split(/\s+/)
+    .slice(-2)
+    .map((w) => w[0]?.toUpperCase())
+    .join("") || "PC";
 
   return (
     <>
@@ -107,21 +167,16 @@ export function AccountDashboard() {
         {/* User Card Header */}
         <section className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[20px] p-7 md:p-9 text-white flex justify-between items-center gap-6 mb-8 border border-white/10 shadow-xl flex-wrap">
           <div className="flex items-center gap-5">
-            <div className="relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={profile.avatar}
-                alt={profile.name}
-                className="w-[72px] h-[72px] rounded-full object-cover border-[3px] border-sky-400"
-              />
+            <div className="w-[72px] h-[72px] rounded-full bg-gradient-to-tr from-[#006ce1] to-sky-400 text-white font-heading font-extrabold text-2xl flex items-center justify-center border-[3px] border-sky-400 shadow-md">
+              {initials}
             </div>
             <div>
               <h1 className="font-heading text-2xl font-extrabold text-slate-50 mb-1 tracking-tight">
-                {profile.name}
+                {user.fullName}
               </h1>
-              <p className="font-sans text-xs md:text-sm text-slate-400 mb-2">{profile.email}</p>
+              <p className="font-sans text-xs md:text-sm text-slate-400 mb-2">{user.email}</p>
               <div className="inline-flex items-center gap-1.5 bg-[#edf5fe] border border-[#006ce1]/30 text-[#006ce1] font-specs text-[11px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-md">
-                <Crown size={13} /> {profile.tier} (Giảm {profile.tierDiscount}% mọi đơn hàng)
+                <Crown size={13} /> {user.role === "ADMIN" ? "Quản trị viên (ADMIN)" : "Thành viên PC Store"}
               </div>
             </div>
           </div>
@@ -132,7 +187,7 @@ export function AccountDashboard() {
               <span className="text-xs text-slate-400">Địa chỉ</span>
             </div>
             <div className="text-right max-md:text-left">
-              <strong className="block font-specs text-2xl font-bold text-slate-100">{builds.length}</strong>
+              <strong className="block font-specs text-2xl font-bold text-slate-100">{serverBuilds.length}</strong>
               <span className="text-xs text-slate-400">Dàn PC đã lưu</span>
             </div>
             <div className="text-right max-md:text-left">
@@ -181,7 +236,7 @@ export function AccountDashboard() {
             role="tab"
             aria-selected={activeTab === "builds"}
           >
-            <Cpu size={16} /> Dàn PC đã lưu ({builds.length})
+            <Cpu size={16} /> Dàn PC đã lưu ({serverBuilds.length})
           </button>
           <button
             type="button"
@@ -227,7 +282,7 @@ export function AccountDashboard() {
                     <input
                       id="pEmail"
                       type="email"
-                      value={profile.email}
+                      value={user.email}
                       disabled
                       title="Email tài khoản không thể chỉnh sửa"
                       className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none bg-slate-50 text-muted"
@@ -243,7 +298,7 @@ export function AccountDashboard() {
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      required
+                      placeholder="Chưa cập nhật số điện thoại"
                       className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
                     />
                   </div>
@@ -289,20 +344,17 @@ export function AccountDashboard() {
                       value={oldPassword}
                       onChange={(e) => setOldPassword(e.target.value)}
                       placeholder="••••••••"
-                      required
                       className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label htmlFor="pNewPass" className="text-xs font-bold text-ink">Mật khẩu mới (tối thiểu 6 ký tự)</label>
+                    <label htmlFor="pNewPass" className="text-xs font-bold text-ink">Mật khẩu mới</label>
                     <input
                       id="pNewPass"
                       type="password"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="••••••••"
-                      required
-                      minLength={6}
+                      placeholder="Tối thiểu 6 ký tự"
                       className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
                     />
                   </div>
@@ -313,7 +365,7 @@ export function AccountDashboard() {
                     type="submit"
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-ink border border-[#e0e0e0] hover:border-slate-400 bg-white transition-colors cursor-pointer"
                   >
-                    <Lock size={15} /> Đổi mật khẩu
+                    <Lock size={15} /> Cập nhật mật khẩu
                   </button>
                 </div>
               </form>
@@ -326,8 +378,8 @@ export function AccountDashboard() {
           <div className="flex flex-col gap-7">
             <div className="flex justify-between items-center mb-1">
               <div>
-                <h2 className="font-heading text-xl font-bold text-ink m-0 tracking-tight">Sổ địa chỉ giao hàng</h2>
-                <p className="text-xs text-muted mt-1 mb-0">Quản lý các địa chỉ nhận hàng để thanh toán nhanh hơn</p>
+                <h2 className="font-heading text-xl font-bold text-ink m-0 tracking-tight">Sổ địa chỉ nhận hàng</h2>
+                <p className="text-xs text-muted mt-1 mb-0">Lưu sẵn địa chỉ giao hàng để đặt hàng nhanh chóng hơn</p>
               </div>
               <button
                 type="button"
@@ -338,45 +390,45 @@ export function AccountDashboard() {
               </button>
             </div>
 
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {addresses.map((addr) => (
                 <article
                   key={addr.id}
-                  className={`bg-white border rounded-2xl p-6 flex flex-col relative transition-all ${
-                    addr.isDefault ? "border-[#006ce1] ring-1 ring-[#006ce1]" : "border-[#e0e0e0]"
+                  className={`bg-white border rounded-[18px] p-6 flex flex-col justify-between transition-all ${
+                    addr.isDefault
+                      ? "border-[#006ce1] ring-1 ring-[#006ce1] shadow-sm"
+                      : "border-[#e0e0e0] hover:border-slate-300"
                   }`}
                 >
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-[11px] font-bold uppercase bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
-                      {addr.label}
-                    </span>
-                    {addr.isDefault && (
-                      <span className="text-[11px] font-bold bg-blue-50 text-[#006ce1] px-2 py-0.5 rounded-md border border-blue-200 flex items-center gap-1">
-                        <CheckCircle2 size={13} /> Mặc định
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="font-nav text-xs font-bold uppercase tracking-wider px-2.5 py-1 bg-slate-100 rounded-md text-ink">
+                        {addr.label}
                       </span>
-                    )}
+                      {addr.isDefault && (
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-[#006ce1]">
+                          <CheckCircle2 size={14} /> Mặc định
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-base font-bold text-ink m-0 mb-1">{addr.recipientName}</h3>
+                    <p className="text-xs text-muted mb-2">SĐT: {addr.phone}</p>
+                    <p className="text-xs text-ink/80 leading-relaxed m-0">{addr.address}</p>
                   </div>
-                  <h3 className="m-0 mb-1 text-base font-bold text-ink">{addr.recipientName}</h3>
-                  <span className="text-xs text-muted mb-2">{addr.phone}</span>
-                  <p className="text-xs md:text-sm leading-relaxed text-slate-700 mb-4 flex-1">{addr.address}</p>
 
-                  <div className="flex items-center justify-between gap-2 pt-3.5 border-t border-slate-100">
-                    {!addr.isDefault ? (
+                  <div className="flex justify-end gap-3 mt-5 pt-3 border-t border-slate-100">
+                    {!addr.isDefault && (
                       <button
                         type="button"
-                        className="text-xs font-semibold text-muted hover:text-[#006ce1] bg-transparent border-none cursor-pointer"
+                        className="text-xs font-semibold text-[#006ce1] hover:underline bg-transparent border-none cursor-pointer"
                         onClick={() => handleSetDefaultAddress(addr.id)}
                       >
                         Đặt làm mặc định
                       </button>
-                    ) : (
-                      <span className="text-xs text-emerald-700 font-semibold">
-                        Địa chỉ ưu tiên
-                      </span>
                     )}
                     <button
                       type="button"
-                      className="text-xs font-semibold text-red-500 hover:text-red-700 bg-transparent border-none cursor-pointer flex items-center gap-1"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-rose-500 hover:text-rose-700 bg-transparent border-none cursor-pointer"
                       onClick={() => handleDeleteAddress(addr.id)}
                       aria-label="Xóa địa chỉ"
                     >
@@ -405,39 +457,56 @@ export function AccountDashboard() {
               </Link>
             </div>
 
-            {builds.length > 0 ? (
+            {buildsLoading ? (
+              <div className="text-center py-12 px-6 bg-white border border-[#e0e0e0] rounded-2xl">
+                <div className="w-8 h-8 border-4 border-[#006ce1] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-sm text-muted">Đang tải danh sách cấu hình đã lưu...</p>
+              </div>
+            ) : serverBuilds.length > 0 ? (
               <div className="flex flex-col gap-5">
-                {builds.map((build) => (
-                  <article key={build.id} className="bg-white border border-[#e0e0e0] rounded-[18px] p-6 md:p-7 flex flex-col gap-4">
+                {serverBuilds.map((build) => (
+                  <article key={build.buildId} className="bg-white border border-[#e0e0e0] rounded-[18px] p-6 md:p-7 flex flex-col gap-4">
                     <div className="flex justify-between items-start flex-wrap gap-4">
                       <div>
                         <h3 className="text-lg font-bold text-ink m-0 mb-1">{build.name}</h3>
                         <div className="text-xs text-muted flex gap-3 items-center">
-                          <span>Lưu ngày: {formatAccountDate(build.createdAt)}</span>
+                          <span>{build.items.length} linh kiện</span>
                           <span>·</span>
-                          <span>{build.components.length} linh kiện</span>
-                          <span>·</span>
-                          <span className="text-emerald-700 font-bold">
-                            ✓ Tương thích 100%
+                          <span
+                            className={
+                              build.compatibility?.status === "PASS"
+                                ? "text-emerald-700 font-bold"
+                                : build.compatibility?.status === "FAIL"
+                                ? "text-rose-600 font-bold"
+                                : "text-amber-600 font-bold"
+                            }
+                          >
+                            {build.compatibility?.status === "PASS"
+                              ? "✓ Tương thích 100%"
+                              : build.compatibility?.status === "FAIL"
+                              ? "✗ Có lỗi tương thích"
+                              : "? Chưa rõ tương thích"}
                           </span>
                         </div>
                       </div>
 
                       <div className="text-right">
                         <div className="text-xl font-extrabold text-ink">
-                          {formatPrice(build.totalPrice)}
+                          {formatPrice(build.totalAmount)}
                         </div>
-                        <span className="text-xs text-emerald-700 font-semibold">
-                          Ước lượng: {build.estimatedWattage}W
+                        <span className="text-xs text-slate-500 font-medium">
+                          Nguồn: {build.sourceType}
                         </span>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2.5 bg-slate-50 rounded-xl p-3.5 md:p-4 border border-slate-100">
-                      {build.components.map((c, idx) => (
+                      {build.items.map((item, idx) => (
                         <div key={idx} className="text-xs flex flex-col">
-                          <span className="text-[10px] font-bold uppercase text-muted">{c.slotLabel}</span>
-                          <strong className="text-ink truncate" title={c.name}>{c.name}</strong>
+                          <span className="text-[10px] font-bold uppercase text-muted">Linh kiện {idx + 1}</span>
+                          <strong className="text-ink truncate" title={item.productName}>
+                            {item.productName} (x{item.quantity})
+                          </strong>
                         </div>
                       ))}
                     </div>
@@ -445,8 +514,8 @@ export function AccountDashboard() {
                     <div className="flex justify-end gap-3 pt-2">
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-ink border border-[#e0e0e0] hover:border-slate-400 bg-white transition-colors cursor-pointer"
-                        onClick={() => handleDeleteBuild(build.id)}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:text-rose-700 border border-rose-200 hover:border-rose-300 bg-white transition-colors cursor-pointer"
+                        onClick={() => void handleDeleteBuild(build.buildId)}
                       >
                         <Trash2 size={14} /> Xóa
                       </button>
@@ -454,12 +523,12 @@ export function AccountDashboard() {
                         href="/builder"
                         className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-ink border border-[#e0e0e0] hover:border-slate-400 bg-white transition-colors cursor-pointer"
                       >
-                        Nạp vào Builder
+                        Mở trong Builder
                       </Link>
                       <button
                         type="button"
                         className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm cursor-pointer"
-                        onClick={() => handleAddBuildToCart(build.components)}
+                        onClick={() => void handleAddBuildToCart(build.buildId)}
                       >
                         <ShoppingCart size={15} /> Thêm cả dàn vào giỏ
                       </button>
@@ -539,6 +608,8 @@ export function AccountDashboard() {
         {isAddAddressOpen && (
           <AddAddressModal
             isOpen={isAddAddressOpen}
+            defaultRecipientName={user.fullName}
+            defaultPhone={user.phone || ""}
             onClose={() => setIsAddAddressOpen(false)}
             onSuccess={() => setAddresses(getUserAddresses())}
           />
@@ -551,16 +622,20 @@ export function AccountDashboard() {
 
 function AddAddressModal({
   isOpen,
+  defaultRecipientName,
+  defaultPhone,
   onClose,
   onSuccess,
 }: {
   isOpen: boolean;
+  defaultRecipientName: string;
+  defaultPhone: string;
   onClose: () => void;
   onSuccess: () => void;
 }) {
   const [label, setLabel] = useState("Nhà riêng");
-  const [recipientName, setRecipientName] = useState("Nguyễn Minh Anh");
-  const [phone, setPhone] = useState("0901234567");
+  const [recipientName, setRecipientName] = useState(defaultRecipientName || "");
+  const [phone, setPhone] = useState(defaultPhone || "");
   const [address, setAddress] = useState("");
   const [isDefault, setIsDefault] = useState(false);
   const { toast } = useToast();
@@ -679,7 +754,7 @@ function AddAddressModal({
             </button>
             <button
               type="submit"
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm cursor-pointer"
             >
               Lưu địa chỉ
             </button>
