@@ -10,6 +10,8 @@ servers:
     url: ".."
     description: "Backend cùng origin/context với tài liệu"
 tags:
+  - name: Review social
+    description: T27 — CUSTOMER like/unlike; ADMIN ẩn/khôi phục review đã có
   -
     name: "Auth"
     description: "Đăng ký, đăng nhập, session"
@@ -113,6 +115,142 @@ paths:
         '204': {description: Đã xóa}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+  /api/customer/reviews/{reviewId}/like:
+    parameters:
+      - $ref: '#/components/parameters/ReviewId'
+    put:
+      tags: [Review social]
+      operationId: likeReview
+      summary: CUSTOMER like review công khai
+      description: >-
+        Không nhận body. Chủ review suy ra từ OrderItem → Order → User và không được tự like.
+        Gọi lặp vẫn chỉ có một like; không đổi created_at. Review HIDDEN/DELETED hoặc không tồn tại đều trả 404.
+        likesCount là COUNT từ review_likes, isLiked là trạng thái của customer đăng nhập sau thao tác.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Đã like hoặc đã like từ trước
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewLikeResponse'}
+              example: {reviewId: 1, likesCount: 1, isLiked: true}
+        '400':
+          description: INVALID_ID hoặc INVALID_JSON (body phải rỗng)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: FORBIDDEN (sai quyền) hoặc SELF_LIKE_NOT_ALLOWED
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '404':
+          description: REVIEW_NOT_FOUND (không tồn tại hoặc không PUBLISHED)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Review social]
+      operationId: unlikeReview
+      summary: CUSTOMER bỏ like review công khai
+      description: >-
+        Không nhận body. Chỉ xóa like của customer đăng nhập; nếu chưa like vẫn trả 200 với isLiked=false.
+        Chủ review có thể bỏ một self-like cũ nhưng không tạo self-like mới.
+        Review HIDDEN/DELETED hoặc không tồn tại đều trả 404, kể cả khi like còn lưu trong database.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Đã bỏ like hoặc không có like từ trước
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewLikeResponse'}
+              example: {reviewId: 1, likesCount: 0, isLiked: false}
+        '400':
+          description: INVALID_ID hoặc INVALID_JSON (body phải rỗng)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: FORBIDDEN (chỉ CUSTOMER)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '404':
+          description: REVIEW_NOT_FOUND (không tồn tại hoặc không PUBLISHED)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/admin/reviews/{reviewId}/moderation:
+    parameters:
+      - $ref: '#/components/parameters/ReviewId'
+    patch:
+      tags: [Review social]
+      operationId: moderateReview
+      summary: ADMIN ẩn hoặc khôi phục review
+      description: >-
+        Chỉ chuyển PUBLISHED ↔ HIDDEN. HIDDEN cần lý do đã bỏ khoảng trắng đầu/cuối, 1–1000 đơn vị UTF-16.
+        Khôi phục gửi PUBLISHED và không gửi lý do (hoặc null); xóa moderationReason, cập nhật moderatedBy/moderatedAt.
+        Gọi lặp cùng trạng thái trả metadata hiện có, không thay lý do/người/thời gian; request vẫn phải hợp lệ.
+        Không bao giờ đổi DELETED; trả 409 REVIEW_DELETED. Like/media không bị xóa khi ẩn bài.
+        Media công khai bị chặn bởi kiểm tra trạng thái hiện tại của T21.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ModerateReviewRequest'}
+            examples:
+              hide:
+                value: {status: HIDDEN, moderationReason: Nội dung không phù hợp}
+              restore:
+                value: {status: PUBLISHED}
+      responses:
+        '200':
+          description: Trạng thái và metadata kiểm duyệt sau thao tác
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewModerationResponse'}
+              example:
+                reviewId: 1
+                status: HIDDEN
+                moderationReason: Nội dung không phù hợp
+                moderatedBy: 3
+                moderatedAt: '2026-10-08T15:00:00'
+        '400':
+          description: INVALID_ID, INVALID_JSON, INVALID_REVIEW_STATUS hoặc INVALID_MODERATION_REASON
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: FORBIDDEN (chỉ ADMIN)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '404':
+          description: REVIEW_NOT_FOUND (không tồn tại)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '409':
+          description: REVIEW_DELETED (không kiểm duyệt review do chủ xóa)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '500':
+          $ref: '#/components/responses/InternalError'
   "/api/auth/register":
     post:
       tags:
@@ -1439,6 +1577,12 @@ components:
       name: "JSESSIONID"
       description: "Gọi login để trình duyệt nhận cookie; không dán cookie vào Authorize."
   parameters:
+    ReviewId:
+      name: reviewId
+      in: path
+      required: true
+      description: ID product_reviews, số nguyên dương trong phạm vi INTEGER
+      schema: {type: integer, format: int32, minimum: 1, maximum: 2147483647}
     SetupId: {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
     SetupOffset: {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
     SetupLimit: {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
@@ -1590,6 +1734,40 @@ components:
         id: {type: string}
         status: {type: string, enum: [PASS, FAIL, UNKNOWN]}
         reason: {type: string}
+    ReviewLikeResponse:
+      type: object
+      additionalProperties: false
+      required: [reviewId, likesCount, isLiked]
+      properties:
+        reviewId: {type: integer, format: int32, minimum: 1}
+        likesCount: {type: integer, format: int64, minimum: 0, description: COUNT từ review_likes}
+        isLiked: {type: boolean, description: Customer đăng nhập còn like sau thao tác}
+    ModerateReviewRequest:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: {type: string, enum: [HIDDEN, PUBLISHED]}
+        moderationReason:
+          type: string
+          nullable: true
+          description: >-
+            HIDDEN bắt buộc lý do không trống sau strip(), tối đa 1000 đơn vị UTF-16 sau strip().
+            PUBLISHED chỉ được bỏ trường này hoặc gửi null.
+    ReviewModerationResponse:
+      type: object
+      additionalProperties: false
+      required: [reviewId, status, moderationReason, moderatedBy, moderatedAt]
+      properties:
+        reviewId: {type: integer, format: int32, minimum: 1}
+        status: {type: string, enum: [PUBLISHED, HIDDEN]}
+        moderationReason: {type: string, nullable: true}
+        moderatedBy: {type: integer, format: int32, nullable: true}
+        moderatedAt:
+          type: string
+          nullable: true
+          description: LocalDateTime ISO-8601 không có offset, diễn giải Asia/Bangkok (UTC+07), chính xác microsecond
+          example: '2026-10-08T15:00:00.123456'
     AdminCategoryInput:
       type: object
       additionalProperties: false

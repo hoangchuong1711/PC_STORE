@@ -20,6 +20,8 @@
         <class>com.pcstore.entity.OrderItem</class>
         <class>com.pcstore.entity.Payment</class>
         <class>com.pcstore.entity.MediaAsset</class>
+        <class>com.pcstore.entity.ProductReview</class>
+        <class>com.pcstore.entity.ReviewLike</class>
         <exclude-unlisted-classes>true</exclude-unlisted-classes>
     </persistence-unit>
 </persistence>

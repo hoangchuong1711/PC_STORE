@@ -832,6 +832,7 @@ Mốc bắt đầu là deliveredAt. Cộng tháng lịch bằng quy tắc LocalD
 - SetupPost có ít nhất một SetupImage và một SetupPostProduct ngay khi tạo. Các lần sửa/xóa ảnh phải khóa Post và bảo đảm không còn 0 ảnh; ảnh được sắp theo sort_order. Người đăng cần từng có đơn DELIVERED; sản phẩm gắn vào bài không bắt buộc trùng sản phẩm từng mua vì có thể đã sở hữu từ nơi khác. Khi tạo/sửa, Product phải ACTIVE và Category/Brand của nó cũng ACTIVE; không yêu cầu còn hàng.
 - SetupPostProduct chỉ lưu liên kết; SetupLike chỉ lưu một like/User/Post. User phải đăng nhập để like; quyền xem bài HIDDEN được kiểm tra ở Service.
 - ReviewLike chỉ lưu một like/User/Review; không tự like review của mình theo T27. Việc đối chiếu user đăng nhập với chủ OrderItem/Build/Setup, đơn DELIVERED, giới hạn media, ảnh bắt buộc, trạng thái và quyền ADMIN là trách nhiệm Service trong transaction. T10 kiểm thử đường FK xác định chủ sở hữu, không thay thế kiểm thử phân quyền API của T24/T26–T30.
+- T27 đã có [hợp đồng like/unlike và kiểm duyệt](T27_REVIEW_SOCIAL.md): khóa dòng Review trước khi thao tác; like đếm COUNT, unlike xóa dòng. Admin chỉ đổi PUBLISHED ↔ HIDDEN; khôi phục xóa moderationReason và ghi người/thời gian mới, gọi lặp cùng trạng thái giữ metadata. T26 dùng cùng trạng thái/khóa và chỉ tính danh sách công khai/rating từ PUBLISHED.
 
 ### 6.6. Index và chính sách xóa
 
