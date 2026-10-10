@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   ArrowRight,
   MapPin,
+  Loader2,
 } from "lucide-react";
 import { Header, Footer } from "./storefront";
 import { useCart } from "./cart-provider";
@@ -46,6 +47,8 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [order, setOrder] = useState("");
   const [createdOrderId, setCreatedOrderId] = useState<number | null>(null);
+  const [orderTotalAmount, setOrderTotalAmount] = useState<number>(0);
+  const [isGeneratingPaymentUrl, setIsGeneratingPaymentUrl] = useState(false);
   const [error, setError] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"COD" | "VNPAY">("COD");
   const [paymentUrl, setPaymentUrl] = useState<string>("");
@@ -173,18 +176,20 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
       const orderCode = `#${res.order.orderId}`;
       setOrder(orderCode);
       setCreatedOrderId(res.order.orderId);
+      setOrderTotalAmount(res.order.totalAmount);
       await clear();
 
       if (paymentMethod === "VNPAY") {
+        setIsGeneratingPaymentUrl(true);
         try {
           const vnpayRes = await orderApi.createVNPayUrl(res.order.orderId);
           if (vnpayRes.paymentUrl) {
             setPaymentUrl(vnpayRes.paymentUrl);
-            window.location.href = vnpayRes.paymentUrl;
-            return;
           }
         } catch (vnpayErr) {
           console.error("Lỗi tạo URL VNPay:", vnpayErr);
+        } finally {
+          setIsGeneratingPaymentUrl(false);
         }
       }
 
@@ -277,7 +282,7 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
                   <div className="flex justify-between items-center pb-2 border-b border-slate-200">
                     <span className="text-muted">Số tiền thanh toán:</span>
                     <strong className="text-base text-red-600 font-specs font-bold">
-                      {formatPrice(finalTotal)}
+                      {formatPrice(orderTotalAmount || finalTotal)}
                     </strong>
                   </div>
                   <div className="flex justify-between items-center">
@@ -286,7 +291,12 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
                   </div>
                 </div>
 
-                {paymentUrl ? (
+                {isGeneratingPaymentUrl ? (
+                  <div className="inline-flex items-center justify-center gap-2 w-full py-3 bg-blue-50 text-[#006ce1] border border-blue-200 rounded-xl font-bold text-sm">
+                    <Loader2 size={16} className="animate-spin text-[#006ce1]" />
+                    Đang khởi tạo cổng thanh toán VNPay...
+                  </div>
+                ) : paymentUrl ? (
                   <a
                     href={paymentUrl}
                     className="inline-flex items-center justify-center gap-2 w-full py-3 bg-[#006ce1] hover:bg-[#0051a8] text-white rounded-xl font-bold text-sm transition-colors text-center shadow-sm cursor-pointer"
@@ -308,7 +318,7 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
                   Phương thức: <strong>Thanh toán tiền mặt khi nhận hàng (COD)</strong>.
                 </p>
                 <small className="text-emerald-700 text-xs">
-                  Nhân viên giao nhận sẽ liên hệ số điện thoại trước khi giao. Vui lòng chuẩn bị sẵn số tiền {formatPrice(finalTotal)}.
+                  Nhân viên giao nhận sẽ liên hệ số điện thoại trước khi giao. Vui lòng chuẩn bị sẵn số tiền {formatPrice(orderTotalAmount || finalTotal)}.
                 </small>
               </div>
             )}
