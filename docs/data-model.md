@@ -470,6 +470,8 @@ UNIQUE(order_id); DEFAULT status = PENDING; CHECK amount >= 0. CHECK (status = P
 
 source_type là MANUAL hoặc RECOMMENDATION. Build không có tổng tiền lưu cố định; tính lại theo giá hiện tại. Build gắn RecommendationResult là snapshot bất biến; khi người dùng muốn chỉnh sửa, tạo bản sao MANUAL.
 
+T24 hiện chỉ tạo build MANUAL. API lọc theo user_id, cho phép lưu build chưa đủ linh kiện; phản hồi tính lại giá từ products.price và chạy T23 để trả PASS/FAIL/UNKNOWN. Chỉ build PASS được thêm vào giỏ sau khi kiểm tra trạng thái bán, tồn khả dụng và lượng giỏ hiện có; thao tác gộp chạy trong một transaction.
+
 #### PcBuildItem → `pc_build_items`
 
 | Thuộc tính Java | Cột | Kiểu PostgreSQL | Ràng buộc |
@@ -596,7 +598,7 @@ UNIQUE(post_id, sort_order); CHECK sort_order >= 0. Không cho xóa ảnh cuối
 | `product` | `product_id` | `INTEGER` | PK, NN; FK → products.product_id; PK ghép |
 
 PK ghép: `(post_id, product_id)`.
-PK ghép(post_id, product_id). Một bài có 0..* sản phẩm; một sản phẩm xuất hiện ở 0..* bài.
+PK ghép(post_id, product_id). T29 yêu cầu bài đang tồn tại có ít nhất một Product thuộc catalog; Service kiểm tra khi tạo/sửa. Một sản phẩm xuất hiện ở 0..* bài. FK không tự đảm bảo số liên kết tối thiểu.
 
 #### SetupLike → `setup_likes`
 
@@ -827,7 +829,7 @@ Mốc bắt đầu là deliveredAt. Cộng tháng lịch bằng quy tắc LocalD
 - User chỉ tạo/sửa review thuộc OrderItem của chính mình và đơn đã DELIVERED. Một dòng mua quantity > 1 vẫn chỉ có một Review. rating từ 1..5; content không trống.
 - Chủ review có thể xóa mềm PUBLISHED → DELETED và khôi phục DELETED → PUBLISHED trên cùng bản ghi. Chủ review không được khôi phục HIDDEN. Admin ẩn/khôi phục bằng HIDDEN ↔ PUBLISHED và cập nhật moderatedBy/moderatedAt/moderationReason; không tự chuyển DELETED của người dùng sang công khai. Bản HIDDEN không được chủ sửa để vượt kiểm duyệt.
 - ReviewMedia gắn với Review; tối đa 6, cả IMAGE và VIDEO cùng tính vào giới hạn. Service khóa Review trước mọi thao tác thêm media; validate MIME thực, kích thước và thời lượng. Giới hạn dung lượng/thời lượng upload là cấu hình ứng dụng, không phải bội số database. Review HIDDEN/DELETED không hiển thị media công khai.
-- SetupPost có ít nhất một SetupImage ngay khi tạo. Các lần sửa/xóa ảnh phải khóa Post và bảo đảm không còn 0 ảnh; ảnh được sắp theo sort_order. Người đăng cần từng có đơn DELIVERED; sản phẩm gắn vào bài không bắt buộc trùng sản phẩm từng mua vì có thể đã sở hữu từ nơi khác.
+- SetupPost có ít nhất một SetupImage và một SetupPostProduct ngay khi tạo. Các lần sửa/xóa ảnh phải khóa Post và bảo đảm không còn 0 ảnh; ảnh được sắp theo sort_order. Người đăng cần từng có đơn DELIVERED; sản phẩm gắn vào bài không bắt buộc trùng sản phẩm từng mua vì có thể đã sở hữu từ nơi khác. Khi tạo/sửa, Product phải ACTIVE và Category/Brand của nó cũng ACTIVE; không yêu cầu còn hàng.
 - SetupPostProduct chỉ lưu liên kết; SetupLike chỉ lưu một like/User/Post. User phải đăng nhập để like; quyền xem bài HIDDEN được kiểm tra ở Service.
 - ReviewLike chỉ lưu một like/User/Review; không tự like review của mình theo T27. Việc đối chiếu user đăng nhập với chủ OrderItem/Build/Setup, đơn DELIVERED, giới hạn media, ảnh bắt buộc, trạng thái và quyền ADMIN là trách nhiệm Service trong transaction. T10 kiểm thử đường FK xác định chủ sở hữu, không thay thế kiểm thử phân quyền API của T24/T26–T30.
 
@@ -856,6 +858,8 @@ Cascade trên ReviewMedia chỉ mô tả hành vi nếu có thao tác dọn dữ
 
 ### 6.7. Spec và giới hạn kiểm tra tương thích
 
+- Form Admin chọn trường spec theo `Category.componentType` cho tám nhóm Builder. `POST /api/admin/products` và `PATCH /api/admin/products/{id}` có thể nhận object `spec`; nếu gửi thì phải đủ thuộc tính của đúng loại. Service kiểm tra trường bắt buộc, kiểu số, mã Socket/FormFactor, rồi lưu cùng Product/Inventory trong một transaction. `GET /api/admin/products/{id}` trả lại spec đã lưu; `spec: null` nghĩa là sản phẩm chưa có dòng spec. PATCH bỏ qua `spec` giữ nguyên spec cũ; đổi loại danh mục của sản phẩm đã có spec phải gửi bộ spec mới hợp lệ. Không dùng dữ liệu nhập dở để đánh dấu PASS.
+
 - CPU/MOTHERBOARD/RAM/GPU/STORAGE/PSU/CASE/COOLER ánh xạ đúng loại Spec theo Category.componentType. MonitorSpec/GearSpec chỉ dùng cho Category có componentType NULL và đúng nhóm sản phẩm do catalog quản lý; Service không cho một Product có nhiều loại Spec. Catalog ngoài PC không được đưa vào Recommendation.
 - Số lõi, luồng, xung nhịp, dung lượng, tốc độ RAM, moduleCount, công suất định mức, kích thước vật lý và thông số màn hình phải > 0. threads >= cores; boostClockGhz >= baseClockGhz; moduleCount >= 1; ramSlots/maxRamGb > 0. Các đại lượng tiêu thụ điện, tốc độ đọc/ghi và giới hạn radiator có thể = 0 khi mang nghĩa không tiêu thụ/không hỗ trợ; không dùng 0 để giả vờ biết dữ liệu còn thiếu.
 - capacityGb của RamSpec là **tổng dung lượng một kit bán ra**; số khe sử dụng = quantity × moduleCount. Tổng RAM = SUM(quantity × capacityGb). Quantity trong giỏ/đơn/build luôn là số kit/sản phẩm bán ra.
@@ -863,6 +867,7 @@ Cascade trên ReviewMedia chỉ mô tả hành vi nếu có thao tác dọn dữ
 - Các chuỗi chuẩn kỹ thuật như ramType, interfaceType, storageType, coolerType và formFactorCode được chuẩn hóa theo danh mục giá trị ứng dụng; so sánh mã chuẩn, không so sánh tên hiển thị tự do.
 - Kiểm tra tối thiểu: Socket CPU–mainboard; RAM type/khe/tổng dung lượng; FormFactor mainboard thuộc CaseSupportedFormFactor; Socket CPU thuộc CoolerSupportedSocket; chiều dài GPU và chiều cao tản/radiator trong giới hạn case. Một build đầy đủ cần CPU, mainboard, RAM, storage, PSU, case và giải pháp tản nhiệt; với dữ liệu hiện có, yêu cầu GPU rời khi đánh dấu cấu hình hoàn chỉnh vì chưa lưu khả năng đồ họa tích hợp.
 - Công suất PSU phải ít nhất đạt recommendedPsuW của GPU; đây chỉ là kiểm tra tối thiểu. Schema chưa có đủ điện năng toàn hệ thống, đầu cấp nguồn, BIOS/chipset support, khe/cổng lưu trữ hoặc vị trí lắp radiator để chứng minh tương thích đầy đủ. Backend phải trả “chưa kiểm tra được” cho những tiêu chí thiếu dữ liệu; không coi việc qua các so sánh cơ bản là bảo đảm phần cứng hoạt động. Recommendation chỉ ACCEPTED khi đạt bộ tiêu chí nghiệp vụ bắt buộc đã có dữ liệu; không tuyên bố các tiêu chí ngoài phạm vi đã được kiểm chứng.
+- T23 trả trạng thái và lý do theo từng rule; trạng thái chung ưu tiên FAIL, rồi UNKNOWN, rồi PASS. Build thiếu nhóm hoặc sản phẩm được chọn thiếu dòng Spec không thể PASS. Với tản khí, kiểm tra chiều cao theo giới hạn case; tản dùng radiator trả UNKNOWN ở phép kiểm tra lắp case cho tới khi có dữ liệu vị trí lắp phù hợp. Xem [contract T23](T23_COMPATIBILITY.md).
 
 ## 7. Những điểm đã sửa so với class diagram đầu vào
 

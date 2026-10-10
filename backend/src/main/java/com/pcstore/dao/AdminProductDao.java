@@ -10,10 +10,16 @@ import jakarta.persistence.LockModeType;
 
 public class AdminProductDao {
     private final EntityManager em;
+    private final ProductSpecDao specs;
 
     public AdminProductDao(EntityManager em) {
         this.em = em;
+        this.specs = new ProductSpecDao(em);
     }
+
+    public ProductSpecDao specs() { return specs; }
+
+    public void flush() { em.flush(); }
 
     public Product findProductById(int productId) {
         return em.find(Product.class, productId);

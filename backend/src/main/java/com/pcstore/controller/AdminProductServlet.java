@@ -43,6 +43,26 @@ public class AdminProductServlet extends HttpServlet {
     }
 
     @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        try {
+            String path = request.getPathInfo() == null ? "" : request.getPathInfo().trim();
+            Matcher productMatcher = PRODUCT_PATH.matcher(path);
+            if (!productMatcher.matches()) {
+                writeNotFound(response);
+                return;
+            }
+            JsonUtil.write(response, HttpServletResponse.SC_OK,
+                    products.get(parseProductId(productMatcher.group(1))));
+        } catch (AppException exception) {
+            writeAppError(response, exception);
+        } catch (RuntimeException exception) {
+            getServletContext().log("Read admin product failed", exception);
+            writeError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "INTERNAL_ERROR", "Lỗi máy chủ.");
+        }
+    }
+
+    @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
         try {
             if (!isCollectionPath(request.getPathInfo())) {

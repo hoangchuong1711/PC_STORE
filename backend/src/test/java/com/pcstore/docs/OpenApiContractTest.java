@@ -33,12 +33,20 @@ class OpenApiContractTest {
                 assertTrue(op.getSecurity().stream().anyMatch(s -> s.containsKey("sessionCookie")), path);
             }
         }));
-        assertEquals(Set.of("POST /api/auth/register", "POST /api/auth/login", "POST /api/auth/logout",
+        assertEquals(Set.of("GET /api/setups", "GET /api/setups/{id}", "GET /api/customer/setups/eligibility",
+                "GET /api/customer/setups", "POST /api/customer/setups", "GET /api/customer/setups/{id}",
+                "PUT /api/customer/setups/{id}", "DELETE /api/customer/setups/{id}",
+                "POST /api/auth/register", "POST /api/auth/login", "POST /api/auth/logout",
                 "GET /api/auth/me", "GET /api/products", "GET /api/products/{id}",
+                "GET /api/builder/products", "POST /api/builder/compatibility",
                 "GET /api/categories", "GET /api/brands", "POST /api/admin/products",
-                "PATCH /api/admin/products/{id}", "PATCH /api/admin/products/{id}/inventory",
+                "GET /api/admin/products/{id}", "PATCH /api/admin/products/{id}",
+                "PATCH /api/admin/products/{id}/inventory",
                 "GET /api/customer/cart", "POST /api/customer/cart/items",
                 "PATCH /api/customer/cart/items/{id}", "DELETE /api/customer/cart/items/{id}",
+                "GET /api/customer/builds", "POST /api/customer/builds",
+                "GET /api/customer/builds/{id}", "PUT /api/customer/builds/{id}",
+                "DELETE /api/customer/builds/{id}", "POST /api/customer/builds/{id}/cart",
                 "POST /api/orders", "GET /api/orders", "GET /api/orders/{id}", "POST /api/orders/{id}/cancel",
                 "GET /api/admin/orders", "GET /api/admin/orders/{id}", "PUT /api/admin/orders/{id}/status",
                 "POST /api/customer/media/images", "POST /api/customer/media/videos",

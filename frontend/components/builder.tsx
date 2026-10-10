@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useMemo, useEffect } from "react";
 import {
   Cpu,
   Layers,
@@ -17,25 +17,22 @@ import {
   AlertTriangle,
   HelpCircle,
   ShoppingCart,
-  Sparkles,
   ArrowRight,
   X,
   Search,
 } from "lucide-react";
 import { Header, Footer } from "./storefront";
+import { useAuth } from "./auth-provider";
 import { useCart } from "./cart-provider";
 import { useToast } from "./toast";
 import { formatPrice } from "../lib/products";
 import {
   ComponentSlot,
   BuilderProduct,
-  builderCatalog,
   slotLabels,
   PcBuildSelection,
-  calculateEstimatedWattage,
-  validateCompatibility,
-  presetBuilds,
 } from "../lib/builder";
+import { builderApi, type BuilderCatalogProduct, type CompatibilityReport, type SavedBuild } from "../lib/builder-api";
 
 const slotIcons: Record<ComponentSlot, typeof Cpu> = {
   cpu: Cpu,
@@ -48,16 +45,100 @@ const slotIcons: Record<ComponentSlot, typeof Cpu> = {
   cooler: Wind,
 };
 
+const slotByType: Record<string, ComponentSlot> = {
+  CPU: "cpu", MOTHERBOARD: "motherboard", RAM: "ram", GPU: "gpu",
+  STORAGE: "storage", PSU: "psu", CASE: "case", COOLER: "cooler",
+};
+const ruleNames: Record<string, string> = {
+  build_completeness: "Độ đầy đủ của cấu hình",
+  cpu_main_socket: "Socket CPU và mainboard",
+  cpu_cooler_socket: "Socket CPU và tản nhiệt",
+  ram_type: "Chuẩn RAM",
+  ram_slots: "Số khe RAM",
+  ram_capacity: "Dung lượng RAM",
+  main_case_form_factor: "Kích thước mainboard và case",
+  gpu_case_length: "Chiều dài GPU và case",
+  cooler_case_height: "Chiều cao tản nhiệt và case",
+  psu_gpu_wattage: "Công suất PSU và khuyến nghị GPU",
+};
+
+function catalogProduct(item: BuilderCatalogProduct): BuilderProduct | null {
+  const slot = slotByType[item.componentType];
+  if (!slot) return null;
+  const spec = item.spec ?? {};
+  const string = (key: string) => typeof spec[key] === "string" ? spec[key] as string : undefined;
+  const number = (key: string) => typeof spec[key] === "number" ? spec[key] as number : undefined;
+  return {
+    id: String(item.productId), slot, name: item.name, brand: item.brand,
+    price: item.price, stock: item.availableQuantity, accent: "#006ce1",
+    image: item.imageUrl ?? undefined,
+    specs: {
+      socket: string("socketCode"), formFactor: string("formFactorCode"),
+      ramType: string("ramType"), capacityGb: number("capacityGb"),
+      tdpWatts: number("tdpWatts") ?? number("powerConsumptionW"),
+      wattage: number("wattage"), efficiency: string("efficiencyRating"),
+      maxGpuLengthMm: number("maxGpuLengthMm"),
+    },
+  };
+}
+
 export function PCBuilderPage() {
+  const router = useRouter();
+  const { user } = useAuth();
   const [selection, setSelection] = useState<PcBuildSelection>({});
+  const [catalog, setCatalog] = useState<BuilderProduct[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState("");
+  const [catalogRevision, setCatalogRevision] = useState(0);
+  const [report, setReport] = useState<CompatibilityReport | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [previewError, setPreviewError] = useState("");
+  const [savedBuilds, setSavedBuilds] = useState<SavedBuild[]>([]);
+  const [activeBuildId, setActiveBuildId] = useState<number | null>(null);
+  const [buildName, setBuildName] = useState("Cấu hình của tôi");
+  const [submitting, setSubmitting] = useState(false);
   const [activeSlotModal, setActiveSlotModal] = useState<ComponentSlot | null>(null);
   const [modalSearch, setModalSearch] = useState("");
   const [modalBrand, setModalBrand] = useState("Tất cả");
   const [showRulesModal, setShowRulesModal] = useState(false);
-  const [needAssembly, setNeedAssembly] = useState(true);
-
-  const { add } = useCart();
+  const { acceptServerCart } = useCart();
   const { toast } = useToast();
+
+  useEffect(() => {
+    let cancelled = false;
+    builderApi.products().then((rows) => {
+      if (!cancelled) { setCatalog(rows.map(catalogProduct).filter((item): item is BuilderProduct => item !== null)); setCatalogError(""); }
+    }).catch((error) => { if (!cancelled) setCatalogError(error instanceof Error ? error.message : "Không thể tải linh kiện."); })
+      .finally(() => { if (!cancelled) setCatalogLoading(false); });
+    return () => { cancelled = true; };
+  }, [catalogRevision]);
+
+  function retryCatalog() {
+    setCatalogLoading(true);
+    setCatalogError("");
+    setCatalogRevision((value) => value + 1);
+  }
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    builderApi.list().then((rows) => { if (!cancelled) setSavedBuilds(rows.filter((row) => row.sourceType === "MANUAL")); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user]);
+
+  const selectedItems = useMemo(() => Object.values(selection).filter((item): item is BuilderProduct => !!item)
+    .map((item) => ({ productId: Number(item.id), quantity: 1 })), [selection]);
+
+  useEffect(() => {
+    let cancelled = false;
+    builderApi.compatibility(selectedItems).then((result) => {
+      if (!cancelled) { setReport(result); setPreviewError(""); }
+    }).catch((error) => {
+      if (!cancelled) { setReport(null); setPreviewError(error instanceof Error ? error.message : "Không thể kiểm tra cấu hình."); }
+    }).finally(() => { if (!cancelled) setChecking(false); });
+    return () => { cancelled = true; };
+  }, [selectedItems]);
 
   const slots: ComponentSlot[] = [
     "cpu",
@@ -80,24 +161,22 @@ export function PCBuilderPage() {
     }, 0);
   }, [selection]);
 
-  const estimatedWattage = useMemo(() => {
-    return calculateEstimatedWattage(selection);
-  }, [selection]);
+  const compatibilityRules = report?.rules.map((rule) => ({
+    id: rule.id, name: ruleNames[rule.id] ?? rule.id,
+    status: rule.status, message: rule.reason,
+  })) ?? [];
+  const hasFail = report?.status === "FAIL";
+  const allPass = report?.status === "PASS";
 
-  const compatibilityRules = useMemo(() => {
-    return validateCompatibility(selection);
-  }, [selection]);
-
-  const hasFail = compatibilityRules.some((r) => r.status === "FAIL");
-  const allPass =
-    selectedCount >= 4 &&
-    compatibilityRules.every((r) => r.status === "PASS");
+  function changeSelection(next: PcBuildSelection) {
+    setSelection(next);
+    setReport(null);
+    setChecking(true);
+    setPreviewError("");
+  }
 
   const handleSelectComponent = (item: BuilderProduct) => {
-    setSelection((prev) => ({
-      ...prev,
-      [item.slot]: item,
-    }));
+    changeSelection({ ...selection, [item.slot]: item });
     setActiveSlotModal(null);
     setModalSearch("");
     setModalBrand("Tất cả");
@@ -105,53 +184,97 @@ export function PCBuilderPage() {
   };
 
   const handleRemoveSlot = (slot: ComponentSlot) => {
-    setSelection((prev) => {
-      const copy = { ...prev };
-      delete copy[slot];
-      return copy;
-    });
+    const next = { ...selection };
+    delete next[slot];
+    changeSelection(next);
     toast(`Đã gỡ linh kiện khỏi vị trí ${slotLabels[slot].label}`, "info");
   };
 
-  const handleLoadPreset = (presetIndex: number) => {
-    const preset = presetBuilds[presetIndex];
-    if (preset) {
-      setSelection(preset.selection);
-      toast(`Đã tải cấu hình mẫu: "${preset.name}"!`, "success");
-    }
-  };
-
   const handleClearBuild = () => {
-    setSelection({});
+    changeSelection({});
+    setActiveBuildId(null);
+    setBuildName("Cấu hình của tôi");
     toast("Đã làm mới cấu hình máy!", "info");
   };
 
-  const handleAddToCart = () => {
-    const items = Object.values(selection).filter(Boolean) as BuilderProduct[];
-    if (items.length === 0) {
-      toast("Vui lòng chọn ít nhất 1 linh kiện trước khi thêm vào giỏ!", "error");
+  function loadSavedBuild(buildId: number) {
+    const build = savedBuilds.find((row) => row.buildId === buildId);
+    if (!build) return;
+    const next: PcBuildSelection = {};
+    for (const item of build.items) {
+      const product = catalog.find((row) => row.id === String(item.productId));
+      if (!product || item.quantity !== 1 || next[product.slot]) {
+        toast("Build này có linh kiện đã ngừng bán hoặc số lượng chưa được giao diện hỗ trợ. Không tải để tránh sửa sai.", "error");
+        return;
+      }
+      next[product.slot] = product;
+    }
+    changeSelection(next);
+    setActiveBuildId(build.buildId);
+    setBuildName(build.name);
+  }
+
+  async function saveBuild() {
+    if (!user) { toast("Đăng nhập để lưu cấu hình.", "error"); router.push("/auth/login"); return null; }
+    if (!buildName.trim()) { toast("Vui lòng nhập tên cấu hình.", "error"); return null; }
+    const input = { name: buildName.trim(), items: selectedItems };
+    const saved = activeBuildId ? await builderApi.update(activeBuildId, input) : await builderApi.create(input);
+    setActiveBuildId(saved.buildId);
+    setSavedBuilds((rows) => [saved, ...rows.filter((row) => row.buildId !== saved.buildId)]);
+    return saved;
+  }
+
+  async function handleSave() {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      if (await saveBuild()) toast("Đã lưu cấu hình.", "success");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Không thể lưu cấu hình.", "error");
+    } finally { setSubmitting(false); }
+  }
+
+  async function handleDelete() {
+    if (!activeBuildId || submitting) return;
+    setSubmitting(true);
+    try {
+      await builderApi.remove(activeBuildId);
+      setSavedBuilds((rows) => rows.filter((row) => row.buildId !== activeBuildId));
+      setActiveBuildId(null);
+      toast("Đã xóa cấu hình đã lưu.", "success");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Không thể xóa cấu hình.", "error");
+    } finally { setSubmitting(false); }
+  }
+
+  const handleAddToCart = async (buyNow = false) => {
+    if (submitting) return;
+    if (!user) { toast("Đăng nhập để thêm cấu hình vào giỏ.", "error"); router.push("/auth/login"); return; }
+    if (checking || !report || previewError) {
+      toast("Đang kiểm tra cấu hình. Vui lòng chờ kết quả.", "error");
       return;
     }
-
-    if (hasFail) {
-      toast("Cấu hình có xung đột phần cứng. Hãy điều chỉnh trước khi mua!", "error");
+    if (report.status !== "PASS") {
+      toast("Cấu hình còn thiếu linh kiện, thiếu spec hoặc có xung đột. Xem chi tiết quy tắc.", "error");
       return;
     }
-
-    items.forEach((item) => {
-      add(item.id, 1);
-    });
-
-    toast(
-      `Đã thêm toàn bộ ${items.length} linh kiện dàn PC vào giỏ hàng!`,
-      "success",
-    );
+    setSubmitting(true);
+    try {
+      const saved = await saveBuild();
+      if (!saved) return;
+      const cart = await builderApi.addToCart(saved.buildId);
+      acceptServerCart(cart);
+      toast(`Đã thêm ${selectedItems.length} linh kiện vào giỏ hàng.`, "success");
+      if (buyNow) router.push("/checkout");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Không thể thêm build vào giỏ hàng.", "error");
+    } finally { setSubmitting(false); }
   };
 
   // Filter products for active slot modal
   const modalProducts = useMemo(() => {
     if (!activeSlotModal) return [];
-    return builderCatalog
+    return catalog
       .filter((item) => item.slot === activeSlotModal)
       .filter((item) => {
         const matchSearch =
@@ -162,24 +285,24 @@ export function PCBuilderPage() {
           modalBrand === "Tất cả" || item.brand === modalBrand;
         return matchSearch && matchBrand;
       });
-  }, [activeSlotModal, modalSearch, modalBrand]);
+  }, [catalog, activeSlotModal, modalSearch, modalBrand]);
 
   const availableBrandsInSlot = useMemo(() => {
     if (!activeSlotModal) return [];
     const brandsSet = new Set(
-      builderCatalog
+      catalog
         .filter((item) => item.slot === activeSlotModal)
         .map((i) => i.brand),
     );
     return ["Tất cả", ...Array.from(brandsSet)];
-  }, [activeSlotModal]);
+  }, [catalog, activeSlotModal]);
 
   return (
     <>
       <Header />
       <main className="container py-11 pb-24 min-h-[80vh]">
         {/* Header Hero */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8 items-center mb-8">
+        <div className="mb-8">
           <div>
             <span className="text-xs font-bold uppercase tracking-wider text-[#006ce1] block mb-1">
               PC Store · Intelligent Compatibility Engine
@@ -190,31 +313,16 @@ export function PCBuilderPage() {
               <em className="text-[#006ce1] not-italic">chuẩn từng chân cắm.</em>
             </h1>
             <p className="text-muted text-sm md:text-base max-w-xl leading-relaxed m-0">
-              Chọn từng món linh kiện, tự động tính nguồn (Watt) và kiểm tra tương thích socket CPU, bo mạch chủ, RAM và thùng máy trong thời gian thực.
+              Chọn linh kiện thật từ catalog. Mỗi thay đổi được backend kiểm tra theo các quy tắc tương thích cơ bản.
             </p>
           </div>
-
-          <div className="bg-white border border-[#e0e0e0] rounded-2xl p-6 shadow-sm">
-            <span className="flex items-center gap-2 text-xs font-bold text-ink mb-3.5">
-              <Sparkles size={16} className="text-[#006ce1]" /> Hoặc chọn cấu hình chuẩn hóa sẵn:
-            </span>
-            <div className="flex flex-col gap-2.5">
-              {presetBuilds.map((preset, idx) => (
-                <button
-                  key={preset.name}
-                  type="button"
-                  className="flex items-center justify-between p-3 px-4 bg-slate-50 hover:bg-white border border-slate-200 hover:border-[#006ce1] hover:shadow-sm rounded-xl cursor-pointer transition-all text-left"
-                  onClick={() => handleLoadPreset(idx)}
-                >
-                  <span className="font-nav text-xs md:text-sm font-bold text-ink">{preset.name}</span>
-                  <span className="font-specs text-[11px] font-bold tracking-wider uppercase bg-[#edf5fe] text-[#006ce1] px-2 py-0.5 rounded-md">
-                    {preset.tag}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
+
+        {catalogLoading && <p role="status" className="mb-5 text-sm text-muted">Đang tải linh kiện từ catalog...</p>}
+        {catalogError && <div role="alert" className="mb-5 text-sm text-red-700 flex items-center gap-3">
+          <span>{catalogError}</span>
+          <button type="button" onClick={retryCatalog} className="underline font-semibold cursor-pointer">Tải lại linh kiện</button>
+        </div>}
 
         {/* Compatibility Alert Banner */}
         <div
@@ -236,18 +344,24 @@ export function PCBuilderPage() {
             )}
             <div>
               <strong className="block text-sm md:text-base font-bold mb-0.5">
-                {hasFail
+                {previewError
+                  ? "Chưa kiểm tra được cấu hình"
+                  : checking || !report
+                    ? "Đang kiểm tra tương thích..."
+                    : hasFail
                   ? "Phát hiện xung đột linh kiện!"
                   : allPass
-                    ? "Cấu hình tương thích hoàn hảo (100% Pass)"
+                    ? "Các quy tắc cơ bản đều PASS"
                     : `Đã chọn ${selectedCount} / 8 nhóm linh kiện`}
               </strong>
               <p className="m-0 text-xs md:text-sm opacity-90 leading-relaxed">
-                {hasFail
-                  ? "Có ít nhất 1 quy tắc không khớp (Socket, Chuẩn RAM, hoặc Nguồn). Vui lòng kiểm tra lại."
+                {previewError
+                  ? previewError
+                  : hasFail
+                  ? "Có ít nhất một quy tắc không khớp. Xem chi tiết để điều chỉnh."
                   : allPass
-                    ? "Tất cả socket CPU, kích cỡ case và công suất nguồn đều khớp nhau hoàn hảo."
-                    : "Tiếp tục chọn thêm linh kiện để hoàn thiện cỗ máy của bạn."}
+                    ? "Kết quả chỉ bao gồm các quy tắc cơ bản được mô tả trong báo cáo."
+                    : "Thiếu linh kiện hoặc thông số sẽ trả UNKNOWN; chưa thể mua build."}
               </p>
             </div>
           </div>
@@ -257,7 +371,7 @@ export function PCBuilderPage() {
             className="bg-white border border-current text-current text-xs font-bold py-2 px-3.5 rounded-xl cursor-pointer whitespace-nowrap hover:opacity-80 transition-opacity"
             onClick={() => setShowRulesModal(true)}
           >
-            Chi tiết 5 quy tắc ({compatibilityRules.filter((r) => r.status === "PASS").length}/5)
+            Chi tiết {compatibilityRules.length} quy tắc ({compatibilityRules.filter((r) => r.status === "PASS").length} PASS)
           </button>
         </div>
 
@@ -384,51 +498,20 @@ export function PCBuilderPage() {
                 </span>
               </div>
 
-              {/* Power Estimates Box */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4.5">
-                <div className="flex justify-between items-center text-xs mb-2">
-                  <span className="flex items-center gap-1 font-semibold text-ink">
-                    <Zap size={15} className="text-amber-500" /> Công suất ước tính:
-                  </span>
-                  <strong className="font-specs text-base font-bold text-amber-600">
-                    ~{estimatedWattage} Watt
-                  </strong>
-                </div>
-                <div className="h-2 bg-slate-200 rounded-full overflow-hidden mb-2">
-                  <div
-                    className="h-full bg-gradient-to-r from-emerald-500 via-amber-500 to-red-500 rounded-full transition-all duration-300"
-                    style={{
-                      width: `${Math.min(100, (estimatedWattage / 850) * 100)}%`,
-                    }}
-                  />
-                </div>
-                <small className="block text-[11px] text-slate-500 leading-relaxed">
-                  {selection.psu
-                    ? `Nguồn đã chọn: ${selection.psu.specs.wattage}W (${
-                        (selection.psu.specs.wattage ?? 0) >= estimatedWattage + 150
-                          ? "Đủ tải an toàn"
-                          : "Cảnh báo thiếu công suất"
-                      })`
-                    : "Khuyến nghị nguồn PSU: 650W — 850W"}
-                </small>
-              </div>
-
-              {/* Free Assembly Option */}
-              <label className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl p-3.5 mb-5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={needAssembly}
-                  onChange={(e) => setNeedAssembly(e.target.checked)}
-                  className="mt-0.5 text-[#006ce1]"
-                />
-                <div>
-                  <strong className="block text-xs md:text-sm text-blue-900 mb-0.5">
-                    Yêu cầu lắp ráp & cài Win miễn phí
-                  </strong>
-                  <p className="m-0 text-[11px] text-blue-700 leading-relaxed">
-                    Kỹ thuật viên PC Store sẽ ráp máy và stress test 24h trước khi gửi.
-                  </p>
-                </div>
+              {user && savedBuilds.length > 0 && (
+                <label className="block text-xs font-semibold text-ink mb-4">
+                  Cấu hình đã lưu
+                  <select className="block w-full mt-2 p-2 border border-slate-300 rounded-lg" value={activeBuildId ?? ""}
+                    onChange={(event) => loadSavedBuild(Number(event.target.value))}>
+                    <option value="">Chọn cấu hình</option>
+                    {savedBuilds.map((build) => <option key={build.buildId} value={build.buildId}>{build.name}</option>)}
+                  </select>
+                </label>
+              )}
+              <label className="block text-xs font-semibold text-ink mb-4">
+                Tên cấu hình
+                <input className="block w-full mt-2 p-2 border border-slate-300 rounded-lg" value={buildName}
+                  maxLength={255} onChange={(event) => setBuildName(event.target.value)} />
               </label>
 
               {/* Cost Calculation */}
@@ -441,11 +524,11 @@ export function PCBuilderPage() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-muted">Công lắp ráp & cài đặt:</span>
-                  <span className="text-emerald-600 font-bold">0₫ (Miễn phí)</span>
+                  <span className="text-muted">Chưa tính</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-muted">Vận chuyển toàn quốc:</span>
-                  <span className="text-emerald-600 font-bold">Miễn phí</span>
+                  <span className="text-muted">Tính khi checkout</span>
                 </div>
               </div>
 
@@ -454,11 +537,13 @@ export function PCBuilderPage() {
                 <button
                   type="button"
                   className="w-full p-3.5 font-gaming text-xs md:text-sm font-bold tracking-wider uppercase bg-[#006ce1] hover:bg-[#0051a8] text-white rounded-xl flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer disabled:opacity-50"
-                  onClick={handleAddToCart}
-                  disabled={selectedCount === 0}
+                  onClick={() => void handleAddToCart()}
+                  disabled={selectedCount === 0 || !allPass || checking || submitting}
                 >
-                  <ShoppingCart size={18} /> Thêm cả bộ vào giỏ hàng
+                  <ShoppingCart size={18} /> {submitting ? "Đang xử lý..." : "Thêm cả bộ vào giỏ hàng"}
                 </button>
+                <button type="button" className="w-full p-2.5 text-xs font-semibold border border-[#e0e0e0] rounded-xl bg-white cursor-pointer disabled:opacity-50"
+                  onClick={() => void handleSave()} disabled={submitting}>Lưu cấu hình</button>
                 <div className="grid grid-cols-2 gap-2.5">
                   <button
                     type="button"
@@ -468,14 +553,11 @@ export function PCBuilderPage() {
                   >
                     Làm mới dàn PC
                   </button>
-                  <Link
-                    href="/checkout"
-                    className="p-2.5 text-xs font-semibold text-center border border-[#e0e0e0] hover:border-slate-400 bg-white rounded-xl inline-flex items-center justify-center gap-1"
-                    onClick={handleAddToCart}
-                  >
-                    Mua ngay <ArrowRight size={14} />
-                  </Link>
+                  <button type="button" className="p-2.5 text-xs font-semibold text-center border border-[#e0e0e0] hover:border-slate-400 bg-white rounded-xl cursor-pointer disabled:opacity-50"
+                    onClick={() => void handleAddToCart(true)} disabled={!allPass || checking || submitting}>Mua ngay <ArrowRight size={14} className="inline" /></button>
                 </div>
+                {activeBuildId && <button type="button" className="w-full text-xs text-red-700 underline cursor-pointer"
+                  onClick={() => void handleDelete()} disabled={submitting}>Xóa cấu hình đã lưu</button>}
               </div>
             </div>
           </aside>
@@ -596,7 +678,7 @@ export function PCBuilderPage() {
                   ))
                 ) : (
                   <div className="text-center py-10 text-muted text-sm">
-                    <p>Không tìm thấy linh kiện nào khớp với từ khóa đã lọc.</p>
+                    <p>{catalogLoading ? "Đang tải linh kiện..." : catalogError || "Không tìm thấy linh kiện đang bán phù hợp."}</p>
                   </div>
                 )}
               </div>
@@ -625,7 +707,7 @@ export function PCBuilderPage() {
               </div>
 
               <p className="text-xs md:text-sm text-muted m-0 mb-5 leading-relaxed">
-                Hệ thống tự động đối chiếu thông số kỹ thuật (Socket, RAM Type, TDP, Kích thước case) dựa trên dữ liệu chuẩn từ nhà sản xuất.
+                Backend đối chiếu các thông số cơ bản đang có trong catalog. UNKNOWN nghĩa là thiếu món hoặc thiếu dữ liệu cần kiểm tra.
               </p>
 
               <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto mb-6">

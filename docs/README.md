@@ -11,6 +11,11 @@
 | Cách chạy kiểm thử | [Hướng dẫn kiểm thử](testing.md) | Lệnh kiểm thử và môi trường cần chuẩn bị. |
 | API đã khai báo | [OpenAPI](../backend/src/main/webapp/api-docs/openapi.yaml) | Đặc tả HTTP; đối chiếu Servlet/DTO khi sửa endpoint. |
 | Upload và truy cập media | [T21 media](../backend/T21_MEDIA.md) | Giới hạn, quyền và vòng đời file của dịch vụ media. |
+| API bài đăng Setup | [T29 Setup](T29_SETUP.md) | Endpoint, DTO, lỗi và quyền cho FE/QA; ranh giới với T30. |
+| Dữ liệu kiểm thử Builder | [T22 Builder](T22_BUILDER.md) | Seed spec và đáp án PASS/FAIL/UNKNOWN cho T23/T24. |
+| Kiểm tra tương thích Builder | [T23 CompatibilityService](T23_COMPATIBILITY.md) | Contract, rule và giới hạn kiểm tra của backend. |
+| Lưu build và thêm giỏ | [T24 Build API](T24_BUILD_API.md) | Endpoint, quyền, giá và điều kiện thêm giỏ của Builder. |
+| Tích hợp Builder | [T32 Builder](T32_BUILDER.md) | Catalog thật, xem trước tương thích, lưu build và mua qua giỏ. |
 
 ## Phạm vi và thứ tự
 

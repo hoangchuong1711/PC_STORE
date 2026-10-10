@@ -24,16 +24,19 @@ export function AdminCategories() {
   const [form, setForm] = useState<TaxonomyInput>(emptyForm);
 
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(TAXONOMY_DRAFT_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed?.editor && parsed?.form) {
-          setEditor(parsed.editor);
-          setForm(parsed.form);
+    const frame = requestAnimationFrame(() => {
+      try {
+        const raw = sessionStorage.getItem(TAXONOMY_DRAFT_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.editor && parsed?.form) {
+            setEditor(parsed.editor);
+            setForm(parsed.form);
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    });
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   useEffect(() => {
@@ -41,8 +44,6 @@ export function AdminCategories() {
     try {
       if (editor) {
         sessionStorage.setItem(TAXONOMY_DRAFT_KEY, JSON.stringify({ editor, form }));
-      } else {
-        sessionStorage.removeItem(TAXONOMY_DRAFT_KEY);
       }
     } catch {}
   }, [editor, form]);

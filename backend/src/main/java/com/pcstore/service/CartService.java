@@ -4,6 +4,7 @@ import com.pcstore.dao.CartDao;
 import com.pcstore.dao.ProductDao;
 import com.pcstore.dto.CartItemResponse;
 import com.pcstore.dto.CartResponse;
+import com.pcstore.dto.CompatibilityDto.Selection;
 import com.pcstore.entity.*;
 import com.pcstore.entity.enums.*;
 import com.pcstore.exception.AppException;
@@ -68,6 +69,40 @@ public class CartService {
             em.flush();
             return response(cart);
         });
+    }
+
+    /** The caller owns the transaction so every component is added or none are. */
+    CartResponse addItemsInTransaction(int userId, List<Selection> selections) {
+        User user = customer(userId, true);
+        Cart cart = carts.findCart(userId, true);
+        LocalDateTime now = LocalDateTime.now(ZONE);
+        for (Selection selection : selections) {
+            positiveId(selection.productId());
+            positiveQuantity(selection.quantity());
+            Product product = carts.findProduct(selection.productId());
+            if (product == null) throw new AppException(404, "PRODUCT_NOT_FOUND", "Không tìm thấy sản phẩm.");
+            CartItem item = cart == null ? null : carts.findItemByProduct(cart.getCartId(), selection.productId());
+            long nextQuantity = (item == null ? 0L : item.getQuantity()) + selection.quantity();
+            checkAvailability(product, nextQuantity);
+            if (cart == null) {
+                cart = new Cart();
+                cart.setUser(user);
+                cart.setCreatedAt(now);
+                cart.setUpdatedAt(now);
+                carts.save(cart);
+                em.flush();
+            }
+            if (item == null) {
+                item = new CartItem();
+                item.setCart(cart);
+                item.setProduct(product);
+                item.setQuantity((int) nextQuantity);
+                carts.save(item);
+            } else item.setQuantity((int) nextQuantity);
+        }
+        cart.setUpdatedAt(now);
+        em.flush();
+        return response(cart);
     }
 
     public CartResponse updateItem(int userId, Integer itemId, Integer quantity) {
