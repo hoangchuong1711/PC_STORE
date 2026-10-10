@@ -95,6 +95,22 @@ public final class MediaLinkDao {
                 .setParameter("parent", reviewId).setParameter("media", mediaId).executeUpdate();
     }
 
+    public List<UUID> reviewMediaIds(int reviewId) {
+        return em.createNativeQuery("SELECT media_asset_id FROM review_media WHERE review_id=:review "
+                        + "AND media_asset_id IS NOT NULL ORDER BY sort_order,media_id")
+                .setParameter("review", reviewId).getResultList().stream().map(value -> (UUID) value).toList();
+    }
+
+    public void reorderReview(int reviewId, List<UUID> ids) {
+        em.createNativeQuery("UPDATE review_media SET sort_order=sort_order+100 WHERE review_id=:review")
+                .setParameter("review", reviewId).executeUpdate();
+        for (int i = 0; i < ids.size(); i++)
+            em.createNativeQuery("UPDATE review_media SET sort_order=:position "
+                            + "WHERE review_id=:review AND media_asset_id=:media")
+                    .setParameter("position", i).setParameter("review", reviewId)
+                    .setParameter("media", ids.get(i)).executeUpdate();
+    }
+
     public Visibility setupVisibility(UUID mediaId) {
         return visibility(em.createNativeQuery("SELECT p.user_id,p.status FROM setup_images i "
                         + "JOIN setup_posts p ON p.post_id=i.post_id WHERE i.media_asset_id=:id")

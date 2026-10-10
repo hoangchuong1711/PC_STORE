@@ -86,6 +86,24 @@ public final class MediaAttachmentService {
         detachLinked(dao, mediaId, ownerId, "REVIEW", reviewId);
     }
 
+    public void replaceReviewMedia(EntityManager em, int ownerId, int reviewId, List<UUID> ids) {
+        requireTransaction(em);
+        checkCount(ids, 0, 6);
+        var dao = new MediaLinkDao(em);
+        if (!dao.lockActiveReview(ownerId, reviewId)) throw targetMissing();
+        List<UUID> previous = dao.reviewMediaIds(reviewId);
+        for (UUID id : previous) {
+            if (!ids.contains(id)) {
+                MediaAsset asset = dao.lockAsset(id);
+                dao.deleteReview(reviewId, id);
+                asset.detach();
+            }
+        }
+        List<UUID> added = ids.stream().filter(id -> !previous.contains(id)).toList();
+        if (!added.isEmpty()) attachReviewMedia(em, ownerId, reviewId, added);
+        dao.reorderReview(reviewId, ids);
+    }
+
     private static void detachLinked(MediaLinkDao dao, UUID id, int ownerId, String module, int parentId) {
         var asset = id == null ? null : dao.lockAsset(id);
         if (asset == null || asset.getOwnerId() != ownerId || !module.equals(asset.getModule())
