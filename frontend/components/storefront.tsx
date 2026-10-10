@@ -634,7 +634,7 @@ export function CatalogPage() {
   const [sort, setSort] = useState("featured");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6;
+  const itemsPerPage = 8;
 
   const [categoriesList, setCategoriesList] = useState<CatalogCategoryOption[]>([]);
   const [brandsList, setBrandsList] = useState<CatalogBrandOption[]>([]);
@@ -667,6 +667,24 @@ export function CatalogPage() {
     };
   }, []);
 
+  // Sync initial filters from URL query parameters (e.g. /products?categoryId=123)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const catId = params.get("categoryId");
+    const brId = params.get("brandId");
+    const q = params.get("q");
+    if (catId && !isNaN(Number(catId))) {
+      setSelectedCategoryId(Number(catId));
+    }
+    if (brId && !isNaN(Number(brId))) {
+      setSelectedBrandId(Number(brId));
+    }
+    if (q) {
+      setQuery(q);
+    }
+  }, []);
+
   // Fetch products from backend whenever filters or page change
   const fetchProducts = useCallback(async () => {
     try {
@@ -694,7 +712,7 @@ export function CatalogPage() {
         brandId: selectedBrandId !== "ALL" ? selectedBrandId : undefined,
         minPrice,
         maxPrice,
-        page: currentPage,
+        page: Math.max(0, currentPage - 1),
         size: itemsPerPage,
       });
 
