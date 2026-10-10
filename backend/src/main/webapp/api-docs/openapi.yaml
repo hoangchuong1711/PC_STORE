@@ -1431,6 +1431,112 @@ paths:
           $ref: "#/components/responses/Conflict"
         "500":
           $ref: "#/components/responses/InternalError"
+  "/api/reviews":
+    get:
+      tags: [Review]
+      operationId: listProductReviews
+      summary: Danh sách Review PUBLISHED của một sản phẩm
+      description: "Phân trang từ 0; summary luôn tính trên toàn bộ bài PUBLISHED của sản phẩm. newest dùng reviewId giảm dần vì schema T10 không có timestamp Review."
+      parameters:
+        - {name: productId, in: query, required: true, schema: {type: integer, minimum: 1}}
+        - {name: page, in: query, schema: {type: integer, minimum: 0, default: 0}}
+        - {name: size, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+        - {name: rating, in: query, schema: {type: integer, minimum: 1, maximum: 5}}
+        - {name: hasMedia, in: query, schema: {type: boolean}}
+        - {name: sort, in: query, schema: {type: string, enum: [newest, oldest, rating_desc, rating_asc, helpful], default: newest}}
+      responses:
+        '200': {description: Trang Review và thống kê, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewPageResponse'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  "/api/reviews/summary":
+    get:
+      tags: [Review]
+      operationId: getProductReviewSummary
+      summary: Điểm trung bình và phân bố sao chỉ từ bài PUBLISHED
+      parameters:
+        - {name: productId, in: query, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        '200': {description: Thống kê Review, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewSummary'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  "/api/customer/reviews":
+    post:
+      tags: [Review]
+      operationId: createReview
+      security: [{sessionCookie: []}]
+      summary: Tạo một Review cho dòng đơn DELIVERED thuộc khách hiện tại
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewCreateRequest'}}}}
+      responses:
+        '201': {description: Review đã tạo, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewResponse'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {description: Media tạm không hợp lệ; xem code/message, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  "/api/customer/reviews/order-items/{orderItemId}":
+    get:
+      tags: [Review]
+      operationId: getOwnReviewByOrderItem
+      security: [{sessionCookie: []}]
+      summary: Lấy Review của khách theo dòng đơn để điền form tạo/sửa
+      parameters:
+        - {name: orderItemId, in: path, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        '200': {description: Review của dòng đơn, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewResponse'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  "/api/customer/reviews/{id}":
+    get:
+      tags: [Review]
+      operationId: getOwnReview
+      security: [{sessionCookie: []}]
+      summary: Lấy Review thuộc khách hiện tại, gồm HIDDEN/DELETED
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        '200': {description: Review, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewResponse'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    patch:
+      tags: [Review]
+      operationId: updateOwnReview
+      security: [{sessionCookie: []}]
+      summary: Sửa rating/content/media của Review PUBLISHED thuộc khách
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewUpdateRequest'}}}}
+      responses:
+        '200': {description: Review đã sửa, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewResponse'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {description: Media tạm không hợp lệ; xem code/message, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+    delete:
+      tags: [Review]
+      operationId: deleteOwnReview
+      security: [{sessionCookie: []}]
+      summary: Xóa mềm PUBLISHED thành DELETED; gọi lặp an toàn
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        '204': {description: Đã xóa mềm hoặc đã ở trạng thái DELETED}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  "/api/customer/reviews/{id}/restore":
+    post:
+      tags: [Review]
+      operationId: restoreOwnReview
+      security: [{sessionCookie: []}]
+      summary: Khôi phục DELETED thành PUBLISHED; không khôi phục bài HIDDEN
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        '200': {description: Review đã khôi phục, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewResponse'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
 components:
   securitySchemes:
     sessionCookie:
@@ -1480,6 +1586,83 @@ components:
           schema:
             "$ref": "#/components/schemas/ErrorResponse"
   schemas:
+    ReviewCreateRequest:
+      type: object
+      required: [orderItemId, productId, rating, content]
+      properties:
+        orderItemId: {type: integer, minimum: 1}
+        productId: {type: integer, minimum: 1, description: Phải đúng SKU của orderItemId}
+        rating: {type: integer, minimum: 1, maximum: 5}
+        content: {type: string, minLength: 1, maxLength: 5000}
+        mediaIds: {type: array, maxItems: 6, uniqueItems: true, default: [], items: {type: string, format: uuid}}
+    ReviewUpdateRequest:
+      type: object
+      minProperties: 1
+      description: "PATCH; trường bỏ qua được giữ nguyên. mediaIds nếu có là toàn bộ danh sách mong muốn theo thứ tự."
+      properties:
+        rating: {type: integer, minimum: 1, maximum: 5}
+        content: {type: string, minLength: 1, maxLength: 5000}
+        mediaIds: {type: array, maxItems: 6, uniqueItems: true, items: {type: string, format: uuid}}
+    ReviewAuthor:
+      type: object
+      required: [userId, fullName]
+      properties:
+        userId: {type: integer}
+        fullName: {type: string}
+    ReviewMedia:
+      type: object
+      required: [mediaType, mimeType, sizeBytes, sortOrder]
+      properties:
+        mediaId: {type: string, format: uuid, nullable: true, description: Chỉ null với dữ liệu V3 cũ}
+        mediaType: {type: string, enum: [IMAGE, VIDEO]}
+        mimeType: {type: string}
+        sizeBytes: {type: integer, format: int64, minimum: 1}
+        durationSecond: {type: integer, nullable: true, minimum: 1}
+        sortOrder: {type: integer, minimum: 0}
+        contentUrl: {type: string, nullable: true, description: Chỉ public khi Review PUBLISHED}
+    ReviewResponse:
+      type: object
+      required: [reviewId, orderItemId, orderId, productId, productName, author, rating, content, status, media, likeCount, likedByCurrentUser, verifiedPurchase]
+      description: "Không có createdAt/updatedAt vì schema T10 không lưu timestamp Review; newest/oldest dùng reviewId."
+      properties:
+        reviewId: {type: integer}
+        orderItemId: {type: integer}
+        orderId: {type: integer}
+        productId: {type: integer}
+        productName: {type: string}
+        author: {$ref: '#/components/schemas/ReviewAuthor'}
+        rating: {type: integer, minimum: 1, maximum: 5}
+        content: {type: string}
+        status: {type: string, enum: [PUBLISHED, HIDDEN, DELETED]}
+        media: {type: array, items: {$ref: '#/components/schemas/ReviewMedia'}}
+        likeCount: {type: integer, format: int64, minimum: 0, description: T27 quản lý dữ liệu like}
+        likedByCurrentUser: {type: boolean, description: false với guest}
+        verifiedPurchase: {type: boolean, enum: [true]}
+    ReviewDistribution:
+      type: object
+      required: [rating, count, percentage]
+      properties:
+        rating: {type: integer, minimum: 1, maximum: 5}
+        count: {type: integer, format: int64, minimum: 0}
+        percentage: {type: number, format: double, minimum: 0, maximum: 100}
+    ReviewSummary:
+      type: object
+      required: [productId, averageRating, totalReviews, distribution]
+      properties:
+        productId: {type: integer}
+        averageRating: {type: number, format: double, minimum: 0, maximum: 5}
+        totalReviews: {type: integer, format: int64, minimum: 0}
+        distribution: {type: array, minItems: 5, maxItems: 5, items: {$ref: '#/components/schemas/ReviewDistribution'}}
+    ReviewPageResponse:
+      type: object
+      required: [items, page, size, totalItems, totalPages, summary]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/ReviewResponse'}}
+        page: {type: integer, minimum: 0}
+        size: {type: integer, minimum: 1, maximum: 50}
+        totalItems: {type: integer, format: int64, minimum: 0}
+        totalPages: {type: integer, minimum: 0}
+        summary: {$ref: '#/components/schemas/ReviewSummary'}
 
     BuilderCatalogProduct:
       type: object

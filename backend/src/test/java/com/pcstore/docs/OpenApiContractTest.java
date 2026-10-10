@@ -34,6 +34,10 @@ class OpenApiContractTest {
             }
         }));
         assertEquals(Set.of("GET /api/setups", "GET /api/setups/{id}", "GET /api/customer/setups/eligibility",
+                "GET /api/reviews", "GET /api/reviews/summary", "POST /api/customer/reviews",
+                "GET /api/customer/reviews/order-items/{orderItemId}", "GET /api/customer/reviews/{id}",
+                "PATCH /api/customer/reviews/{id}", "DELETE /api/customer/reviews/{id}",
+                "POST /api/customer/reviews/{id}/restore",
                 "GET /api/customer/setups", "POST /api/customer/setups", "GET /api/customer/setups/{id}",
                 "PUT /api/customer/setups/{id}", "DELETE /api/customer/setups/{id}",
                 "POST /api/auth/register", "POST /api/auth/login", "POST /api/auth/logout",
