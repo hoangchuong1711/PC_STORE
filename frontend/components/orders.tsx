@@ -89,23 +89,45 @@ function OrderRow({
   onReorder: (order: Order) => void;
 }) {
   const itemCount = order.lines.reduce((sum, line) => sum + line.quantity, 0);
+  const firstLine = order.lines[0];
+  const otherLinesCount = order.lines.length - 1;
+  const allProductNames = order.lines.map((l) => `${l.quantity}x ${l.name}`).join("\n");
 
   return (
-    <article className="grid grid-cols-1 md:grid-cols-[1.1fr_1.6fr_1fr_1fr_1.1fr] items-center gap-5 py-6 border-t border-[#e0e0e0]">
-      <div className="font-specs text-sm font-bold text-ink tracking-wide flex flex-col">
+    <article className="grid grid-cols-1 md:grid-cols-[minmax(0,1.1fr)_minmax(0,2fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1.2fr)] items-center gap-5 py-6 border-t border-[#e0e0e0]">
+      <div className="font-specs text-sm font-bold text-ink tracking-wide flex flex-col min-w-0">
         <span className="text-[11px] font-sans font-normal text-muted">Mã đơn hàng</span>
         <strong className="text-base text-ink">{order.code}</strong>
         <small className="text-xs font-normal text-muted">{formatOrderDate(order.createdAt)}</small>
       </div>
 
-      <div className="flex flex-col">
+      <div className="flex flex-col min-w-0 pr-2">
         <span className="text-[11px] text-muted">{itemCount} sản phẩm</span>
-        <strong className="text-sm text-slate-800 font-semibold truncate">
-          {order.lines.map((line) => line.name).join(" · ")}
-        </strong>
+        {firstLine ? (
+          <div className="flex flex-col min-w-0">
+            <Link
+              href={`/orders/${order.id}`}
+              className="text-sm text-slate-800 font-semibold truncate hover:text-[#006ce1] transition-colors block"
+              title={allProductNames}
+            >
+              {firstLine.name}
+            </Link>
+            {otherLinesCount > 0 && (
+              <Link
+                href={`/orders/${order.id}`}
+                className="text-xs text-[#006ce1] hover:underline font-medium mt-0.5 inline-flex items-center gap-1 w-fit"
+                title="Bấm để xem chi tiết đầy đủ linh kiện trong đơn"
+              >
+                và {otherLinesCount} sản phẩm khác (Xem chi tiết →)
+              </Link>
+            )}
+          </div>
+        ) : (
+          <span className="text-xs text-muted italic">Không có sản phẩm</span>
+        )}
       </div>
 
-      <div className="flex flex-col gap-1.5 items-start">
+      <div className="flex flex-col gap-1.5 items-start min-w-0">
         <StatusBadge status={order.status} />
         <div className="flex items-center gap-1.5 flex-wrap">
           <small className="text-[10px] text-slate-500 font-semibold">
@@ -127,14 +149,14 @@ function OrderRow({
         </div>
       </div>
 
-      <div className="text-left md:text-right flex flex-col">
+      <div className="text-left md:text-right flex flex-col min-w-0 whitespace-nowrap">
         <span className="text-[11px] text-muted">Tổng thanh toán</span>
         <strong className="font-specs text-base font-bold text-ink">
           {formatPrice(order.total)}
         </strong>
       </div>
 
-      <div className="flex items-center justify-end gap-3">
+      <div className="flex items-center justify-end gap-3 shrink-0">
         <button
           type="button"
           className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-900 hover:text-white rounded-lg text-xs font-semibold text-slate-700 transition-colors cursor-pointer border border-slate-200"
