@@ -22,10 +22,22 @@ import jakarta.persistence.PersistenceException;
 
 public class AuthService {
     private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
+    private static final Pattern PHONE_PATTERN = Pattern.compile("^(0|\\+84)[35789]\\d{8}$");
     private final UserDAO userDAO;
 
     public AuthService() { this(new UserDAOImpl()); }
     public AuthService(UserDAO userDAO) { this.userDAO = userDAO; }
+
+    public static String validateAndCleanPhone(String rawPhone) {
+        if (rawPhone == null || rawPhone.isBlank()) {
+            return null;
+        }
+        String cleanPhone = rawPhone.trim().replaceAll("[\\s.-]", "");
+        if (!PHONE_PATTERN.matcher(cleanPhone).matches()) {
+            throw new ValidationException("Số điện thoại không đúng định dạng Việt Nam (Ví dụ: 0901234567 hoặc +84901234567).");
+        }
+        return cleanPhone;
+    }
 
     // Đăng ký tài khoản mới
     public AuthResponse register(RegisterRequest request) {
@@ -33,11 +45,10 @@ public class AuthService {
         String name = clean(request.fullName());
         String email = normalizeEmail(request.email());
         String password = request.password();
-        String phone = clean(request.phone());
+        String phone = validateAndCleanPhone(request.phone());
         if (name == null || name.length() > 255) throw new ValidationException("Họ tên là bắt buộc và tối đa 255 ký tự.");
         if (email == null || email.length() > 254 || !EMAIL.matcher(email).matches()) throw new ValidationException("Email không hợp lệ.");
         if (password == null || password.length() < 8 || password.length() > 128) throw new ValidationException("Mật khẩu phải dài từ 8 đến 128 ký tự.");
-        if (phone != null && phone.length() > 32) throw new ValidationException("Số điện thoại tối đa 32 ký tự.");
 
         try (EntityManager em = PersistenceManager.get().createEntityManager()) {
             try {
@@ -70,7 +81,9 @@ public class AuthService {
         if (email == null || email.length() > 254) throw new UnauthorizedException("Email hoặc mật khẩu không đúng.");
         try (EntityManager em = PersistenceManager.get().createEntityManager()) {
             User user = userDAO.findByEmail(em, email).orElseThrow(() -> new UnauthorizedException("Email hoặc mật khẩu không đúng."));
-            if (user.getStatus() != UserStatus.ACTIVE || !PasswordUtil.verify(request.password(), user.getPasswordHash()))
+            if (user.getStatus() != UserStatus.ACTIVE)
+                throw new AppException(403, "ACCOUNT_LOCKED", "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
+            if (!PasswordUtil.verify(request.password(), user.getPasswordHash()))
                 throw new UnauthorizedException("Email hoặc mật khẩu không đúng.");
             return AuthResponse.from(user);
         }
@@ -80,8 +93,58 @@ public class AuthService {
     public AuthResponse findById(int userId) {
         try (EntityManager em = PersistenceManager.get().createEntityManager()) {
             User user = userDAO.findById(em, userId).orElseThrow(() -> new UnauthorizedException("Phiên đăng nhập không còn hợp lệ."));
-            if (user.getStatus() != UserStatus.ACTIVE) throw new UnauthorizedException("Tài khoản đã bị vô hiệu hóa.");
+            if (user.getStatus() != UserStatus.ACTIVE) throw new AppException(403, "ACCOUNT_LOCKED", "Tài khoản của bạn đã bị khóa.");
             return AuthResponse.from(user);
+        }
+    }
+
+    public AuthResponse updateProfile(int userId, com.pcstore.dto.UpdateProfileRequest request) {
+        if (request == null) throw new ValidationException("Request không hợp lệ.");
+        String name = clean(request.fullName());
+        String phone = validateAndCleanPhone(request.phone());
+        if (name == null || name.length() > 255)
+            throw new ValidationException("Họ tên là bắt buộc và tối đa 255 ký tự.");
+
+        try (EntityManager em = PersistenceManager.get().createEntityManager()) {
+            em.getTransaction().begin();
+            try {
+                User user = userDAO.findById(em, userId)
+                        .orElseThrow(() -> new UnauthorizedException("Phiên đăng nhập không còn hợp lệ."));
+                if (user.getStatus() != UserStatus.ACTIVE)
+                    throw new UnauthorizedException("Tài khoản đã bị vô hiệu hóa.");
+                user.setFullName(name);
+                user.setPhone(phone);
+                em.getTransaction().commit();
+                return AuthResponse.from(user);
+            } catch (RuntimeException e) {
+                if (em.getTransaction().isActive()) em.getTransaction().rollback();
+                throw e;
+            }
+        }
+    }
+
+    public void changePassword(int userId, com.pcstore.dto.ChangePasswordRequest request) {
+        if (request == null || request.oldPassword() == null || request.newPassword() == null)
+            throw new ValidationException("Vui lòng cung cấp mật khẩu cũ và mật khẩu mới.");
+        String newPass = request.newPassword();
+        if (newPass.length() < 6 || newPass.length() > 128)
+            throw new ValidationException("Mật khẩu mới phải có từ 6 đến 128 ký tự.");
+
+        try (EntityManager em = PersistenceManager.get().createEntityManager()) {
+            em.getTransaction().begin();
+            try {
+                User user = userDAO.findById(em, userId)
+                        .orElseThrow(() -> new UnauthorizedException("Phiên đăng nhập không còn hợp lệ."));
+                if (user.getStatus() != UserStatus.ACTIVE)
+                    throw new UnauthorizedException("Tài khoản đã bị vô hiệu hóa.");
+                if (!PasswordUtil.verify(request.oldPassword(), user.getPasswordHash()))
+                    throw new AppException(400, "INVALID_OLD_PASSWORD", "Mật khẩu hiện tại không chính xác.");
+                user.setPasswordHash(PasswordUtil.hash(newPass));
+                em.getTransaction().commit();
+            } catch (RuntimeException e) {
+                if (em.getTransaction().isActive()) em.getTransaction().rollback();
+                throw e;
+            }
         }
     }
 

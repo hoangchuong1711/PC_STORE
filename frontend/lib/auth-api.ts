@@ -2,7 +2,12 @@ export type AuthUser = { userId: number; fullName: string; email: string; phone:
 export function authDestination(user: AuthUser): string { return user.role === "ADMIN" ? "/admin" : "/"; }
 export class AuthApiError extends Error {
   status: number;
-  constructor(status: number, message: string) { super(message); this.status = status; }
+  code?: string;
+  constructor(status: number, message: string, code?: string) {
+    super(message);
+    this.status = status;
+    this.code = code;
+  }
 }
 export function createAuthApi(transport: typeof fetch = fetch) {
   async function request(path: string, body?: unknown) {
@@ -17,7 +22,7 @@ export function createAuthApi(transport: typeof fetch = fetch) {
     } catch { throw new AuthApiError(0, "Không thể kết nối máy chủ. Vui lòng thử lại."); }
     if (response.status === 204 && path === "logout") return null;
     const data = await response.json().catch(() => null);
-    if (!response.ok) throw new AuthApiError(response.status, data?.message ?? `Máy chủ trả lỗi ${response.status}. Vui lòng thử lại.`);
+    if (!response.ok) throw new AuthApiError(response.status, data?.message ?? `Máy chủ trả lỗi ${response.status}. Vui lòng thử lại.`, data?.code);
     if (!data || !Number.isInteger(data.userId) || typeof data.fullName !== "string" || typeof data.email !== "string"
       || !["ADMIN", "CUSTOMER"].includes(data.role)) throw new AuthApiError(502, "Phản hồi tài khoản không hợp lệ.");
     return data as AuthUser;
@@ -36,5 +41,45 @@ export function createAuthApi(transport: typeof fetch = fetch) {
       try { await request("logout", {}); }
       catch (error) { if (!(error instanceof AuthApiError && error.status === 401)) throw error; }
     },
+    async updateProfile(input: { fullName: string; phone?: string | null }): Promise<AuthUser> {
+      let response: Response;
+      try {
+        response = await transport("/api/customer/profile", {
+          method: "PATCH",
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        });
+      } catch {
+        throw new AuthApiError(0, "Không thể kết nối máy chủ. Vui lòng thử lại.");
+      }
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new AuthApiError(response.status, data?.message ?? `Máy chủ trả lỗi ${response.status}. Vui lòng thử lại.`);
+      }
+      return data as AuthUser;
+    },
+    async changePassword(input: { oldPassword: string; newPassword: string }): Promise<{ message: string }> {
+      let response: Response;
+      try {
+        response = await transport("/api/customer/change-password", {
+          method: "POST",
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        });
+      } catch {
+        throw new AuthApiError(0, "Không thể kết nối máy chủ. Vui lòng thử lại.");
+      }
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new AuthApiError(response.status, data?.message ?? `Máy chủ trả lỗi ${response.status}. Vui lòng thử lại.`);
+      }
+      return data as { message: string };
+    },
   };
 }
+
+export const authApi = createAuthApi();

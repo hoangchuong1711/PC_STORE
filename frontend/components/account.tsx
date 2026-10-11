@@ -36,6 +36,7 @@ import {
 } from "../lib/account";
 import { formatPrice } from "../lib/products";
 import { useAuth } from "./auth-provider";
+import { authApi } from "../lib/auth-api";
 import { builderApi, type SavedBuild as ApiSavedBuild } from "../lib/builder-api";
 import { addressApi } from "../lib/address-api";
 import { useCart } from "./cart-provider";
@@ -45,7 +46,6 @@ import { Header, Footer } from "./storefront";
 export type AccountTab =
   | "profile"
   | "password"
-  | "register-product"
   | "messages"
   | "addresses"
   | "builds"
@@ -66,7 +66,7 @@ type OwnSetupItem = {
 
 export function AccountDashboard() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, refresh } = useAuth();
   const [activeTab, setActiveTab] = useState<AccountTab>("profile");
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
 
@@ -79,6 +79,7 @@ export function AccountDashboard() {
   // Profile Form States
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileNotice, setProfileNotice] = useState<string | null>(null);
 
@@ -88,10 +89,6 @@ export function AccountDashboard() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordNotice, setPasswordNotice] = useState<string | null>(null);
 
-  // Product Registration State ("Đăng ký")
-  const [serialNumber, setSerialNumber] = useState("");
-  const [productCategory, setProductCategory] = useState("VGA");
-  const [purchaseDate, setPurchaseDate] = useState("");
 
   // Saved Builds States (Real API)
   const [serverBuilds, setServerBuilds] = useState<ApiSavedBuild[]>([]);
@@ -219,25 +216,54 @@ export function AccountDashboard() {
       setName(user.fullName);
       setPhone(user.phone || "");
       setProfileNotice(null);
+      setPhoneError(null);
     }
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!hasProfileChanges) return;
+
+    const trimmedName = name.trim();
+    if (!trimmedName || trimmedName.length < 2) {
+      toast("Họ và tên phải có tối thiểu 2 ký tự.", "error");
+      return;
+    }
+
+    const trimmedPhone = phone.trim();
+    let cleanPhone: string | null = null;
+    if (trimmedPhone) {
+      cleanPhone = trimmedPhone.replace(/[\s.-]/g, "");
+      if (!/^(0|\+84)[35789]\d{8}$/.test(cleanPhone)) {
+        setPhoneError("Số điện thoại không đúng định dạng Việt Nam (Ví dụ: 0901234567 hoặc +84901234567).");
+        toast("Số điện thoại không đúng định dạng. Ví dụ: 0901234567 hoặc +84901234567", "error");
+        return;
+      }
+    }
+    setPhoneError(null);
     setProfileSaving(true);
-    setTimeout(() => {
+    setProfileNotice(null);
+    try {
+      await authApi.updateProfile({ fullName: trimmedName, phone: cleanPhone });
+      await refresh();
+      setProfileNotice("Cập nhật thông tin tài khoản thành công!");
+      toast("Đã lưu thay đổi thông tin cá nhân.", "success");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Cập nhật hồ sơ thất bại.";
+      setProfileNotice(msg);
+      toast(msg, "error");
+    } finally {
       setProfileSaving(false);
-      setProfileNotice(
-        "Hệ thống máy chủ hiện tại chưa có API cập nhật hồ sơ trực tuyến. Thông tin cá nhân đang được đồng bộ theo dữ liệu xác thực đăng nhập.",
-      );
-      toast("Chức năng cập nhật hồ sơ đang được chuẩn bị ở bản cập nhật backend tiếp theo.", "info");
-    }, 400);
+    }
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!oldPassword || newPassword.length < 6) {
+    if (!oldPassword) {
+      toast("Vui lòng nhập mật khẩu hiện tại.", "error");
+      return;
+    }
+    if (newPassword.length < 6) {
       toast("Mật khẩu mới phải có tối thiểu 6 ký tự.", "error");
       return;
     }
@@ -245,10 +271,19 @@ export function AccountDashboard() {
       toast("Mật khẩu xác nhận không trùng khớp với mật khẩu mới.", "error");
       return;
     }
-    setPasswordNotice(
-      "Tính năng đổi mật khẩu đang trong lộ trình phát triển của backend. Vui lòng sử dụng mật khẩu bạn đã đăng ký.",
-    );
-    toast("Tính năng đổi mật khẩu hiện chưa có API trên máy chủ.", "info");
+    setPasswordNotice(null);
+    try {
+      const res = await authApi.changePassword({ oldPassword, newPassword });
+      setPasswordNotice(res.message || "Đổi mật khẩu thành công!");
+      toast(res.message || "Đổi mật khẩu thành công!", "success");
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Đổi mật khẩu thất bại.";
+      setPasswordNotice(msg);
+      toast(msg, "error");
+    }
   };
 
   // Address helpers (user-scoped storage)
@@ -406,20 +441,17 @@ export function AccountDashboard() {
   const isSettingsSubTab = (tab: AccountTab) =>
     tab === "settings" ||
     tab === "profile" ||
-    tab === "password" ||
-    tab === "register-product";
+    tab === "password";
 
   const settingsSubItems: Array<{ id: AccountTab; label: string }> = [
     { id: "profile", label: "Hồ sơ cá nhân" },
     { id: "password", label: "Đổi mật khẩu" },
-    { id: "register-product", label: "Đăng ký" },
   ];
 
   const mobileTabs: Array<{ id: AccountTab; label: string }> = [
     { id: "messages", label: "Tin nhắn" },
     { id: "profile", label: "Hồ sơ" },
     { id: "password", label: "Đổi MK" },
-    { id: "register-product", label: "Đăng ký" },
     { id: "addresses", label: "Sổ địa chỉ" },
     { id: "builds", label: "Dàn PC" },
     { id: "setups", label: "Góc máy" },
@@ -681,10 +713,22 @@ export function AccountDashboard() {
                         onChange={(e) => {
                           setPhone(e.target.value);
                           setProfileNotice(null);
+                          if (phoneError) setPhoneError(null);
                         }}
-                        placeholder="Chưa cập nhật số điện thoại"
-                        className="h-10 px-3.5 border border-[#e2e8f0] rounded-xl text-sm outline-none focus:border-[#006ce1] focus:ring-1 focus:ring-[#006ce1] transition-colors"
+                        placeholder="Ví dụ: 0901234567 hoặc +84901234567"
+                        className={`h-10 px-3.5 border rounded-xl text-sm outline-none transition-colors ${
+                          phoneError
+                            ? "border-rose-400 focus:border-rose-500 bg-rose-50/20"
+                            : "border-[#e2e8f0] focus:border-[#006ce1] focus:ring-1 focus:ring-[#006ce1]"
+                        }`}
                       />
+                      {phoneError ? (
+                        <span className="text-[11px] text-rose-500 font-medium">{phoneError}</span>
+                      ) : (
+                        <span className="text-[11px] text-slate-400">
+                          Hỗ trợ định dạng 10 số (03x, 05x, 07x, 08x, 09x) hoặc quốc tế (+84x)
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex flex-col gap-1.5">
@@ -821,112 +865,6 @@ export function AccountDashboard() {
                 </section>
               )}
 
-              {/* Mục 3: Đăng ký sản phẩm & Bảo hành */}
-              {activeTab === "register-product" && (
-                <section className="bg-white border border-[#e2e8f0] rounded-2xl p-6 sm:p-8 shadow-xs">
-                  <div className="flex items-start gap-3.5 pb-5 border-b border-[#f1f5f9]">
-                    <div className="w-10 h-10 rounded-xl bg-[#edf5fe] text-[#006ce1] flex items-center justify-center shrink-0">
-                      <ShieldCheck size={20} />
-                    </div>
-                    <div>
-                      <h2 className="text-lg md:text-xl font-bold text-ink tracking-tight">
-                        Đăng ký sản phẩm
-                      </h2>
-                      <p className="text-xs md:text-sm text-muted mt-0.5">
-                        Đăng ký số sê-ri (S/N) thiết bị để kích hoạt bảo hành điện tử chính hãng và nhận hỗ trợ kỹ thuật ưu tiên.
-                      </p>
-                    </div>
-                  </div>
-
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      if (!serialNumber.trim()) {
-                        toast("Vui lòng nhập số sê-ri sản phẩm.", "error");
-                        return;
-                      }
-                      toast(`Đã gửi yêu cầu kích hoạt bảo hành cho thiết bị sê-ri ${serialNumber.trim()}!`, "success");
-                      setSerialNumber("");
-                    }}
-                    className="flex flex-col gap-5 pt-6 max-w-[620px]"
-                  >
-                    <div className="flex flex-col gap-1.5">
-                      <label htmlFor="pSerial" className="text-xs font-bold text-ink">
-                        Số sê-ri sản phẩm (S/N)
-                      </label>
-                      <input
-                        id="pSerial"
-                        type="text"
-                        value={serialNumber}
-                        onChange={(e) => setSerialNumber(e.target.value)}
-                        placeholder="VD: SN-ASUS-4070S-99821 hoặc dán từ vỏ hộp"
-                        required
-                        className="h-10 px-3.5 border border-[#e2e8f0] rounded-xl text-sm outline-none focus:border-[#006ce1] focus:ring-1 focus:ring-[#006ce1] transition-colors"
-                      />
-                      <span className="text-[11px] text-muted">
-                        Số sê-ri được in trên tem phụ của vỏ hộp hoặc mặt sau của linh kiện/dàn PC.
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="flex flex-col gap-1.5">
-                        <label htmlFor="pCategory" className="text-xs font-bold text-ink">
-                          Loại thiết bị
-                        </label>
-                        <select
-                          id="pCategory"
-                          value={productCategory}
-                          onChange={(e) => setProductCategory(e.target.value)}
-                          className="h-10 px-3 border border-[#e2e8f0] rounded-xl text-sm outline-none focus:border-[#006ce1] bg-white transition-colors cursor-pointer"
-                        >
-                          <option value="VGA">Card đồ họa (VGA)</option>
-                          <option value="CPU">Bộ vi xử lý (CPU)</option>
-                          <option value="MAINBOARD">Bo mạch chủ (Mainboard)</option>
-                          <option value="PC_SET">Dàn PC trọn bộ</option>
-                          <option value="MONITOR">Màn hình máy tính</option>
-                          <option value="STORAGE">Ổ cứng SSD / HDD</option>
-                          <option value="OTHER">Linh kiện khác</option>
-                        </select>
-                      </div>
-
-                      <div className="flex flex-col gap-1.5">
-                        <label htmlFor="pBuyDate" className="text-xs font-bold text-ink">
-                          Ngày mua hàng
-                        </label>
-                        <input
-                          id="pBuyDate"
-                          type="date"
-                          value={purchaseDate}
-                          onChange={(e) => setPurchaseDate(e.target.value)}
-                          className="h-10 px-3 border border-[#e2e8f0] rounded-xl text-sm outline-none focus:border-[#006ce1] bg-white transition-colors cursor-pointer"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 flex flex-col gap-2">
-                      <strong className="text-ink font-semibold">Đặc quyền khi đăng ký thiết bị tại PC Store:</strong>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
-                        <span>Bảo hành chính hãng 36 tháng, 1 đổi 1 trong 30 ngày đầu</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
-                        <span>Tra cứu lịch sử bảo hành và sửa chữa trực tuyến không cần giữ hóa đơn giấy</span>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end pt-3 border-t border-[#f1f5f9]">
-                      <button
-                        type="submit"
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs md:text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-xs cursor-pointer"
-                      >
-                        <ShieldCheck size={15} />
-                        <span>Kích hoạt bảo hành</span>
-                      </button>
-                    </div>
-                  </form>
-                </section>
-              )}
 
               {/* Mục 5: Trung tâm tin nhắn */}
               {activeTab === "messages" && (

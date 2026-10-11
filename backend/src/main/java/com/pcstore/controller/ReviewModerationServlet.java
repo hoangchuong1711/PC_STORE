@@ -39,8 +39,18 @@ public class ReviewModerationServlet extends HttpServlet {
         try {
             Integer userId = SessionUtil.userId(req);
             if (userId == null) throw new AppException(401, "UNAUTHORIZED", "Bạn cần đăng nhập.");
-            if (!"PATCH".equals(req.getMethod())) {
-                res.setHeader("Allow", "PATCH, OPTIONS");
+            String method = req.getMethod();
+            String path = req.getPathInfo();
+            if ("GET".equals(method) && (path == null || "/".equals(path))) {
+                try (var em = PersistenceManager.get().createEntityManager()) {
+                    var service = new ReviewSocialService(em);
+                    var result = service.listAllForAdmin(userId);
+                    JsonUtil.write(res, 200, result);
+                    return;
+                }
+            }
+            if (!"PATCH".equals(method)) {
+                res.setHeader("Allow", "GET, PATCH, OPTIONS");
                 throw new AppException(405, "METHOD_NOT_ALLOWED", "Phương thức không được hỗ trợ.");
             }
             int reviewId = reviewId(req.getPathInfo());
@@ -52,7 +62,7 @@ public class ReviewModerationServlet extends HttpServlet {
         } catch (AppException error) {
             JsonUtil.write(res, error.getStatus(), Map.of("code", error.getCode(), "message", error.getMessage()));
         } catch (RuntimeException error) {
-            getServletContext().log("Review moderation request failed", error);
+            if (getServletContext() != null) getServletContext().log("Review moderation request failed", error);
             JsonUtil.write(res, 500, Map.of("code", "INTERNAL_ERROR", "message", "Không thể kiểm duyệt review lúc này."));
         }
     }

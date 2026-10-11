@@ -1,4 +1,5 @@
-import { initialCommunityPosts, type CommunityPost, type SetupStyle } from "./community";
+import { initialCommunityPosts, setupDtoToCommunityPost, type CommunityPost, type SetupStyle } from "./community";
+import type { SetupModeratedItem } from "./community-api";
 
 export const adminCommunityStatuses = ["PUBLISHED", "HIDDEN"] as const;
 export type AdminCommunityStatus = (typeof adminCommunityStatuses)[number];
@@ -54,3 +55,20 @@ export function filterAdminCommunityPosts<T extends Pick<AdminCommunityPost, "ti
     return matchesQuery && matchesStatus && matchesStyle;
   });
 }
+
+export function setupModeratedItemToAdminPost(
+  item: SetupModeratedItem
+): AdminCommunityPost {
+  const base = setupDtoToCommunityPost(item.post, {
+    likeCount: item.likeCount,
+    liked: false,
+  });
+  return {
+    ...base,
+    status: item.post.status === "HIDDEN" ? "HIDDEN" : "PUBLISHED",
+    moderationReason: item.moderationReason ?? undefined,
+    moderatedBy: item.moderatedBy ? `Quản trị viên #${item.moderatedBy}` : undefined,
+    moderatedAt: item.moderatedAt ?? undefined,
+  };
+}
+

@@ -6,7 +6,7 @@ import { Header, Footer } from "./storefront";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./auth-provider";
 import { authDestination, createAuthApi } from "../lib/auth-api";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, Ban } from "lucide-react";
 import { useToast } from "./toast";
 
 type AuthMode = "login" | "register";
@@ -88,10 +88,26 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
 
             {error && (
               <div
-                className="mb-4 p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs"
+                className={`mb-5 p-3.5 rounded-xl text-xs flex items-start gap-2.5 ${
+                  error.toLowerCase().includes("khóa")
+                    ? "bg-rose-50 border border-rose-300 text-rose-900 shadow-xs"
+                    : "bg-rose-50 border border-rose-200 text-rose-700"
+                }`}
                 role="alert"
               >
-                {error}
+                {error.toLowerCase().includes("khóa") ? (
+                  <Ban size={18} className="shrink-0 text-rose-600 mt-0.5" />
+                ) : (
+                  <AlertCircle size={16} className="shrink-0 text-rose-500 mt-0.5" />
+                )}
+                <div className="flex-1">
+                  <div className="font-semibold leading-snug">{error}</div>
+                  {error.toLowerCase().includes("khóa") && (
+                    <div className="text-[11px] text-rose-700 mt-1 leading-relaxed">
+                      Tài khoản của bạn đã bị vô hiệu hóa bởi Ban Quản Trị hệ thống. Mọi giao dịch và quyền truy cập tạm thời bị ngưng. Vui lòng liên hệ hotline hỗ trợ hoặc quản trị viên để biết thêm chi tiết.
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

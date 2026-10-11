@@ -21,9 +21,17 @@ import static org.junit.jupiter.api.Assertions.*;
 class CompatibilityRulesTest {
     private static final ObjectMapper JSON = new ObjectMapper();
 
+    private static java.io.File resolveDataFile(String filename) {
+        Path p1 = Path.of("../docs/data", filename);
+        if (p1.toFile().exists()) return p1.toFile();
+        Path p2 = Path.of("docs/data", filename);
+        if (p2.toFile().exists()) return p2.toFile();
+        return p1.toFile();
+    }
+
     @Test void matchesEveryT22ExpectedResult() throws Exception {
-        JsonNode catalog = JSON.readTree(Path.of("../docs/data/t09_catalog.json").toFile());
-        JsonNode fixture = JSON.readTree(Path.of("../docs/data/t22_builder_cases.json").toFile());
+        JsonNode catalog = JSON.readTree(resolveDataFile("t09_catalog.json"));
+        JsonNode fixture = JSON.readTree(resolveDataFile("t22_builder_cases.json"));
         Map<String, JsonNode> products = new HashMap<>();
         for (JsonNode product : catalog.get("products")) products.put(product.get("catalogCode").asText(), product);
         Map<String, JsonNode> builds = new HashMap<>();
@@ -60,8 +68,8 @@ class CompatibilityRulesTest {
     }
 
     @Test void missingStorageSpecCannotMakeACompleteBuildPass() throws Exception {
-        JsonNode catalog = JSON.readTree(Path.of("../docs/data/t09_catalog.json").toFile());
-        JsonNode fixture = JSON.readTree(Path.of("../docs/data/t22_builder_cases.json").toFile());
+        JsonNode catalog = JSON.readTree(resolveDataFile("t09_catalog.json"));
+        JsonNode fixture = JSON.readTree(resolveDataFile("t22_builder_cases.json"));
         Map<String, JsonNode> products = new HashMap<>();
         for (JsonNode product : catalog.get("products")) products.put(product.get("catalogCode").asText(), product);
         List<Part> selected = parts(fixture.get("builds").get(0).get("selection"), products, null, null);

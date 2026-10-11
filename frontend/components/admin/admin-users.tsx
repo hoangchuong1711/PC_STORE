@@ -1,12 +1,13 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import {
   AlertTriangle,
   Ban,
   CheckCircle2,
   Eye,
+  Loader2,
   RotateCcw,
   Search,
   Shield,
@@ -21,6 +22,7 @@ import {
   initialAdminUsers,
   filterAdminUsers,
 } from "@/lib/admin-users";
+import { adminUsersApi } from "@/lib/admin-users-api";
 
 const initialFilters: AdminUserFilters = {
   query: "",
@@ -29,13 +31,35 @@ const initialFilters: AdminUserFilters = {
 };
 
 export function AdminUsers() {
-  const [users, setUsers] = useState<AdminUser[]>(initialAdminUsers);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<AdminUserFilters>(initialFilters);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [isBanModalOpen, setIsBanModalOpen] = useState(false);
   const [banReason, setBanReason] = useState("");
   const [banError, setBanError] = useState("");
+  const [banSubmitting, setBanSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const loadUsers = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await adminUsersApi.list();
+      setUsers(data);
+    } catch (err) {
+      console.warn("Could not load users from backend API, falling back to mock:", err);
+      setUsers(initialAdminUsers);
+      setError(err instanceof Error ? err.message : "Không thể tải danh sách người dùng từ máy chủ.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
 
   const filteredUsers = filterAdminUsers(users, filters);
 
@@ -58,48 +82,38 @@ export function AdminUsers() {
     setIsBanModalOpen(true);
   };
 
-  const handleConfirmBan = () => {
+  const handleConfirmBan = async () => {
     if (!banReason.trim()) {
       setBanError("Vui lòng nhập lý do khóa tài khoản.");
       return;
     }
     if (!selectedUser) return;
 
-    const now = new Date().toISOString();
-    const updated = users.map((u) =>
-      u.id === selectedUser.id
-        ? {
-            ...u,
-            status: "BANNED" as const,
-            banReason: banReason.trim(),
-            bannedAt: now,
-            bannedBy: "Quản trị viên",
-          }
-        : u,
-    );
-
-    setUsers(updated);
-    setSelectedUser(updated.find((u) => u.id === selectedUser.id) || null);
-    setIsBanModalOpen(false);
-    showToast(`Đã khóa tài khoản "${selectedUser.name}".`);
+    setBanSubmitting(true);
+    try {
+      const updatedUser = await adminUsersApi.updateStatus(selectedUser.id, "BANNED", banReason.trim());
+      const updated = users.map((u) => (u.id === selectedUser.id ? { ...u, ...updatedUser } : u));
+      setUsers(updated);
+      setSelectedUser((prev) => (prev && prev.id === selectedUser.id ? { ...prev, ...updatedUser } : null));
+      setIsBanModalOpen(false);
+      showToast(`Đã khóa tài khoản "${selectedUser.name}".`);
+    } catch (err) {
+      setBanError(err instanceof Error ? err.message : "Lỗi khi khóa tài khoản.");
+    } finally {
+      setBanSubmitting(false);
+    }
   };
 
-  const handleUnbanUser = (user: AdminUser) => {
-    const updated = users.map((u) =>
-      u.id === user.id
-        ? {
-            ...u,
-            status: "ACTIVE" as const,
-            banReason: undefined,
-            bannedAt: undefined,
-            bannedBy: undefined,
-          }
-        : u,
-    );
-
-    setUsers(updated);
-    setSelectedUser(updated.find((u) => u.id === user.id) || null);
-    showToast(`Đã mở khóa tài khoản cho "${user.name}".`);
+  const handleUnbanUser = async (user: AdminUser) => {
+    try {
+      const updatedUser = await adminUsersApi.updateStatus(user.id, "ACTIVE");
+      const updated = users.map((u) => (u.id === user.id ? { ...u, ...updatedUser } : u));
+      setUsers(updated);
+      setSelectedUser((prev) => (prev && prev.id === user.id ? { ...prev, ...updatedUser } : null));
+      showToast(`Đã mở khóa tài khoản cho "${user.name}".`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Lỗi khi mở khóa tài khoản.");
+    }
   };
 
   const handleChangeRole = (userId: string, newRole: AdminUser["role"]) => {
@@ -232,13 +246,22 @@ export function AdminUsers() {
             <option value="BANNED">Đã bị khóa</option>
           </select>
 
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-admin-line bg-white text-xs font-semibold text-admin-muted hover:bg-admin-bg hover:text-admin-ink transition-colors cursor-pointer disabled:opacity-50"
+            onClick={() => void loadUsers()}
+            disabled={loading}
+          >
+            <RotateCcw size={15} className={loading ? "animate-spin" : ""} />
+            Làm mới
+          </button>
+
           {(filters.query || filters.role !== "ALL" || filters.status !== "ALL") && (
             <button
               type="button"
               className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-admin-line bg-white text-xs font-semibold text-admin-muted hover:bg-admin-bg hover:text-admin-ink transition-colors cursor-pointer"
               onClick={() => setFilters(initialFilters)}
             >
-              <RotateCcw size={15} />
               Đặt lại
             </button>
           )}
@@ -259,7 +282,16 @@ export function AdminUsers() {
               </tr>
             </thead>
             <tbody>
-              {filteredUsers.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="py-10 text-center text-xs text-admin-soft">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 size={16} className="animate-spin text-admin-blue" />
+                      <span>Đang tải danh sách người dùng từ máy chủ...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-10 text-center text-xs text-admin-soft">
                     Không tìm thấy người dùng phù hợp với bộ lọc.
@@ -561,10 +593,18 @@ export function AdminUsers() {
               </button>
               <button
                 type="button"
-                className="inline-flex items-center justify-center min-h-[38px] px-3.5 rounded-lg text-xs font-bold border border-rose-200 bg-admin-red-soft hover:bg-rose-100 text-admin-red transition-colors cursor-pointer"
+                className="inline-flex items-center justify-center min-h-[38px] px-3.5 rounded-lg text-xs font-bold border border-rose-200 bg-admin-red-soft hover:bg-rose-100 text-admin-red transition-colors cursor-pointer disabled:opacity-50"
                 onClick={handleConfirmBan}
+                disabled={banSubmitting}
               >
-                Xác nhận khóa
+                {banSubmitting ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin mr-1.5" />
+                    Đang xử lý...
+                  </>
+                ) : (
+                  "Xác nhận khóa"
+                )}
               </button>
             </div>
           </div>

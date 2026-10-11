@@ -42,6 +42,8 @@ services:
 
   frontend:
     build: ./frontend
+    environment:
+      BACKEND_ORIGIN: ${BACKEND_ORIGIN:-http://backend:8080}
     ports:
       - "3000:3000"
     depends_on:

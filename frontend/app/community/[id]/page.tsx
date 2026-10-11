@@ -1,11 +1,9 @@
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import { CommunityDetail } from "../../../components/community";
-import { getCommunityPost, initialCommunityPosts } from "../../../lib/community";
+import { getOrFetchCommunityPost } from "../../../lib/community";
 
-export function generateStaticParams() {
-  return initialCommunityPosts.map((post) => ({ id: post.id }));
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
@@ -13,7 +11,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const post = getCommunityPost(id);
+  const post = await getOrFetchCommunityPost(id);
   if (!post) {
     return { title: "Không tìm thấy góc máy | PC Store" };
   }
@@ -29,7 +27,7 @@ export default async function CommunityPostPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const post = getCommunityPost(id);
+  const post = await getOrFetchCommunityPost(id);
 
   if (!post) {
     notFound();

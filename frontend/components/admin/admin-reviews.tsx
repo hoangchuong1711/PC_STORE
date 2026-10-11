@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useState, useCallback, useEffect } from "react";
 import Image from "next/image";
 import {
   AlertTriangle,
@@ -13,13 +13,17 @@ import {
   ShieldAlert,
   Star,
   X,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import {
   type AdminReview,
   type AdminReviewFilters,
+  type AdminReviewStatus,
   initialAdminReviews,
   filterAdminReviews,
 } from "@/lib/admin-reviews";
+import { reviewApi } from "@/lib/review-api";
 
 const initialFilters: AdminReviewFilters = {
   query: "",
@@ -30,12 +34,54 @@ const initialFilters: AdminReviewFilters = {
 
 export function AdminReviews() {
   const [reviews, setReviews] = useState<AdminReview[]>(initialAdminReviews);
+  const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<AdminReviewFilters>(initialFilters);
   const [selectedReview, setSelectedReview] = useState<AdminReview | null>(null);
   const [isHideModalOpen, setIsHideModalOpen] = useState(false);
   const [hideReason, setHideReason] = useState("");
   const [hideError, setHideError] = useState("");
+  const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
+  const [restoreSubmitting, setRestoreSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const loadReviews = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await reviewApi.listAdmin();
+      if (data && data.length > 0) {
+        setReviews(
+          data.map((item) => ({
+            id: String(item.reviewId),
+            productSlug: `product-${item.productId}`,
+            productName: item.productName,
+            orderId: String(item.orderId),
+            orderItemId: String(item.orderItemId),
+            userName: item.userName,
+            rating: item.rating,
+            createdAt: item.moderatedAt || new Date().toISOString(),
+            content: item.content,
+            images: item.images || [],
+            likesCount: item.likesCount || 0,
+            verifiedBuyer: item.verifiedBuyer ?? true,
+            status: (item.status === "HIDDEN" ? "HIDDEN" : "PUBLISHED") as AdminReviewStatus,
+            moderationReason: item.moderationReason ?? undefined,
+            moderatedBy: item.moderatedBy ? `Admin #${item.moderatedBy}` : undefined,
+            moderatedAt: item.moderatedAt ?? undefined,
+          }))
+        );
+      } else {
+        setReviews(initialAdminReviews);
+      }
+    } catch {
+      setReviews(initialAdminReviews);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadReviews();
+  }, [loadReviews]);
 
   const filteredReviews = filterAdminReviews(reviews, filters);
 
@@ -47,6 +93,7 @@ export function AdminReviews() {
     withMedia: reviews.filter((r) => (r.images?.length ?? 0) > 0).length,
     hidden: reviews.filter((r) => r.status === "HIDDEN").length,
   };
+
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -60,12 +107,29 @@ export function AdminReviews() {
     setIsHideModalOpen(true);
   };
 
-  const handleConfirmHide = () => {
+  const handleOpenRestoreModal = (review: AdminReview) => {
+    setSelectedReview(review);
+    setIsRestoreModalOpen(true);
+  };
+
+  const handleConfirmHide = async () => {
     if (!hideReason.trim()) {
       setHideError("Vui lòng nhập lý do ẩn đánh giá để lưu vào nhật ký kiểm duyệt.");
       return;
     }
     if (!selectedReview) return;
+
+    const numId = Number(selectedReview.id.replace(/^rev-?/i, ""));
+    if (numId > 0) {
+      try {
+        await reviewApi.moderate(numId, {
+          status: "HIDDEN",
+          moderationReason: hideReason.trim(),
+        });
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Không thể đồng bộ trạng thái ẩn lên máy chủ.");
+      }
+    }
 
     const now = new Date().toISOString();
     const updated = reviews.map((r) =>
@@ -86,9 +150,20 @@ export function AdminReviews() {
     showToast(`Đã ẩn đánh giá của "${selectedReview.userName}" thành công.`);
   };
 
-  const handleRestoreReview = (review: AdminReview) => {
+  const handleConfirmRestore = async () => {
+    if (!selectedReview) return;
+    setRestoreSubmitting(true);
+    const numId = Number(selectedReview.id.replace(/^rev-?/i, ""));
+    if (numId > 0) {
+      try {
+        await reviewApi.moderate(numId, { status: "PUBLISHED" });
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Không thể đồng bộ trạng thái khôi phục lên máy chủ.");
+      }
+    }
+
     const updated = reviews.map((r) =>
-      r.id === review.id
+      r.id === selectedReview.id
         ? {
             ...r,
             status: "PUBLISHED" as const,
@@ -100,8 +175,10 @@ export function AdminReviews() {
     );
 
     setReviews(updated);
-    setSelectedReview(updated.find((r) => r.id === review.id) || null);
-    showToast(`Đã khôi phục hiển thị đánh giá của "${review.userName}".`);
+    setSelectedReview(updated.find((r) => r.id === selectedReview.id) || null);
+    setIsRestoreModalOpen(false);
+    setRestoreSubmitting(false);
+    showToast(`Đã khôi phục hiển thị đánh giá của "${selectedReview.userName}".`);
   };
 
   return (
@@ -121,6 +198,15 @@ export function AdminReviews() {
           <h1 className="text-2xl sm:text-3xl lg:text-[34px] font-extrabold text-admin-ink tracking-tight mt-1 mb-1.5 leading-tight">Kiểm duyệt đánh giá sản phẩm</h1>
           <p className="text-sm text-admin-muted max-w-[570px] m-0">Rà soát trải nghiệm mua hàng, hình ảnh thực tế và ẩn các nhận xét vi phạm tiêu chuẩn.</p>
         </div>
+        <button
+          type="button"
+          onClick={() => void loadReviews()}
+          disabled={loading}
+          className="inline-flex items-center gap-2 h-9 px-3.5 rounded-lg border border-admin-line bg-white text-xs font-semibold text-admin-ink hover:bg-admin-bg transition-colors cursor-pointer disabled:opacity-50"
+        >
+          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          Làm mới
+        </button>
       </div>
 
       {/* Metric Cards */}
@@ -267,7 +353,14 @@ export function AdminReviews() {
               </tr>
             </thead>
             <tbody>
-              {filteredReviews.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-xs text-admin-muted">
+                    <Loader2 size={24} className="animate-spin text-admin-blue mx-auto mb-2" />
+                    Đang đồng bộ đánh giá thực tế từ máy chủ...
+                  </td>
+                </tr>
+              ) : filteredReviews.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-10 text-center text-xs text-admin-soft">
                     Không có đánh giá nào phù hợp với bộ lọc hiện tại.
@@ -353,7 +446,7 @@ export function AdminReviews() {
                           <button
                             type="button"
                             className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold text-admin-green hover:bg-admin-green-soft transition-colors cursor-pointer"
-                            onClick={() => handleRestoreReview(review)}
+                            onClick={() => handleOpenRestoreModal(review)}
                             title="Khôi phục hiển thị"
                           >
                             <RotateCcw size={13} /> Hiện
@@ -507,7 +600,7 @@ export function AdminReviews() {
                 <button
                   type="button"
                   className="inline-flex items-center justify-center gap-1.5 min-h-[38px] px-4 rounded-lg text-xs font-bold bg-admin-accent-dark hover:bg-[#1e252c] text-white transition-colors cursor-pointer"
-                  onClick={() => handleRestoreReview(selectedReview)}
+                  onClick={() => handleOpenRestoreModal(selectedReview)}
                 >
                   <RotateCcw size={15} /> Khôi phục hiển thị
                 </button>
@@ -569,6 +662,58 @@ export function AdminReviews() {
                 onClick={handleConfirmHide}
               >
                 Xác nhận ẩn
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Restore Modal Dialog */}
+      {isRestoreModalOpen && selectedReview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs" role="dialog" aria-modal="true" aria-labelledby="restore-modal-title">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-admin-line flex flex-col gap-4">
+            <div className="flex items-start gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-admin-green-soft text-admin-green">
+                <RotateCcw size={18} />
+              </div>
+              <div>
+                <h3 id="restore-modal-title" className="text-base font-bold text-admin-ink">Xác nhận khôi phục đánh giá</h3>
+                <p className="text-xs text-admin-muted mt-0.5">Khách hàng: <strong className="text-admin-ink">{selectedReview.userName}</strong> ({selectedReview.productName})</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+              <div>
+                <span className="text-slate-500 font-medium">Nội dung đánh giá: </span>
+                <span className="text-admin-ink italic">&ldquo;{selectedReview.content}&rdquo;</span>
+              </div>
+              {selectedReview.moderationReason && (
+                <div>
+                  <span className="text-rose-600 font-medium">Lý do đã ẩn trước đó: </span>
+                  <span className="text-slate-700">{selectedReview.moderationReason}</span>
+                </div>
+              )}
+            </div>
+
+            <p className="text-xs text-admin-muted leading-relaxed m-0">
+              Đánh giá này sẽ được chuyển về trạng thái <strong>Hiển thị công khai</strong> và xuất hiện trở lại trên trang chi tiết sản phẩm cho khách hàng.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-admin-line">
+              <button
+                type="button"
+                className="inline-flex items-center justify-center min-h-[38px] px-3.5 rounded-lg text-xs font-bold border border-admin-line bg-white hover:bg-admin-bg text-admin-ink transition-colors cursor-pointer"
+                onClick={() => setIsRestoreModalOpen(false)}
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={restoreSubmitting}
+                className="inline-flex items-center justify-center min-h-[38px] px-3.5 rounded-lg text-xs font-bold bg-admin-green hover:bg-[#16a34a] text-white transition-colors cursor-pointer disabled:opacity-50"
+                onClick={handleConfirmRestore}
+              >
+                {restoreSubmitting ? "Đang xử lý..." : "Xác nhận khôi phục"}
               </button>
             </div>
           </div>
