@@ -36,6 +36,7 @@ import {
 } from "../lib/account";
 import { formatPrice } from "../lib/products";
 import { useAuth } from "./auth-provider";
+import { authApi } from "../lib/auth-api";
 import { builderApi, type SavedBuild as ApiSavedBuild } from "../lib/builder-api";
 import { addressApi } from "../lib/address-api";
 import { useCart } from "./cart-provider";
@@ -66,7 +67,7 @@ type OwnSetupItem = {
 
 export function AccountDashboard() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, refresh } = useAuth();
   const [activeTab, setActiveTab] = useState<AccountTab>("profile");
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
 
@@ -222,22 +223,32 @@ export function AccountDashboard() {
     }
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!hasProfileChanges) return;
     setProfileSaving(true);
-    setTimeout(() => {
+    setProfileNotice(null);
+    try {
+      await authApi.updateProfile({ fullName: name.trim(), phone: phone.trim() || null });
+      await refresh();
+      setProfileNotice("Cập nhật thông tin tài khoản thành công!");
+      toast("Đã lưu thay đổi thông tin cá nhân.", "success");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Cập nhật hồ sơ thất bại.";
+      setProfileNotice(msg);
+      toast(msg, "error");
+    } finally {
       setProfileSaving(false);
-      setProfileNotice(
-        "Hệ thống máy chủ hiện tại chưa có API cập nhật hồ sơ trực tuyến. Thông tin cá nhân đang được đồng bộ theo dữ liệu xác thực đăng nhập.",
-      );
-      toast("Chức năng cập nhật hồ sơ đang được chuẩn bị ở bản cập nhật backend tiếp theo.", "info");
-    }, 400);
+    }
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!oldPassword || newPassword.length < 6) {
+    if (!oldPassword) {
+      toast("Vui lòng nhập mật khẩu hiện tại.", "error");
+      return;
+    }
+    if (newPassword.length < 6) {
       toast("Mật khẩu mới phải có tối thiểu 6 ký tự.", "error");
       return;
     }
@@ -245,10 +256,19 @@ export function AccountDashboard() {
       toast("Mật khẩu xác nhận không trùng khớp với mật khẩu mới.", "error");
       return;
     }
-    setPasswordNotice(
-      "Tính năng đổi mật khẩu đang trong lộ trình phát triển của backend. Vui lòng sử dụng mật khẩu bạn đã đăng ký.",
-    );
-    toast("Tính năng đổi mật khẩu hiện chưa có API trên máy chủ.", "info");
+    setPasswordNotice(null);
+    try {
+      const res = await authApi.changePassword({ oldPassword, newPassword });
+      setPasswordNotice(res.message || "Đổi mật khẩu thành công!");
+      toast(res.message || "Đổi mật khẩu thành công!", "success");
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Đổi mật khẩu thất bại.";
+      setPasswordNotice(msg);
+      toast(msg, "error");
+    }
   };
 
   // Address helpers (user-scoped storage)

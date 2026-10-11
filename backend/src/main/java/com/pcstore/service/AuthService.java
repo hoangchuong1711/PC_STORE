@@ -85,6 +85,58 @@ public class AuthService {
         }
     }
 
+    public AuthResponse updateProfile(int userId, com.pcstore.dto.UpdateProfileRequest request) {
+        if (request == null) throw new ValidationException("Request không hợp lệ.");
+        String name = clean(request.fullName());
+        String phone = clean(request.phone());
+        if (name == null || name.length() > 255)
+            throw new ValidationException("Họ tên là bắt buộc và tối đa 255 ký tự.");
+        if (phone != null && phone.length() > 32)
+            throw new ValidationException("Số điện thoại tối đa 32 ký tự.");
+
+        try (EntityManager em = PersistenceManager.get().createEntityManager()) {
+            em.getTransaction().begin();
+            try {
+                User user = userDAO.findById(em, userId)
+                        .orElseThrow(() -> new UnauthorizedException("Phiên đăng nhập không còn hợp lệ."));
+                if (user.getStatus() != UserStatus.ACTIVE)
+                    throw new UnauthorizedException("Tài khoản đã bị vô hiệu hóa.");
+                user.setFullName(name);
+                user.setPhone(phone);
+                em.getTransaction().commit();
+                return AuthResponse.from(user);
+            } catch (RuntimeException e) {
+                if (em.getTransaction().isActive()) em.getTransaction().rollback();
+                throw e;
+            }
+        }
+    }
+
+    public void changePassword(int userId, com.pcstore.dto.ChangePasswordRequest request) {
+        if (request == null || request.oldPassword() == null || request.newPassword() == null)
+            throw new ValidationException("Vui lòng cung cấp mật khẩu cũ và mật khẩu mới.");
+        String newPass = request.newPassword();
+        if (newPass.length() < 6 || newPass.length() > 128)
+            throw new ValidationException("Mật khẩu mới phải có từ 6 đến 128 ký tự.");
+
+        try (EntityManager em = PersistenceManager.get().createEntityManager()) {
+            em.getTransaction().begin();
+            try {
+                User user = userDAO.findById(em, userId)
+                        .orElseThrow(() -> new UnauthorizedException("Phiên đăng nhập không còn hợp lệ."));
+                if (user.getStatus() != UserStatus.ACTIVE)
+                    throw new UnauthorizedException("Tài khoản đã bị vô hiệu hóa.");
+                if (!PasswordUtil.verify(request.oldPassword(), user.getPasswordHash()))
+                    throw new AppException(400, "INVALID_OLD_PASSWORD", "Mật khẩu hiện tại không chính xác.");
+                user.setPasswordHash(PasswordUtil.hash(newPass));
+                em.getTransaction().commit();
+            } catch (RuntimeException e) {
+                if (em.getTransaction().isActive()) em.getTransaction().rollback();
+                throw e;
+            }
+        }
+    }
+
     // Chuẩn hóa email
     private static String normalizeEmail(String value) {
         return value == null ? null : value.trim().toLowerCase(Locale.ROOT); 

@@ -1941,8 +1941,110 @@ paths:
       responses:
         '200': {description: Review đã khôi phục, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewResponse'}}}}
         '401': {$ref: '#/components/responses/Unauthorized'}
+  "/api/customer/profile":
+    patch:
+      tags: [Customer]
+      operationId: updateCustomerProfile
+      security: [{sessionCookie: []}]
+      summary: Cập nhật thông tin tài khoản cá nhân
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fullName]
+              properties:
+                fullName: {type: string}
+                phone: {type: string}
+      responses:
+        '200':
+          description: Cập nhật thông tin thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  "/api/customer/change-password":
+    post:
+      tags: [Customer]
+      operationId: changeCustomerPassword
+      security: [{sessionCookie: []}]
+      summary: Đổi mật khẩu cá nhân
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [oldPassword, newPassword]
+              properties:
+                oldPassword: {type: string}
+                newPassword: {type: string}
+      responses:
+        '200':
+          description: Đổi mật khẩu thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: {type: string}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  "/api/admin/users":
+    get:
+      tags: [Admin users]
+      operationId: listAdminUsers
+      security: [{sessionCookie: []}]
+      summary: ADMIN — Danh sách người dùng
+      parameters:
+        - {name: role, in: query, schema: {type: string}}
+        - {name: status, in: query, schema: {type: string}}
+        - {name: query, in: query, schema: {type: string}}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+      responses:
+        '200':
+          description: Danh sách người dùng
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminUserDto'
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  "/api/admin/users/{id}/status":
+    put:
+      tags: [Admin users]
+      operationId: updateAdminUserStatus
+      security: [{sessionCookie: []}]
+      summary: ADMIN — Khóa hoặc mở khóa tài khoản người dùng
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: {type: string, enum: [ACTIVE, INACTIVE, BANNED]}
+                reason: {type: string}
+      responses:
+        '200':
+          description: Cập nhật trạng thái thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserDto'
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
-        '409': {$ref: '#/components/responses/Conflict'}
 components:
   securitySchemes:
     sessionCookie:
@@ -2876,3 +2978,25 @@ components:
           type: string
         isDefault:
           type: boolean
+    AdminUserDto:
+      type: object
+      properties:
+        userId:
+          type: integer
+          format: int32
+        fullName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+        orderCount:
+          type: integer
+          format: int64
+        totalSpent:
+          type: integer
+          format: int64
