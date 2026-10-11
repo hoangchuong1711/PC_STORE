@@ -583,7 +583,9 @@ export async function getOrFetchCommunityPost(id: string): Promise<CommunityPost
 
   const numericId = parseInt(id, 10);
   if (!isNaN(numericId) && numericId > 0) {
-    const origin = process.env.BACKEND_ORIGIN || "http://localhost:8080";
+    const origin =
+      process.env.BACKEND_ORIGIN ||
+      (process.env.NODE_ENV === "production" ? "http://backend:8080" : "http://localhost:8080");
     try {
       const res = await fetch(`${origin}/pc-store-backend/api/setups/${numericId}`, {
         cache: "no-store",

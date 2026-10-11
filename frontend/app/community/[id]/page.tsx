@@ -1,13 +1,9 @@
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import { CommunityDetail } from "../../../components/community";
-import { getOrFetchCommunityPost, initialCommunityPosts } from "../../../lib/community";
+import { getOrFetchCommunityPost } from "../../../lib/community";
 
-export const dynamicParams = true;
-
-export function generateStaticParams() {
-  return initialCommunityPosts.map((post) => ({ id: post.id }));
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
