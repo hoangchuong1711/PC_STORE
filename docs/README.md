@@ -14,6 +14,7 @@
 | Like và kiểm duyệt Review | [T27 Review social](T27_REVIEW_SOCIAL.md) | Hợp đồng API, quy tắc gọi lặp, bàn giao T26 và fixture kiểm thử. |
 | Upload và truy cập media | [T21 media](../backend/T21_MEDIA.md) | Giới hạn, quyền và vòng đời file của dịch vụ media. |
 | API bài đăng Setup | [T29 Setup](T29_SETUP.md) | Endpoint, DTO, lỗi và quyền cho FE/QA; ranh giới với T30. |
+| Like, ranking và kiểm duyệt Setup | [T30 Setup social](T30_SETUP_SOCIAL.md) | Contract bổ sung T29, quyền, transaction và liên kết catalog/cart. |
 | API đánh giá sản phẩm | [T26 Review](T26_REVIEW_API.md) | Endpoint, DTO, lỗi và quyền cho FE/QA; contract dành trước cho T27. |
 | Dữ liệu kiểm thử Builder | [T22 Builder](T22_BUILDER.md) | Seed spec và đáp án PASS/FAIL/UNKNOWN cho T23/T24. |
 | Kiểm tra tương thích Builder | [T23 CompatibilityService](T23_COMPATIBILITY.md) | Contract, rule và giới hạn kiểm tra của backend. |
