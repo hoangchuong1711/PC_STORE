@@ -40,6 +40,8 @@ export function AdminReviews() {
   const [isHideModalOpen, setIsHideModalOpen] = useState(false);
   const [hideReason, setHideReason] = useState("");
   const [hideError, setHideError] = useState("");
+  const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
+  const [restoreSubmitting, setRestoreSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const loadReviews = useCallback(async () => {
@@ -92,12 +94,6 @@ export function AdminReviews() {
     hidden: reviews.filter((r) => r.status === "HIDDEN").length,
   };
 
-  const [isHideModalOpen, setIsHideModalOpen] = useState(false);
-  const [hideReason, setHideReason] = useState("");
-  const [hideError, setHideError] = useState("");
-  const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
-  const [restoreSubmitting, setRestoreSubmitting] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
