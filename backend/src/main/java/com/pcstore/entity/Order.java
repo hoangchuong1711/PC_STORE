@@ -48,6 +48,9 @@ public class Order {
     @Column(name = "checkout_request_hash", length = 64)
     private String checkoutRequestHash;
 
+    @Column(name = "payment_expires_at")
+    private LocalDateTime paymentExpiresAt;
+
     @OneToMany(mappedBy = "order")
     private List<OrderItem> items = new ArrayList<>();
 
@@ -75,5 +78,7 @@ public class Order {
     public void setCheckoutIdempotencyKey(String checkoutIdempotencyKey) { this.checkoutIdempotencyKey = checkoutIdempotencyKey; }
     public String getCheckoutRequestHash() { return checkoutRequestHash; }
     public void setCheckoutRequestHash(String checkoutRequestHash) { this.checkoutRequestHash = checkoutRequestHash; }
+    public LocalDateTime getPaymentExpiresAt() { return paymentExpiresAt; }
+    public void setPaymentExpiresAt(LocalDateTime paymentExpiresAt) { this.paymentExpiresAt = paymentExpiresAt; }
     public List<OrderItem> getItems() { return items; }
 }

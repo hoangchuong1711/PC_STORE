@@ -15,6 +15,7 @@ import {
   Loader2,
   PackageCheck,
   Printer,
+  RefreshCw,
   RotateCcw,
   Search,
   Truck,
@@ -41,11 +42,11 @@ import { adminOrderApi } from "../../lib/admin-order-api";
 import type { OrderResponse } from "../../lib/order-api";
 
 function toAdminOrderModel(res: OrderResponse): AdminOrder {
-  const status = (["PENDING", "CONFIRMED", "SHIPPING", "DELIVERED", "CANCELLED"].includes(res.status)
+  const status = (["PENDING", "CONFIRMED", "SHIPPING", "DELIVERED", "CANCELLED", "EXPIRED_PENDING_RECONCILIATION"].includes(res.status)
     ? res.status
     : "PENDING") as AdminOrderStatus;
-  const paymentMethod = (res.payment?.method === "BANK_TRANSFER" ? "BANK_TRANSFER" : "COD") as AdminPaymentMethod;
-  const paymentStatus = (res.payment?.status === "PAID" ? "PAID" : "PENDING") as AdminPaymentStatus;
+  const paymentMethod = (res.payment?.method === "VNPAY" ? "VNPAY" : "COD") as AdminPaymentMethod;
+  const paymentStatus = (res.payment?.status === "PAID" ? "PAID" : res.payment?.status === "FAILED" ? "FAILED" : "PENDING") as AdminPaymentStatus;
 
   return {
     id: String(res.orderId),
@@ -76,11 +77,13 @@ const statusTone: Record<AdminOrderStatus, string> = {
   SHIPPING: "bg-admin-blue-soft text-admin-blue",
   DELIVERED: "bg-admin-green-soft text-admin-green",
   CANCELLED: "bg-slate-100 text-slate-500",
+  EXPIRED_PENDING_RECONCILIATION: "bg-rose-50 text-rose-700",
 };
 
 const paymentTone: Record<AdminPaymentStatus, string> = {
   PENDING: "bg-admin-amber-soft text-admin-amber",
   PAID: "bg-admin-green-soft text-admin-green",
+  FAILED: "bg-rose-50 text-rose-700",
 };
 
 const cancellationReasons = [
@@ -108,6 +111,7 @@ export function AdminOrders() {
   const [customCancelReason, setCustomCancelReason] = useState("");
   const [staffNoteDraft, setStaffNoteDraft] = useState("");
   const [feedback, setFeedback] = useState("");
+  const [reconcilingId, setReconcilingId] = useState<number | null>(null);
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -216,6 +220,27 @@ export function AdminOrders() {
     setItems((current) => current.map((order) => (order.id === selectedOrder.id ? nextOrder : order)));
     setSelectedOrder(nextOrder);
     setFeedback("Đã lưu ghi chú nội bộ cho đơn hàng.");
+  }
+
+  async function handleReconcile(orderId: number) {
+    setReconcilingId(orderId);
+    try {
+      const updatedRes = await adminOrderApi.reconcile(orderId);
+      const nextOrder = toAdminOrderModel(updatedRes);
+      setItems((current) => current.map((order) => (order.id === String(orderId) ? nextOrder : order)));
+      if (selectedOrder && selectedOrder.id === String(orderId)) {
+        setSelectedOrder(nextOrder);
+      }
+      setFeedback(
+        `Đối soát thành công đơn #${orderId}: Trạng thái ${orderStatusLabels[nextOrder.status].toLowerCase()}, Thanh toán ${paymentStatusLabels[nextOrder.paymentStatus].toLowerCase()}.`
+      );
+    } catch (err) {
+      setFeedback(
+        err instanceof Error ? `Lỗi đối soát QueryDR: ${err.message}` : "Không thể thực hiện đối soát với VNPay."
+      );
+    } finally {
+      setReconcilingId(null);
+    }
   }
 
   function handlePrintOrder() {
@@ -486,6 +511,18 @@ export function AdminOrders() {
               </div>
             )}
 
+            {selectedOrder.status === "EXPIRED_PENDING_RECONCILIATION" && (
+              <div className="mx-5 mt-4 p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-start gap-2.5 text-xs text-rose-950">
+                <AlertTriangle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block text-rose-800 font-bold">Đơn hàng hết hạn 15 phút — Đang giữ chỗ kho</strong>
+                  <span className="text-rose-700 leading-relaxed block mt-0.5">
+                    Đơn hàng đã quá hạn 15 phút thanh toán. Tồn kho vẫn được giữ chỗ an toàn. Vui lòng bấm <strong>"Đối soát QueryDR với VNPay"</strong> để đồng bộ thanh toán hoặc chọn hủy đơn nếu khách không trả tiền.
+                  </span>
+                </div>
+              </div>
+            )}
+
             <div className="p-5 flex flex-col gap-5 overflow-y-auto flex-1">
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between text-xs font-bold text-admin-ink">
@@ -533,6 +570,22 @@ export function AdminOrders() {
                     * Hệ thống sẽ tự động cập nhật sang Đã thanh toán khi đơn hàng chuyển sang Đã giao hàng.
                   </p>
                 )}
+                {selectedOrder.paymentMethod === "VNPAY" && (
+                  <div className="flex flex-col gap-2 pt-1">
+                    <button
+                      type="button"
+                      disabled={reconcilingId === Number(selectedOrder.id)}
+                      className="inline-flex items-center justify-center gap-1.5 min-h-[34px] px-3 rounded-lg text-xs font-bold border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 transition-colors cursor-pointer disabled:opacity-50"
+                      onClick={() => handleReconcile(Number(selectedOrder.id))}
+                    >
+                      <RefreshCw size={14} className={reconcilingId === Number(selectedOrder.id) ? "animate-spin" : ""} />
+                      {reconcilingId === Number(selectedOrder.id) ? "Đang đối soát QueryDR..." : "Đối soát QueryDR với VNPay"}
+                    </button>
+                    <span className="text-[10px] text-admin-muted">
+                      Truy vấn trực tiếp trạng thái giao dịch từ VNPay để đồng bộ kết quả thu tiền và kho hàng.
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col gap-2">
@@ -568,7 +621,7 @@ export function AdminOrders() {
                     {getNextOrderStatuses(selectedOrder.status).map((status) => {
                       const paymentRequired =
                         status === "SHIPPING" &&
-                        selectedOrder.paymentMethod === "BANK_TRANSFER" &&
+                        selectedOrder.paymentMethod === "VNPAY" &&
                         selectedOrder.paymentStatus !== "PAID";
                       return (
                         <button
@@ -601,7 +654,7 @@ export function AdminOrders() {
                     Đơn hàng này đã ở trạng thái kết thúc ({orderStatusLabels[selectedOrder.status]}).
                   </div>
                 )}
-                {selectedOrder.paymentMethod === "BANK_TRANSFER" &&
+                {selectedOrder.paymentMethod === "VNPAY" &&
                   selectedOrder.paymentStatus !== "PAID" &&
                   getNextOrderStatuses(selectedOrder.status).includes("SHIPPING") && (
                     <p className="flex items-center gap-1.5 text-[11px] text-admin-amber mt-1">

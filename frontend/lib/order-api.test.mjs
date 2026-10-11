@@ -32,7 +32,7 @@ test("checkout sends server-owned cart request and idempotency key", async () =>
 
 test("recognizes replayed checkout response", async () => {
   const result = await createOrderApi(async () => json(order, 200, { "Idempotent-Replayed": "true" }))
-    .checkout({ shippingName: "An", shippingPhone: "0901234567", shippingAddressText: "Test address", paymentMethod: "BANK_TRANSFER" }, "checkout-abc-124");
+    .checkout({ shippingName: "An", shippingPhone: "0901234567", shippingAddressText: "Test address", paymentMethod: "VNPAY" }, "checkout-abc-124");
   assert.equal(result.replayed, true);
 });
 
@@ -102,3 +102,30 @@ test("does not turn authorization failures into an empty history", async () => {
   await assert.rejects(createOrderApi(async () => json({ code: "UNAUTHORIZED", message: "Đăng nhập lại" }, 401)).list(),
     e => e instanceof OrderApiError && e.status === 401 && e.code === "UNAUTHORIZED");
 });
+
+test("createVNPayUrl requests payment url and validates response", async () => {
+  let calledUrl = "";
+  let calledMethod = "";
+  const api = createOrderApi(async (url, init) => {
+    calledUrl = url;
+    calledMethod = init?.method ?? "GET";
+    return json({
+      orderId: 101,
+      paymentMethod: "VNPAY",
+      referenceCode: "VNPAY-101-1728470000",
+      paymentUrl: "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_Amount=200000000",
+      expiresAt: "2026-10-09T14:00:00Z",
+    });
+  });
+
+  const res = await api.createVNPayUrl(101);
+  assert.equal(calledUrl, "/api/orders/101/payment/vnpay-url");
+  assert.equal(calledMethod, "POST");
+  assert.equal(res.orderId, 101);
+  assert.equal(res.referenceCode, "VNPAY-101-1728470000");
+  assert.ok(res.paymentUrl.startsWith("https://sandbox.vnpayment.vn"));
+
+  await assert.rejects(api.createVNPayUrl(0), (e) => e instanceof OrderApiError && e.code === "INVALID_ID");
+  await assert.rejects(api.createVNPayUrl(-5), (e) => e instanceof OrderApiError && e.code === "INVALID_ID");
+});
+

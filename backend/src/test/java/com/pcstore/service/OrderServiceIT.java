@@ -347,11 +347,10 @@ class OrderServiceIT {
     }
 
     @Test
-    void bankTransferRequiresPaymentBeforeShipping() throws Exception {
+    void vnpayRequiresPaymentBeforeShipping() throws Exception {
         salesFixture(3, false);
         int id = orderAt(OrderStatus.CONFIRMED);
-        // Existing bank-transfer order fixture; this does not claim checkout supports this method.
-        execute(schemaConnection, "UPDATE payments SET method='BANK_TRANSFER'");
+        execute(schemaConnection, "UPDATE payments SET method='VNPAY'");
         rejects("PAYMENT_REQUIRED", () -> service.updateStatusForAdmin(id, OrderStatus.SHIPPING));
         assertEquals(3, scalarInt("SELECT quantity_on_hand FROM inventory WHERE product_id=1"));
         assertEquals(1, scalarInt("SELECT reserved_quantity FROM inventory WHERE product_id=1"));

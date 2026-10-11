@@ -47,10 +47,11 @@ erDiagram
     orders ||--|{ order_items : contains
     products ||--o{ order_items : purchased
     orders ||--o| payments : payment
+    payments ||--o{ payment_attempts : attempts
 ```
 
 - Một User có 0..* Address; **mỗi Address thuộc đúng một User**. Hai User có thể lưu cùng địa chỉ thực tế bằng hai bản ghi độc lập. Mỗi User có tối đa một địa chỉ mặc định; không bắt buộc luôn có mặc định.
-- Một Order có 0..1 Payment ở mức lưu trữ. Checkout thành công tạo đúng một Payment cùng transaction với đơn/dòng đơn. Không có PaymentAttempt trong phạm vi hiện tại.
+- Mỗi Order có đúng một bản ghi Payment tổng hợp theo dõi tình trạng thanh toán của toàn đơn. Mỗi lần khách hàng mở cổng thanh toán trực tuyến (VNPay) được ghi nhận thành một bản ghi trong `payment_attempts`.
 - Product có 0..1 Inventory; trước khi cho phép bán, Service phải có Inventory. Product thiếu Inventory được xem là không khả dụng, không mặc định tồn vô hạn.
 
 ### 3.2. Thông số và tương thích
@@ -426,8 +427,9 @@ UNIQUE(cart_id, product_id); CHECK quantity > 0. Giá hiện tại được tín
 | `deliveredAt` | `delivered_at` | `TIMESTAMP WITHOUT TIME ZONE` | NULL |
 | `checkoutIdempotencyKey` | `checkout_idempotency_key` | `VARCHAR(128)` | NULL; unique theo User khi có giá trị |
 | `checkoutRequestHash` | `checkout_request_hash` | `VARCHAR(64)` | NULL; SHA-256 chữ thường |
+| `paymentExpiresAt` | `payment_expires_at` | `TIMESTAMP WITHOUT TIME ZONE` | NULL; tính = order_date + 15 phút cho đơn VNPay |
 
-DEFAULT status = PENDING; total_amount >= 0. CHECK (status = DELIVERED AND delivered_at IS NOT NULL) OR (status <> DELIVERED AND delivered_at IS NULL). Hai cột idempotency cùng NULL cho dữ liệu lịch sử hoặc cùng có giá trị cho đơn tạo qua API; partial UNIQUE `(user_id, checkout_idempotency_key)` ngăn một user tạo hai đơn bằng cùng khóa. Đơn sau checkout có ít nhất một dòng và đúng một Payment; Service bảo đảm trong transaction.
+DEFAULT status = PENDING; total_amount >= 0. CHECK status IN ('PENDING', 'CONFIRMED', 'SHIPPING', 'DELIVERED', 'CANCELLED', 'EXPIRED_PENDING_RECONCILIATION'). CHECK (status = DELIVERED AND delivered_at IS NOT NULL) OR (status <> DELIVERED AND delivered_at IS NULL). Hai cột idempotency cùng NULL cho dữ liệu lịch sử hoặc cùng có giá trị cho đơn tạo qua API; partial UNIQUE `(user_id, checkout_idempotency_key)` ngăn một user tạo hai đơn bằng cùng khóa. Đơn sau checkout có ít nhất một dòng và đúng một Payment; Service bảo đảm trong transaction. Đơn thanh toán trực tuyến lưu `payment_expires_at` là thời hạn chót (15 phút).
 
 #### OrderItem → `order_items`
 
@@ -449,13 +451,37 @@ UNIQUE(order_id, product_id); CHECK quantity > 0 AND base_unit_price >= 0 AND un
 | --- | --- | --- | --- |
 | `paymentId` | `payment_id` | `INTEGER` | PK, NN; GENERATED ALWAYS AS IDENTITY |
 | `order` | `order_id` | `INTEGER` | NN; FK → orders.order_id; UNIQUE |
-| `method` | `method` | `VARCHAR(32)` | NN; CHECK enum PaymentMethod |
+| `method` | `method` | `VARCHAR(32)` | NN; CHECK enum PaymentMethod: 'COD', 'VNPAY' |
 | `amount` | `amount` | `NUMERIC(19,0)` | NN |
-| `status` | `status` | `VARCHAR(32)` | NN; CHECK enum PaymentStatus |
+| `status` | `status` | `VARCHAR(32)` | NN; CHECK enum PaymentStatus: 'PENDING', 'PAID', 'FAILED' |
 | `transactionId` | `transaction_id` | `VARCHAR(255)` | NULL |
 | `paidAt` | `paid_at` | `TIMESTAMP WITHOUT TIME ZONE` | NULL |
 
-UNIQUE(order_id); DEFAULT status = PENDING; CHECK amount >= 0. CHECK (status = PAID AND paid_at IS NOT NULL) OR (status <> PAID AND paid_at IS NULL). amount = orders.total_amount do Service kiểm tra. transaction_id tùy chọn, không tự áp UNIQUE toàn hệ thống khi chưa tích hợp nhà cung cấp.
+UNIQUE(order_id); DEFAULT status = PENDING; CHECK amount >= 0. CHECK (status = PAID AND paid_at IS NOT NULL) OR (status <> PAID AND paid_at IS NULL). amount = orders.total_amount do Service kiểm tra.
+
+#### PaymentAttempt → `payment_attempts`
+
+| Thuộc tính Java | Cột | Kiểu PostgreSQL | Ràng buộc |
+| --- | --- | --- | --- |
+| `attemptId` | `attempt_id` | `INTEGER` | PK, NN; GENERATED ALWAYS AS IDENTITY |
+| `payment` | `payment_id` | `INTEGER` | NN; FK → payments.payment_id |
+| `order` | `order_id` | `INTEGER` | NN; FK → orders.order_id |
+| `referenceCode` | `reference_code` | `VARCHAR(64)` | NN; UNIQUE; mã tham chiếu vnp_TxnRef |
+| `amount` | `amount` | `NUMERIC(19,0)` | NN; CHECK amount >= 0 |
+| `createdAt` | `created_at` | `TIMESTAMP WITHOUT TIME ZONE` | NN |
+| `expiresAt` | `expires_at` | `TIMESTAMP WITHOUT TIME ZONE` | NN |
+| `status` | `status` | `VARCHAR(32)` | NN; DEFAULT 'INITIATED'; CHECK IN ('INITIATED','PENDING','SUCCESS','FAILED','EXPIRED','UNKNOWN') |
+| `vnpTransactionNo` | `vnp_transaction_no` | `VARCHAR(64)` | NULL |
+| `vnpBankCode` | `vnp_bank_code` | `VARCHAR(32)` | NULL |
+| `verifiedResult` | `verified_result` | `TEXT` | NULL |
+| `lastReconciledAt` | `last_reconciled_at` | `TIMESTAMP WITHOUT TIME ZONE` | NULL |
+| `nextRetryAt` | `next_retry_at` | `TIMESTAMP WITHOUT TIME ZONE` | NULL |
+| `retryCount` | `retry_count` | `INTEGER` | NN; DEFAULT 0; CHECK retry_count >= 0 |
+| `errorMessage` | `error_message` | `TEXT` | NULL |
+| `requiresAdminReview` | `requires_admin_review` | `BOOLEAN` | NN; DEFAULT FALSE |
+
+UNIQUE(reference_code); IX trên (status, next_retry_at) để tác vụ đối soát QueryDR quét các attempt chưa kết luận; IX trên (requires_admin_review) hỗ trợ Admin lọc đơn nghi ngờ.
+
 
 ### 4.4. Builder và Recommendation
 
@@ -746,7 +772,7 @@ PK ghép `(review_id, user_id)` bảo đảm một like/user/review. Unlike xóa
 | `ActiveStatus` | `ACTIVE`, `INACTIVE` |
 | `ProductStatus` | `ACTIVE`, `INACTIVE`, `DRAFT`, `OUT_OF_STOCK`, `DISCONTINUED`, `HIDDEN` |
 | `OrderStatus` | `PENDING`, `CONFIRMED`, `SHIPPING`, `DELIVERED`, `CANCELLED` |
-| `PaymentMethod` | `COD`, `BANK_TRANSFER` |
+| `PaymentMethod` | `COD`, `VNPAY` |
 | `PaymentStatus` | `PENDING`, `PAID`, `FAILED` |
 | `BuildSourceType` | `MANUAL`, `RECOMMENDATION` |
 | `ComponentType` | `CPU`, `MOTHERBOARD`, `RAM`, `GPU`, `STORAGE`, `PSU`, `CASE`, `COOLER` |
@@ -793,7 +819,7 @@ Service khóa Order và kiểm tra trạng thái trước khi chuyển; gọi l�
 
 Giữ chỗ **không tự hết hạn** ở phiên bản đầu; Admin hủy đơn chưa thanh toán khi cần. Đây là lựa chọn hoàn thiện mô hình hiện tại, tránh đặt thời hạn không có dữ liệu lưu. Khi bổ sung hết hạn tự động, phải thêm thời điểm hết hạn và tác vụ giải phóng có kiểm soát; không âm thầm hủy theo thời gian hiện tại. Nhập/điều chỉnh tồn không được làm quantityOnHand thấp hơn reservedQuantity.
 
-Customer chỉ hủy đơn của mình còn PENDING và chưa PAID; Admin có thể hủy PENDING/CONFIRMED chưa PAID. Không chuyển lùi, không hủy SHIPPING/DELIVERED trong luồng hiện tại. BANK_TRANSFER phải PAID trước SHIPPING; COD được giao khi Payment PENDING, khi xác nhận thu tiền và giao thành công thì cập nhật Payment PAID cùng transaction DELIVERED. Không hỗ trợ giao thất bại/hoàn kho/hoàn tiền trong mô hình trạng thái hiện có.
+Customer chỉ hủy đơn của mình còn PENDING và chưa PAID; Admin có thể hủy PENDING/CONFIRMED chưa PAID. Không chuyển lùi, không hủy SHIPPING/DELIVERED trong luồng hiện tại. VNPAY phải PAID trước SHIPPING; COD được giao khi Payment PENDING, khi xác nhận thu tiền và giao thành công thì cập nhật Payment PAID cùng transaction DELIVERED. Không hỗ trợ giao thất bại/hoàn kho/hoàn tiền trong mô hình trạng thái hiện có.
 
 ### 6.3. Recommendation và linh kiện đã sở hữu
 
@@ -874,7 +900,7 @@ Cascade trên ReviewMedia chỉ mô tả hành vi nếu có thao tác dọn dữ
 | Điểm | Thiết kế sau sửa | Lý do |
 | --- | --- | --- |
 | Address–User | User 1 – 0..* Address; thêm user và isDefault, unique index mặc định | Mỗi địa chỉ có chủ sở hữu rõ ràng và hiện thực được setDefault(). |
-| Order–Payment | Order 1 – 0..1 Payment, order_id UNIQUE NOT NULL | Loại bỏ nhãn bội số đảo chiều; phù hợp COD/BANK_TRANSFER. |
+| Order–Payment | Order 1 – 0..1 Payment, order_id UNIQUE NOT NULL | Loại bỏ nhãn bội số đảo chiều; phù hợp COD/VNPAY. |
 | Recommendation | Thêm RecommendationAttempt, RequestPurpose; Request–Attempt–Result thay đường trực tiếp Request–Result | Hoàn thiện tham chiếu bị thiếu và dùng được AttemptStatus/UsagePurpose. |
 | PromotionRule | Thêm ruleId, promotion, discountValue và hai bảng nối Product/Category | Có khóa, mức giảm và tập đối tượng rõ ràng để tính giá. |
 | Rule–OrderItem | OrderItem có 0..1 Rule; chốt giá gốc/giá cuối, không cộng dồn | Mua không khuyến mãi vẫn hợp lệ; bảo toàn giá lịch sử. |
