@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import {
   Heart,
@@ -15,7 +15,14 @@ import {
   Check,
   X,
   ArrowRight,
+  Upload,
+  Loader2,
 } from "lucide-react";
+import {
+  mediaApi,
+  MediaApiError,
+  MAX_IMAGE_SIZE_BYTES,
+} from "../lib/media-api";
 import {
   CommunityPost,
   SetupStyle,
@@ -639,6 +646,12 @@ export function CreateSetupModal({
   const [authorRole, setAuthorRole] = useState("Thành viên PC Store");
   const [style, setStyle] = useState<SetupStyle>("minimalist");
   const [selectedPresetPhoto, setSelectedPresetPhoto] = useState(0);
+  const [uploadedImages, setUploadedImages] = useState<
+    Array<{ mediaId: string; previewUrl: string; name: string }>
+  >([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [description, setDescription] = useState("");
   const [deskModel, setDeskModel] = useState("Bàn nâng hạ tự động 1m6 x 80cm");
   const [chairModel, setChairModel] = useState("Ghế công thái học lưới thoáng khí");
@@ -659,6 +672,62 @@ export function CreateSetupModal({
 
   if (!isOpen) return null;
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    e.target.value = "";
+
+    if (uploadedImages.length + files.length > 8) {
+      toast("Bài viết góc máy chỉ được đính kèm tối đa 8 ảnh.", "error");
+      return;
+    }
+
+    setIsUploading(true);
+    let successCount = 0;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        toast(`Ảnh "${file.name}" vượt quá dung lượng tối đa 8 MB.`, "error");
+        continue;
+      }
+
+      setUploadMessage(`Đang tải ảnh "${file.name}" (${i + 1}/${files.length})...`);
+      try {
+        const res = await mediaApi.uploadImage(file, "SETUP");
+        const previewUrl = URL.createObjectURL(file);
+        setUploadedImages((prev) => [
+          ...prev,
+          { mediaId: res.mediaId, previewUrl, name: file.name },
+        ]);
+        successCount++;
+      } catch (err) {
+        if (err instanceof MediaApiError) {
+          if (err.status === 502 || err.code === "MEDIA_STORAGE_UNAVAILABLE") {
+            toast(
+              "Máy chủ lưu trữ Cloudinary chưa sẵn sàng. Bạn vẫn có thể dùng ảnh mẫu có sẵn.",
+              "error"
+            );
+          } else {
+            toast(err.message, "error");
+          }
+        } else {
+          toast(err instanceof Error ? err.message : `Tải lên ${file.name} thất bại.`, "error");
+        }
+      }
+    }
+
+    setIsUploading(false);
+    setUploadMessage("");
+    if (successCount > 0) {
+      toast(`Đã tải lên ${successCount} ảnh thực tế thành công!`, "success");
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setUploadedImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const toggleComponentSelect = (slug: string) => {
     if (selectedComponentSlugs.includes(slug)) {
       setSelectedComponentSlugs(selectedComponentSlugs.filter((s) => s !== slug));
@@ -674,12 +743,17 @@ export function CreateSetupModal({
       return;
     }
 
+    const customImages = uploadedImages.map((img) => img.previewUrl);
+    const coverImage = customImages.length > 0 ? customImages[0] : presetPhotos[selectedPresetPhoto];
+    const allImages = customImages.length > 0 ? customImages : [presetPhotos[selectedPresetPhoto]];
+
     createCommunityPost({
       title,
       authorName: authorName.trim() || "Thành viên PC Store",
       authorRole,
       style,
-      coverImage: presetPhotos[selectedPresetPhoto],
+      coverImage,
+      images: allImages,
       description,
       deskSpecs: {
         desk: deskModel,
@@ -811,25 +885,105 @@ export function CreateSetupModal({
             />
           </div>
 
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-bold text-ink">Chọn hình ảnh góc máy:</label>
-            <div className="grid grid-cols-4 gap-2.5">
-              {presetPhotos.map((url, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  className={`aspect-video rounded-xl overflow-hidden border-2 p-0 bg-transparent cursor-pointer transition-all ${
-                    selectedPresetPhoto === idx
-                      ? "border-[#006ce1] ring-2 ring-[#006ce1]/30"
-                      : "border-transparent opacity-75 hover:opacity-100"
-                  }`}
-                  onClick={() => setSelectedPresetPhoto(idx)}
+          {/* Real Media Upload Section */}
+          <div className="flex flex-col gap-2.5">
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-bold text-ink">
+                Hình ảnh thực tế góc máy (tải lên 1–8 ảnh chất lượng cao):
+              </label>
+              <span className="text-[11px] text-muted font-medium">
+                {uploadedImages.length}/8 ảnh
+              </span>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/jpg"
+              className="hidden"
+              onChange={(e) => void handleFileSelect(e)}
+            />
+
+            {/* Custom Uploaded Images Preview */}
+            <div className="flex gap-2.5 flex-wrap items-center">
+              {uploadedImages.map((img, idx) => (
+                <div
+                  key={img.mediaId || idx}
+                  className="relative w-22 h-20 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shadow-sm group"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt={`Ảnh mẫu ${idx + 1}`} className="w-full h-full object-cover" />
-                </button>
+                  <img
+                    src={img.previewUrl}
+                    alt={img.name || `Ảnh góc máy ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  {idx === 0 && (
+                    <span className="absolute bottom-1 left-1 bg-[#006ce1] text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
+                      Ảnh bìa
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveImage(idx)}
+                    className="absolute top-1 right-1 bg-slate-900/80 hover:bg-rose-600 text-white border-none rounded-full w-5 h-5 grid place-items-center cursor-pointer transition-colors"
+                    aria-label="Xóa ảnh"
+                    title="Xóa ảnh này"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
               ))}
+
+              {uploadedImages.length < 8 && (
+                <button
+                  type="button"
+                  disabled={isUploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex flex-col items-center justify-center gap-1 w-22 h-20 border border-dashed border-slate-300 rounded-xl bg-slate-50 text-slate-600 text-[11px] font-semibold hover:border-[#006ce1] hover:text-[#006ce1] hover:bg-blue-50 transition-colors cursor-pointer disabled:opacity-50"
+                  aria-label="Chọn ảnh góc máy từ máy tính"
+                >
+                  {isUploading ? (
+                    <Loader2 size={18} className="animate-spin text-[#006ce1]" />
+                  ) : (
+                    <Upload size={18} />
+                  )}
+                  <span>{isUploading ? "Đang tải..." : "Tải ảnh lên"}</span>
+                </button>
+              )}
             </div>
+
+            {isUploading && uploadMessage && (
+              <p className="text-xs text-blue-600 flex items-center gap-1.5 m-0 animate-pulse">
+                <Loader2 size={13} className="animate-spin" /> {uploadMessage}
+              </p>
+            )}
+
+            {/* Preset Photos Fallback when no custom images */}
+            {uploadedImages.length === 0 && (
+              <div className="mt-2 pt-2 border-t border-slate-100">
+                <span className="text-[11px] font-semibold text-muted block mb-2">
+                  Hoặc chọn ảnh mẫu có sẵn:
+                </span>
+                <div className="grid grid-cols-4 gap-2.5">
+                  {presetPhotos.map((url, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={`aspect-video rounded-xl overflow-hidden border-2 p-0 bg-transparent cursor-pointer transition-all ${
+                        selectedPresetPhoto === idx
+                          ? "border-[#006ce1] ring-2 ring-[#006ce1]/30"
+                          : "border-transparent opacity-75 hover:opacity-100"
+                      }`}
+                      onClick={() => setSelectedPresetPhoto(idx)}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt={`Ảnh mẫu ${idx + 1}`} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-2">

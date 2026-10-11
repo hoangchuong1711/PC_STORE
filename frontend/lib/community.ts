@@ -443,6 +443,7 @@ export function createCommunityPost(input: {
   authorRole?: string;
   style: SetupStyle;
   coverImage?: string;
+  images?: string[];
   description: string;
   deskSpecs?: {
     desk: string;
@@ -471,6 +472,12 @@ export function createCommunityPost(input: {
     },
   );
 
+  const defaultCover =
+    "https://images.unsplash.com/photo-1593305841991-05c297ba4575?w=1400&auto=format&fit=crop&q=80";
+  const coverImage = input.coverImage || defaultCover;
+  const postImages =
+    input.images && input.images.length > 0 ? input.images : [coverImage];
+
   const newPost: CommunityPost = {
     id: `setup-${Date.now()}`,
     title: input.title,
@@ -482,13 +489,8 @@ export function createCommunityPost(input: {
       role: input.authorRole || "Thành viên cộng đồng",
     },
     style: input.style,
-    coverImage:
-      input.coverImage ||
-      "https://images.unsplash.com/photo-1593305841991-05c297ba4575?w=1400&auto=format&fit=crop&q=80",
-    images: [
-      input.coverImage ||
-        "https://images.unsplash.com/photo-1593305841991-05c297ba4575?w=1400&auto=format&fit=crop&q=80",
-    ],
+    coverImage,
+    images: postImages,
     description: input.description,
     deskSpecs: input.deskSpecs || {
       desk: "Bàn nâng hạ tự động mặt gỗ công nghiệp",
