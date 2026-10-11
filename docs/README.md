@@ -11,6 +11,7 @@
 | Schema và quy tắc dữ liệu | [Mô hình dữ liệu](data-model.md) | Thiết kế dữ liệu mục tiêu; đối chiếu migration để biết phần đã có. |
 | Cách chạy kiểm thử | [Hướng dẫn kiểm thử](testing.md) | Lệnh kiểm thử và môi trường cần chuẩn bị. |
 | API đã khai báo | [OpenAPI](../backend/src/main/webapp/api-docs/openapi.yaml) | Đặc tả HTTP; đối chiếu Servlet/DTO khi sửa endpoint. |
+| Like và kiểm duyệt Review | [T27 Review social](T27_REVIEW_SOCIAL.md) | Hợp đồng API, quy tắc gọi lặp, bàn giao T26 và fixture kiểm thử. |
 | Upload và truy cập media | [T21 media](../backend/T21_MEDIA.md) | Giới hạn, quyền và vòng đời file của dịch vụ media. |
 | API bài đăng Setup | [T29 Setup](T29_SETUP.md) | Endpoint, DTO, lỗi và quyền cho FE/QA; ranh giới với T30. |
 | API đánh giá sản phẩm | [T26 Review](T26_REVIEW_API.md) | Endpoint, DTO, lỗi và quyền cho FE/QA; contract dành trước cho T27. |
