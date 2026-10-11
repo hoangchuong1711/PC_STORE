@@ -46,7 +46,6 @@ import { Header, Footer } from "./storefront";
 export type AccountTab =
   | "profile"
   | "password"
-  | "register-product"
   | "messages"
   | "addresses"
   | "builds"
@@ -90,10 +89,6 @@ export function AccountDashboard() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordNotice, setPasswordNotice] = useState<string | null>(null);
 
-  // Product Registration State ("Đăng ký")
-  const [serialNumber, setSerialNumber] = useState("");
-  const [productCategory, setProductCategory] = useState("VGA");
-  const [purchaseDate, setPurchaseDate] = useState("");
 
   // Saved Builds States (Real API)
   const [serverBuilds, setServerBuilds] = useState<ApiSavedBuild[]>([]);
@@ -446,20 +441,17 @@ export function AccountDashboard() {
   const isSettingsSubTab = (tab: AccountTab) =>
     tab === "settings" ||
     tab === "profile" ||
-    tab === "password" ||
-    tab === "register-product";
+    tab === "password";
 
   const settingsSubItems: Array<{ id: AccountTab; label: string }> = [
     { id: "profile", label: "Hồ sơ cá nhân" },
     { id: "password", label: "Đổi mật khẩu" },
-    { id: "register-product", label: "Đăng ký" },
   ];
 
   const mobileTabs: Array<{ id: AccountTab; label: string }> = [
     { id: "messages", label: "Tin nhắn" },
     { id: "profile", label: "Hồ sơ" },
     { id: "password", label: "Đổi MK" },
-    { id: "register-product", label: "Đăng ký" },
     { id: "addresses", label: "Sổ địa chỉ" },
     { id: "builds", label: "Dàn PC" },
     { id: "setups", label: "Góc máy" },
@@ -873,112 +865,6 @@ export function AccountDashboard() {
                 </section>
               )}
 
-              {/* Mục 3: Đăng ký sản phẩm & Bảo hành */}
-              {activeTab === "register-product" && (
-                <section className="bg-white border border-[#e2e8f0] rounded-2xl p-6 sm:p-8 shadow-xs">
-                  <div className="flex items-start gap-3.5 pb-5 border-b border-[#f1f5f9]">
-                    <div className="w-10 h-10 rounded-xl bg-[#edf5fe] text-[#006ce1] flex items-center justify-center shrink-0">
-                      <ShieldCheck size={20} />
-                    </div>
-                    <div>
-                      <h2 className="text-lg md:text-xl font-bold text-ink tracking-tight">
-                        Đăng ký sản phẩm
-                      </h2>
-                      <p className="text-xs md:text-sm text-muted mt-0.5">
-                        Đăng ký số sê-ri (S/N) thiết bị để kích hoạt bảo hành điện tử chính hãng và nhận hỗ trợ kỹ thuật ưu tiên.
-                      </p>
-                    </div>
-                  </div>
-
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      if (!serialNumber.trim()) {
-                        toast("Vui lòng nhập số sê-ri sản phẩm.", "error");
-                        return;
-                      }
-                      toast(`Đã gửi yêu cầu kích hoạt bảo hành cho thiết bị sê-ri ${serialNumber.trim()}!`, "success");
-                      setSerialNumber("");
-                    }}
-                    className="flex flex-col gap-5 pt-6 max-w-[620px]"
-                  >
-                    <div className="flex flex-col gap-1.5">
-                      <label htmlFor="pSerial" className="text-xs font-bold text-ink">
-                        Số sê-ri sản phẩm (S/N)
-                      </label>
-                      <input
-                        id="pSerial"
-                        type="text"
-                        value={serialNumber}
-                        onChange={(e) => setSerialNumber(e.target.value)}
-                        placeholder="VD: SN-ASUS-4070S-99821 hoặc dán từ vỏ hộp"
-                        required
-                        className="h-10 px-3.5 border border-[#e2e8f0] rounded-xl text-sm outline-none focus:border-[#006ce1] focus:ring-1 focus:ring-[#006ce1] transition-colors"
-                      />
-                      <span className="text-[11px] text-muted">
-                        Số sê-ri được in trên tem phụ của vỏ hộp hoặc mặt sau của linh kiện/dàn PC.
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="flex flex-col gap-1.5">
-                        <label htmlFor="pCategory" className="text-xs font-bold text-ink">
-                          Loại thiết bị
-                        </label>
-                        <select
-                          id="pCategory"
-                          value={productCategory}
-                          onChange={(e) => setProductCategory(e.target.value)}
-                          className="h-10 px-3 border border-[#e2e8f0] rounded-xl text-sm outline-none focus:border-[#006ce1] bg-white transition-colors cursor-pointer"
-                        >
-                          <option value="VGA">Card đồ họa (VGA)</option>
-                          <option value="CPU">Bộ vi xử lý (CPU)</option>
-                          <option value="MAINBOARD">Bo mạch chủ (Mainboard)</option>
-                          <option value="PC_SET">Dàn PC trọn bộ</option>
-                          <option value="MONITOR">Màn hình máy tính</option>
-                          <option value="STORAGE">Ổ cứng SSD / HDD</option>
-                          <option value="OTHER">Linh kiện khác</option>
-                        </select>
-                      </div>
-
-                      <div className="flex flex-col gap-1.5">
-                        <label htmlFor="pBuyDate" className="text-xs font-bold text-ink">
-                          Ngày mua hàng
-                        </label>
-                        <input
-                          id="pBuyDate"
-                          type="date"
-                          value={purchaseDate}
-                          onChange={(e) => setPurchaseDate(e.target.value)}
-                          className="h-10 px-3 border border-[#e2e8f0] rounded-xl text-sm outline-none focus:border-[#006ce1] bg-white transition-colors cursor-pointer"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 flex flex-col gap-2">
-                      <strong className="text-ink font-semibold">Đặc quyền khi đăng ký thiết bị tại PC Store:</strong>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
-                        <span>Bảo hành chính hãng 36 tháng, 1 đổi 1 trong 30 ngày đầu</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
-                        <span>Tra cứu lịch sử bảo hành và sửa chữa trực tuyến không cần giữ hóa đơn giấy</span>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end pt-3 border-t border-[#f1f5f9]">
-                      <button
-                        type="submit"
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs md:text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-xs cursor-pointer"
-                      >
-                        <ShieldCheck size={15} />
-                        <span>Kích hoạt bảo hành</span>
-                      </button>
-                    </div>
-                  </form>
-                </section>
-              )}
 
               {/* Mục 5: Trung tâm tin nhắn */}
               {activeTab === "messages" && (
