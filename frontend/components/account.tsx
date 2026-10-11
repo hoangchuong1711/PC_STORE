@@ -37,6 +37,7 @@ import {
 import { formatPrice } from "../lib/products";
 import { useAuth } from "./auth-provider";
 import { builderApi, type SavedBuild as ApiSavedBuild } from "../lib/builder-api";
+import { addressApi } from "../lib/address-api";
 import { useCart } from "./cart-provider";
 import { useToast } from "./toast";
 import { Header, Footer } from "./storefront";
@@ -69,8 +70,10 @@ export function AccountDashboard() {
   const [activeTab, setActiveTab] = useState<AccountTab>("profile");
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
 
-  // User-scoped address storage (no fake mock addresses)
+  // User-scoped address storage (Real API)
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+  const [addressesLoading, setAddressesLoading] = useState(false);
+  const [addressesError, setAddressesError] = useState<string | null>(null);
   const [isAddAddressOpen, setIsAddAddressOpen] = useState(false);
 
   // Profile Form States
@@ -110,28 +113,47 @@ export function AccountDashboard() {
     }
   }, [authLoading, user, router]);
 
-  // Load user profile inputs, addresses, and social linking states
-  useEffect(() => {
-    if (user) {
-      setName(user.fullName);
-      setPhone(user.phone || "");
-
-      // Load user-specific saved addresses from localStorage
+  // Fetch real addresses from backend API
+  const loadAddresses = useCallback(async () => {
+    if (!user) return;
+    setAddressesLoading(true);
+    setAddressesError(null);
+    try {
+      const data = await addressApi.list();
+      const mapped: SavedAddress[] = data.map((item) => ({
+        id: String(item.addressId),
+        label: item.label || "Nhà riêng",
+        recipientName: item.recipientName || user.fullName,
+        phone: item.phone || user.phone || "",
+        address: item.address || item.addressDetail,
+        isDefault: item.isDefault,
+      }));
+      setAddresses(mapped);
+    } catch (err) {
+      setAddressesError(err instanceof Error ? err.message : "Không thể tải danh sách địa chỉ.");
+      // Fallback to local storage if API is unreachable
       try {
         const stored = localStorage.getItem(`pcstore_addresses_${user.userId}`);
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) {
-            setAddresses(parsed);
-          }
-        } else {
-          setAddresses([]);
+          if (Array.isArray(parsed)) setAddresses(parsed);
         }
       } catch {
-        setAddresses([]);
+        // ignore
       }
+    } finally {
+      setAddressesLoading(false);
     }
   }, [user]);
+
+  // Load user profile inputs and addresses
+  useEffect(() => {
+    if (user) {
+      setName(user.fullName);
+      setPhone(user.phone || "");
+      void loadAddresses();
+    }
+  }, [user, loadAddresses]);
 
   // Fetch real saved builds for authenticated user
   const loadBuilds = useCallback(async () => {
@@ -241,35 +263,99 @@ export function AccountDashboard() {
     }
   };
 
-  const handleSetDefaultAddress = (id: string) => {
+  const handleSetDefaultAddress = async (id: string) => {
+    const numId = Number(id);
+    if (numId > 0) {
+      try {
+        await addressApi.setDefault(numId);
+        setAddresses((prev) => {
+          const next = prev.map((a) => ({ ...a, isDefault: a.id === id }));
+          saveUserAddresses(next);
+          return next;
+        });
+        toast("Đã đặt làm địa chỉ giao hàng mặc định!", "success");
+        return;
+      } catch (err) {
+        toast(err instanceof Error ? err.message : "Không thể đặt địa chỉ mặc định trên máy chủ.", "error");
+      }
+    }
     const next = addresses.map((a) => ({ ...a, isDefault: a.id === id }));
+    setAddresses(next);
     saveUserAddresses(next);
     toast("Đã đặt làm địa chỉ giao hàng mặc định!", "success");
   };
 
-  const handleDeleteAddress = (id: string) => {
+  const handleDeleteAddress = async (id: string) => {
+    const numId = Number(id);
+    if (numId > 0) {
+      try {
+        await addressApi.delete(numId);
+        setAddresses((prev) => {
+          const next = prev.filter((a) => a.id !== id);
+          if (next.length > 0 && !next.some((a) => a.isDefault)) {
+            next[0].isDefault = true;
+          }
+          saveUserAddresses(next);
+          return next;
+        });
+        toast("Đã xóa địa chỉ khỏi sổ tay.", "info");
+        return;
+      } catch (err) {
+        toast(err instanceof Error ? err.message : "Không thể xóa địa chỉ trên máy chủ.", "error");
+      }
+    }
     const next = addresses.filter((a) => a.id !== id);
     if (next.length > 0 && !next.some((a) => a.isDefault)) {
       next[0].isDefault = true;
     }
+    setAddresses(next);
     saveUserAddresses(next);
     toast("Đã xóa địa chỉ khỏi sổ tay.", "info");
   };
 
-  const handleAddAddressSuccess = (newAddr: Omit<SavedAddress, "id">) => {
-    const item: SavedAddress = {
-      ...newAddr,
-      id: `addr-${Date.now()}`,
-    };
-    let next = [item, ...addresses];
-    if (item.isDefault) {
-      next = next.map((a) => (a.id === item.id ? a : { ...a, isDefault: false }));
-    } else if (next.length === 1) {
-      item.isDefault = true;
+  const handleAddAddressSuccess = async (newAddr: Omit<SavedAddress, "id">) => {
+    try {
+      const created = await addressApi.create({
+        label: newAddr.label,
+        recipientName: newAddr.recipientName,
+        phone: newAddr.phone,
+        address: newAddr.address,
+        isDefault: newAddr.isDefault,
+      });
+      const item: SavedAddress = {
+        id: String(created.addressId),
+        label: created.label || newAddr.label,
+        recipientName: created.recipientName || newAddr.recipientName,
+        phone: created.phone || newAddr.phone,
+        address: created.address || created.addressDetail || newAddr.address,
+        isDefault: created.isDefault,
+      };
+      setAddresses((prev) => {
+        let next = [item, ...prev];
+        if (item.isDefault) {
+          next = next.map((a) => (a.id === item.id ? a : { ...a, isDefault: false }));
+        }
+        saveUserAddresses(next);
+        return next;
+      });
+      setIsAddAddressOpen(false);
+      toast("Đã thêm địa chỉ giao hàng mới lên máy chủ!", "success");
+    } catch {
+      const item: SavedAddress = {
+        ...newAddr,
+        id: `addr-${Date.now()}`,
+      };
+      let next = [item, ...addresses];
+      if (item.isDefault) {
+        next = next.map((a) => (a.id === item.id ? a : { ...a, isDefault: false }));
+      } else if (next.length === 1) {
+        item.isDefault = true;
+      }
+      setAddresses(next);
+      saveUserAddresses(next);
+      setIsAddAddressOpen(false);
+      toast("Đã lưu địa chỉ vào sổ tay!", "success");
     }
-    saveUserAddresses(next);
-    setIsAddAddressOpen(false);
-    toast("Đã thêm địa chỉ giao hàng mới!", "success");
   };
 
   // Build handlers (Real API)
@@ -365,11 +451,10 @@ export function AccountDashboard() {
                     key={item.id}
                     type="button"
                     onClick={() => setActiveTab(item.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                      isActive
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${isActive
                         ? "bg-[#edf5fe] text-[#006ce1]"
                         : "text-muted hover:text-ink hover:bg-slate-50"
-                    }`}
+                      }`}
                   >
                     {item.label}
                   </button>
@@ -415,11 +500,10 @@ export function AccountDashboard() {
                   role="tab"
                   aria-selected={activeTab === "messages"}
                   onClick={() => setActiveTab("messages")}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-colors text-left cursor-pointer ${
-                    activeTab === "messages"
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-colors text-left cursor-pointer ${activeTab === "messages"
                       ? "bg-[#edf5fe] text-[#006ce1]"
                       : "text-[#334155] hover:bg-slate-50 hover:text-ink"
-                  }`}
+                    }`}
                 >
                   <span className="flex items-center gap-3">
                     <MessageSquare size={17} className={activeTab === "messages" ? "text-[#006ce1]" : "text-slate-500"} />
@@ -438,11 +522,10 @@ export function AccountDashboard() {
                         setActiveTab("profile");
                       }
                     }}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-colors text-left cursor-pointer ${
-                      isSettingsSubTab(activeTab)
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-colors text-left cursor-pointer ${isSettingsSubTab(activeTab)
                         ? "text-[#006ce1]"
                         : "text-[#334155] hover:bg-slate-50 hover:text-ink"
-                    }`}
+                      }`}
                   >
                     <span className="flex items-center gap-3">
                       <Settings size={17} className={isSettingsSubTab(activeTab) ? "text-[#006ce1]" : "text-slate-500"} />
@@ -467,11 +550,10 @@ export function AccountDashboard() {
                             role="tab"
                             aria-selected={isSubActive}
                             onClick={() => setActiveTab(item.id)}
-                            className={`w-full text-left pl-10 pr-3 py-2 rounded-lg text-xs md:text-sm transition-colors cursor-pointer ${
-                              isSubActive
+                            className={`w-full text-left pl-10 pr-3 py-2 rounded-lg text-xs md:text-sm transition-colors cursor-pointer ${isSubActive
                                 ? "bg-[#edf5fe] text-[#006ce1] font-semibold"
                                 : "text-[#334155] hover:bg-slate-50 hover:text-ink font-normal"
-                            }`}
+                              }`}
                           >
                             {item.label}
                           </button>
@@ -489,11 +571,10 @@ export function AccountDashboard() {
                   role="tab"
                   aria-selected={activeTab === "addresses"}
                   onClick={() => setActiveTab("addresses")}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-colors text-left cursor-pointer ${
-                    activeTab === "addresses"
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-colors text-left cursor-pointer ${activeTab === "addresses"
                       ? "bg-[#edf5fe] text-[#006ce1]"
                       : "text-[#475569] hover:bg-slate-50 hover:text-ink"
-                  }`}
+                    }`}
                 >
                   <MapPin size={16} className={activeTab === "addresses" ? "text-[#006ce1]" : "text-slate-400"} />
                   <span>Sổ địa chỉ</span>
@@ -505,11 +586,10 @@ export function AccountDashboard() {
                   role="tab"
                   aria-selected={activeTab === "builds"}
                   onClick={() => setActiveTab("builds")}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-colors text-left cursor-pointer ${
-                    activeTab === "builds"
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-colors text-left cursor-pointer ${activeTab === "builds"
                       ? "bg-[#edf5fe] text-[#006ce1]"
                       : "text-[#475569] hover:bg-slate-50 hover:text-ink"
-                  }`}
+                    }`}
                 >
                   <Cpu size={16} className={activeTab === "builds" ? "text-[#006ce1]" : "text-slate-400"} />
                   <span>Dàn PC đã lưu</span>
@@ -521,11 +601,10 @@ export function AccountDashboard() {
                   role="tab"
                   aria-selected={activeTab === "setups"}
                   onClick={() => setActiveTab("setups")}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-colors text-left cursor-pointer ${
-                    activeTab === "setups"
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-colors text-left cursor-pointer ${activeTab === "setups"
                       ? "bg-[#edf5fe] text-[#006ce1]"
                       : "text-[#475569] hover:bg-slate-50 hover:text-ink"
-                  }`}
+                    }`}
                 >
                   <Camera size={16} className={activeTab === "setups" ? "text-[#006ce1]" : "text-slate-400"} />
                   <span>Góc máy của tôi</span>
@@ -638,11 +717,10 @@ export function AccountDashboard() {
                       <button
                         type="submit"
                         disabled={!hasProfileChanges || profileSaving}
-                        className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-colors cursor-pointer ${
-                          hasProfileChanges && !profileSaving
+                        className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-colors cursor-pointer ${hasProfileChanges && !profileSaving
                             ? "bg-[#006ce1] hover:bg-[#0051a8] text-white shadow-xs"
                             : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                        }`}
+                          }`}
                       >
                         {profileSaving && <Loader2 size={14} className="animate-spin" />}
                         <span>{profileSaving ? "Đang lưu..." : "Lưu thay đổi"}</span>
@@ -938,7 +1016,30 @@ export function AccountDashboard() {
                     </button>
                   </div>
 
-                  {addresses.length === 0 ? (
+                  {addressesLoading ? (
+                    <div className="text-center py-16 px-6 border border-[#e2e8f0] rounded-2xl flex flex-col items-center justify-center">
+                      <Loader2 size={32} className="animate-spin text-[#006ce1] mb-3" />
+                      <p className="text-xs md:text-sm text-muted">
+                        Đang tải sổ địa chỉ nhận hàng từ máy chủ...
+                      </p>
+                    </div>
+                  ) : addressesError ? (
+                    <div className="text-center py-12 px-6 border border-rose-200 bg-rose-50 rounded-2xl flex flex-col items-center justify-center">
+                      <AlertCircle size={32} className="text-rose-500 mb-2" />
+                      <h3 className="text-sm font-bold text-rose-800 mb-1">
+                        Không thể tải sổ địa chỉ
+                      </h3>
+                      <p className="text-xs text-rose-600 mb-4 max-w-sm">{addressesError}</p>
+                      <button
+                        type="button"
+                        onClick={() => void loadAddresses()}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 transition-colors cursor-pointer"
+                      >
+                        <RefreshCw size={13} />
+                        <span>Thử lại</span>
+                      </button>
+                    </div>
+                  ) : addresses.length === 0 ? (
                     <div className="text-center py-14 px-6 border border-dashed border-[#cbd5e1] rounded-2xl flex flex-col items-center justify-center">
                       <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mb-3">
                         <MapPin size={22} />
@@ -963,11 +1064,10 @@ export function AccountDashboard() {
                       {addresses.map((addr) => (
                         <article
                           key={addr.id}
-                          className={`border rounded-xl p-5 flex flex-col justify-between transition-all ${
-                            addr.isDefault
+                          className={`border rounded-xl p-5 flex flex-col justify-between transition-all ${addr.isDefault
                               ? "border-[#006ce1] bg-[#f8fbff]"
                               : "border-[#e2e8f0] bg-white hover:border-slate-300"
-                          }`}
+                            }`}
                         >
                           <div>
                             <div className="flex justify-between items-center mb-2">
@@ -1100,15 +1200,15 @@ export function AccountDashboard() {
                                     build.compatibility?.status === "PASS"
                                       ? "text-emerald-600 font-bold"
                                       : build.compatibility?.status === "FAIL"
-                                      ? "text-rose-600 font-bold"
-                                      : "text-amber-600 font-bold"
+                                        ? "text-rose-600 font-bold"
+                                        : "text-amber-600 font-bold"
                                   }
                                 >
                                   {build.compatibility?.status === "PASS"
                                     ? "✓ Tương thích 100%"
                                     : build.compatibility?.status === "FAIL"
-                                    ? "✗ Có lỗi tương thích"
-                                    : "? Chưa rõ tương thích"}
+                                      ? "✗ Có lỗi tương thích"
+                                      : "? Chưa rõ tương thích"}
                                 </span>
                               </div>
                             </div>
@@ -1302,6 +1402,8 @@ function AddAddressModal({
   const [phone, setPhone] = useState(defaultPhone || "");
   const [address, setAddress] = useState("");
   const [isDefault, setIsDefault] = useState(false);
+  const [phoneError, setPhoneError] = useState("");
+  const [nameError, setNameError] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -1316,23 +1418,38 @@ function AddAddressModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const trimmedName = recipientName.trim();
+    if (!trimmedName || trimmedName.length < 2) {
+      setNameError("Họ và tên người nhận phải có ít nhất 2 ký tự.");
+      toast("Vui lòng nhập họ và tên người nhận hợp lệ.", "error");
+      return;
+    }
+    setNameError("");
+
+    const cleanPhone = phone.trim().replace(/[\s.-]/g, "");
+    if (!cleanPhone) {
+      setPhoneError("Vui lòng nhập số điện thoại liên hệ.");
+      toast("Vui lòng nhập số điện thoại liên hệ.", "error");
+      return;
+    }
+    // Vietnam phone regex: starts with 0 or +84 followed by 3, 5, 7, 8, 9 and 8 digits
+    if (!/^(0|\+84)[35789]\d{8}$/.test(cleanPhone)) {
+      setPhoneError("Số điện thoại không đúng định dạng (VD: 0901234567 hoặc +84901234567).");
+      toast("Số điện thoại không đúng định dạng. Ví dụ: 0901234567 hoặc +84901234567", "error");
+      return;
+    }
+    setPhoneError("");
+
     if (!address.trim()) {
       toast("Vui lòng nhập địa chỉ giao hàng cụ thể.", "error");
-      return;
-    }
-    if (!recipientName.trim()) {
-      toast("Vui lòng nhập tên người nhận hàng.", "error");
-      return;
-    }
-    if (!phone.trim()) {
-      toast("Vui lòng nhập số điện thoại liên hệ.", "error");
       return;
     }
 
     onSave({
       label,
-      recipientName: recipientName.trim(),
-      phone: phone.trim(),
+      recipientName: trimmedName,
+      phone: cleanPhone,
       address: address.trim(),
       isDefault,
     });
@@ -1374,11 +1491,10 @@ function AddAddressModal({
                   key={opt}
                   type="button"
                   onClick={() => setLabel(opt)}
-                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
-                    label === opt
+                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${label === opt
                       ? "border-[#006ce1] bg-[#edf5fe] text-[#006ce1]"
                       : "border-[#e2e8f0] text-slate-600 hover:bg-slate-50"
-                  }`}
+                    }`}
                 >
                   {opt}
                 </button>
@@ -1388,35 +1504,60 @@ function AddAddressModal({
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor="modalRecipient" className="text-xs font-bold text-ink">
-              Tên người nhận
+              Tên người nhận <span className="text-rose-500">*</span>
             </label>
             <input
               id="modalRecipient"
               type="text"
               value={recipientName}
-              onChange={(e) => setRecipientName(e.target.value)}
+              onChange={(e) => {
+                setRecipientName(e.target.value);
+                if (nameError) setNameError("");
+              }}
+              placeholder="Ví dụ: Nguyễn Văn A"
               required
-              className="h-9 px-3 border border-[#e2e8f0] rounded-lg text-xs outline-none focus:border-[#006ce1]"
+              minLength={2}
+              className={`h-9 px-3 border rounded-lg text-xs outline-none transition-colors ${nameError
+                  ? "border-rose-500 focus:border-rose-600 bg-rose-50/20"
+                  : "border-[#e2e8f0] focus:border-[#006ce1]"
+                }`}
             />
+            {nameError && (
+              <span className="text-[11px] text-rose-500 font-medium">
+                {nameError}
+              </span>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor="modalPhone" className="text-xs font-bold text-ink">
-              Số điện thoại
+              Số điện thoại <span className="text-rose-500">*</span>
             </label>
             <input
               id="modalPhone"
               type="tel"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => {
+                setPhone(e.target.value);
+                if (phoneError) setPhoneError("");
+              }}
+              placeholder="Ví dụ: 0901234567"
               required
-              className="h-9 px-3 border border-[#e2e8f0] rounded-lg text-xs outline-none focus:border-[#006ce1]"
+              className={`h-9 px-3 border rounded-lg text-xs outline-none transition-colors ${phoneError
+                  ? "border-rose-500 focus:border-rose-600 bg-rose-50/20"
+                  : "border-[#e2e8f0] focus:border-[#006ce1]"
+                }`}
             />
+            {phoneError && (
+              <span className="text-[11px] text-rose-500 font-medium">
+                {phoneError}
+              </span>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor="modalAddress" className="text-xs font-bold text-ink">
-              Địa chỉ chi tiết
+              Địa chỉ chi tiết <span className="text-rose-500">*</span>
             </label>
             <textarea
               id="modalAddress"
@@ -1424,6 +1565,7 @@ function AddAddressModal({
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               required
+              minLength={6}
               placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố"
               className="p-3 border border-[#e2e8f0] rounded-lg text-xs outline-none focus:border-[#006ce1] resize-none"
             />
