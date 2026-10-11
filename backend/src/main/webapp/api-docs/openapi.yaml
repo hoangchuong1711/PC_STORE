@@ -10,6 +10,8 @@ servers:
     url: ".."
     description: "Backend cùng origin/context với tài liệu"
 tags:
+  - name: Review social
+    description: T27 — CUSTOMER like/unlike; ADMIN ẩn/khôi phục review đã có
   -
     name: "Auth"
     description: "Đăng ký, đăng nhập, session"
@@ -198,6 +200,142 @@ paths:
         '204': {description: Đã xóa}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+  /api/customer/reviews/{reviewId}/like:
+    parameters:
+      - $ref: '#/components/parameters/ReviewId'
+    put:
+      tags: [Review social]
+      operationId: likeReview
+      summary: CUSTOMER like review công khai
+      description: >-
+        Không nhận body. Chủ review suy ra từ OrderItem → Order → User và không được tự like.
+        Gọi lặp vẫn chỉ có một like; không đổi created_at. Review HIDDEN/DELETED hoặc không tồn tại đều trả 404.
+        likesCount là COUNT từ review_likes, isLiked là trạng thái của customer đăng nhập sau thao tác.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Đã like hoặc đã like từ trước
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewLikeResponse'}
+              example: {reviewId: 1, likesCount: 1, isLiked: true}
+        '400':
+          description: INVALID_ID hoặc INVALID_JSON (body phải rỗng)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: FORBIDDEN (sai quyền) hoặc SELF_LIKE_NOT_ALLOWED
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '404':
+          description: REVIEW_NOT_FOUND (không tồn tại hoặc không PUBLISHED)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Review social]
+      operationId: unlikeReview
+      summary: CUSTOMER bỏ like review công khai
+      description: >-
+        Không nhận body. Chỉ xóa like của customer đăng nhập; nếu chưa like vẫn trả 200 với isLiked=false.
+        Chủ review có thể bỏ một self-like cũ nhưng không tạo self-like mới.
+        Review HIDDEN/DELETED hoặc không tồn tại đều trả 404, kể cả khi like còn lưu trong database.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Đã bỏ like hoặc không có like từ trước
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewLikeResponse'}
+              example: {reviewId: 1, likesCount: 0, isLiked: false}
+        '400':
+          description: INVALID_ID hoặc INVALID_JSON (body phải rỗng)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: FORBIDDEN (chỉ CUSTOMER)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '404':
+          description: REVIEW_NOT_FOUND (không tồn tại hoặc không PUBLISHED)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/admin/reviews/{reviewId}/moderation:
+    parameters:
+      - $ref: '#/components/parameters/ReviewId'
+    patch:
+      tags: [Review social]
+      operationId: moderateReview
+      summary: ADMIN ẩn hoặc khôi phục review
+      description: >-
+        Chỉ chuyển PUBLISHED ↔ HIDDEN. HIDDEN cần lý do đã bỏ khoảng trắng đầu/cuối, 1–1000 đơn vị UTF-16.
+        Khôi phục gửi PUBLISHED và không gửi lý do (hoặc null); xóa moderationReason, cập nhật moderatedBy/moderatedAt.
+        Gọi lặp cùng trạng thái trả metadata hiện có, không thay lý do/người/thời gian; request vẫn phải hợp lệ.
+        Không bao giờ đổi DELETED; trả 409 REVIEW_DELETED. Like/media không bị xóa khi ẩn bài.
+        Media công khai bị chặn bởi kiểm tra trạng thái hiện tại của T21.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ModerateReviewRequest'}
+            examples:
+              hide:
+                value: {status: HIDDEN, moderationReason: Nội dung không phù hợp}
+              restore:
+                value: {status: PUBLISHED}
+      responses:
+        '200':
+          description: Trạng thái và metadata kiểm duyệt sau thao tác
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewModerationResponse'}
+              example:
+                reviewId: 1
+                status: HIDDEN
+                moderationReason: Nội dung không phù hợp
+                moderatedBy: 3
+                moderatedAt: '2026-10-08T15:00:00'
+        '400':
+          description: INVALID_ID, INVALID_JSON, INVALID_REVIEW_STATUS hoặc INVALID_MODERATION_REASON
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: FORBIDDEN (chỉ ADMIN)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '404':
+          description: REVIEW_NOT_FOUND (không tồn tại)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '409':
+          description: REVIEW_DELETED (không kiểm duyệt review do chủ xóa)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '500':
+          $ref: '#/components/responses/InternalError'
   "/api/auth/register":
     post:
       tags:
@@ -598,6 +736,106 @@ paths:
               schema: {$ref: '#/components/schemas/CompatibilityReport'}
         "400": {$ref: '#/components/responses/BadRequest'}
         "404": {$ref: '#/components/responses/NotFound'}
+  "/api/customer/addresses":
+    get:
+      tags: [Account]
+      operationId: listAddresses
+      summary: Danh sách địa chỉ của Customer hiện tại
+      security: [{sessionCookie: []}]
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/AddressResponse'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+    post:
+      tags: [Account]
+      operationId: createAddress
+      summary: Thêm địa chỉ mới
+      security: [{sessionCookie: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AddressRequest'}
+      responses:
+        "201":
+          description: Đã tạo địa chỉ
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AddressResponse'}
+        "400": {$ref: '#/components/responses/BadRequest'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+  "/api/customer/addresses/{id}":
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer, minimum: 1}
+    get:
+      tags: [Account]
+      operationId: getAddress
+      summary: Xem chi tiết một địa chỉ
+      security: [{sessionCookie: []}]
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AddressResponse'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "404": {$ref: '#/components/responses/NotFound'}
+    put:
+      tags: [Account]
+      operationId: updateAddress
+      summary: Cập nhật địa chỉ
+      security: [{sessionCookie: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AddressRequest'}
+      responses:
+        "200":
+          description: Đã cập nhật
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AddressResponse'}
+        "400": {$ref: '#/components/responses/BadRequest'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "404": {$ref: '#/components/responses/NotFound'}
+    delete:
+      tags: [Account]
+      operationId: deleteAddress
+      summary: Xóa địa chỉ
+      security: [{sessionCookie: []}]
+      responses:
+        "204":
+          description: Đã xóa địa chỉ
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "404": {$ref: '#/components/responses/NotFound'}
+  "/api/customer/addresses/{id}/default":
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer, minimum: 1}
+    put:
+      tags: [Account]
+      operationId: setDefaultAddress
+      summary: Đặt làm địa chỉ mặc định
+      security: [{sessionCookie: []}]
+      responses:
+        "200":
+          description: Đã đặt mặc định
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AddressResponse'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "404": {$ref: '#/components/responses/NotFound'}
   "/api/customer/builds":
     get:
       tags: [Builder]
@@ -876,7 +1114,7 @@ paths:
           "application/json":
             "schema":
               "$ref": "#/components/schemas/CheckoutRequest"
-      "description": "Implementation hiện nhận COD. BANK_TRANSFER đã được chốt trong hướng dẫn nghiệp vụ nhưng checkout/confirm-payment chưa triển khai. Cùng key khác nội dung trả 409 IDEMPOTENCY_KEY_REUSED."
+      "description": "Implementation nhận COD hoặc VNPAY. Cùng key khác nội dung trả 409 IDEMPOTENCY_KEY_REUSED."
       "parameters":
         -
           "in": "header"
@@ -982,6 +1220,55 @@ paths:
           "$ref": "#/components/responses/NotFound"
         "409":
           "$ref": "#/components/responses/Conflict"
+  "/api/orders/{id}/payment/vnpay-url":
+    "parameters":
+      -
+        "name": "id"
+        "in": "path"
+        "required": true
+        "schema":
+          "type": "integer"
+          "minimum": 1
+    "post":
+      "tags":
+        - "Orders"
+      "operationId": "createVNPayPaymentUrl"
+      "summary": "Tạo URL thanh toán VNPay Sandbox cho đơn hàng"
+      "description": "Chỉ chủ sở hữu đơn hàng PENDING có thể tạo URL. Trả về URL thanh toán sang VNPay Sandbox, mã tham chiếu và thời điểm hết hạn (tối đa 15 phút từ lúc checkout)."
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Tạo URL thành công hoặc trả lại attempt đang chờ xử lý"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/VNPayUrlResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+  "/api/payment/vnpay/ipn":
+    "get":
+      "tags":
+        - "Orders"
+      "operationId": "processVNPayIpn"
+      "summary": "Webhook nhận IPN từ VNPay Sandbox"
+      "description": "Gọi bởi hệ thống VNPay server-to-server. Xác thực chữ ký HMAC-SHA512, cập nhật trạng thái đơn và thanh toán."
+      "responses":
+        "200":
+          "description": "Phản hồi kết quả xử lý cho VNPay theo định dạng JSON chuẩn"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/VNPayIpnResponse"
   "/api/admin/orders":
     "get":
       "tags":
@@ -1084,6 +1371,40 @@ paths:
           "application/json":
             "schema":
               "$ref": "#/components/schemas/OrderStatusUpdateRequest"
+  "/api/admin/orders/{id}/reconcile":
+    "parameters":
+      -
+        "name": "id"
+        "in": "path"
+        "required": true
+        "schema":
+          "type": "integer"
+          "minimum": 1
+    "post":
+      "tags":
+        - "Admin orders"
+      "operationId": "reconcileAdminOrder"
+      "summary": "Admin kích hoạt đối soát QueryDR cho đơn hàng"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/OrderResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
   "/api/customer/media/images":
     post:
       tags:
@@ -1516,6 +1837,112 @@ paths:
           $ref: "#/components/responses/Conflict"
         "500":
           $ref: "#/components/responses/InternalError"
+  "/api/reviews":
+    get:
+      tags: [Review]
+      operationId: listProductReviews
+      summary: Danh sách Review PUBLISHED của một sản phẩm
+      description: "Phân trang từ 0; summary luôn tính trên toàn bộ bài PUBLISHED của sản phẩm. newest dùng reviewId giảm dần vì schema T10 không có timestamp Review."
+      parameters:
+        - {name: productId, in: query, required: true, schema: {type: integer, minimum: 1}}
+        - {name: page, in: query, schema: {type: integer, minimum: 0, default: 0}}
+        - {name: size, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+        - {name: rating, in: query, schema: {type: integer, minimum: 1, maximum: 5}}
+        - {name: hasMedia, in: query, schema: {type: boolean}}
+        - {name: sort, in: query, schema: {type: string, enum: [newest, oldest, rating_desc, rating_asc, helpful], default: newest}}
+      responses:
+        '200': {description: Trang Review và thống kê, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewPageResponse'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  "/api/reviews/summary":
+    get:
+      tags: [Review]
+      operationId: getProductReviewSummary
+      summary: Điểm trung bình và phân bố sao chỉ từ bài PUBLISHED
+      parameters:
+        - {name: productId, in: query, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        '200': {description: Thống kê Review, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewSummary'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  "/api/customer/reviews":
+    post:
+      tags: [Review]
+      operationId: createReview
+      security: [{sessionCookie: []}]
+      summary: Tạo một Review cho dòng đơn DELIVERED thuộc khách hiện tại
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewCreateRequest'}}}}
+      responses:
+        '201': {description: Review đã tạo, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewResponse'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {description: Media tạm không hợp lệ; xem code/message, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  "/api/customer/reviews/order-items/{orderItemId}":
+    get:
+      tags: [Review]
+      operationId: getOwnReviewByOrderItem
+      security: [{sessionCookie: []}]
+      summary: Lấy Review của khách theo dòng đơn để điền form tạo/sửa
+      parameters:
+        - {name: orderItemId, in: path, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        '200': {description: Review của dòng đơn, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewResponse'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  "/api/customer/reviews/{id}":
+    get:
+      tags: [Review]
+      operationId: getOwnReview
+      security: [{sessionCookie: []}]
+      summary: Lấy Review thuộc khách hiện tại, gồm HIDDEN/DELETED
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        '200': {description: Review, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewResponse'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    patch:
+      tags: [Review]
+      operationId: updateOwnReview
+      security: [{sessionCookie: []}]
+      summary: Sửa rating/content/media của Review PUBLISHED thuộc khách
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewUpdateRequest'}}}}
+      responses:
+        '200': {description: Review đã sửa, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewResponse'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {description: Media tạm không hợp lệ; xem code/message, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+    delete:
+      tags: [Review]
+      operationId: deleteOwnReview
+      security: [{sessionCookie: []}]
+      summary: Xóa mềm PUBLISHED thành DELETED; gọi lặp an toàn
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        '204': {description: Đã xóa mềm hoặc đã ở trạng thái DELETED}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  "/api/customer/reviews/{id}/restore":
+    post:
+      tags: [Review]
+      operationId: restoreOwnReview
+      security: [{sessionCookie: []}]
+      summary: Khôi phục DELETED thành PUBLISHED; không khôi phục bài HIDDEN
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        '200': {description: Review đã khôi phục, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewResponse'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
 components:
   securitySchemes:
     sessionCookie:
@@ -1524,6 +1951,12 @@ components:
       name: "JSESSIONID"
       description: "Gọi login để trình duyệt nhận cookie; không dán cookie vào Authorize."
   parameters:
+    ReviewId:
+      name: reviewId
+      in: path
+      required: true
+      description: ID product_reviews, số nguyên dương trong phạm vi INTEGER
+      schema: {type: integer, format: int32, minimum: 1, maximum: 2147483647}
     SetupId: {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
     SetupOffset: {name: offset, in: query, schema: {type: integer, minimum: 0, maximum: 1000000, default: 0}}
     SetupLimit: {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
@@ -1595,6 +2028,83 @@ components:
         moderationReason: {type: string, nullable: true}
         moderatedBy: {type: integer, nullable: true}
         moderatedAt: {type: string, format: date-time, nullable: true}
+    ReviewCreateRequest:
+      type: object
+      required: [orderItemId, productId, rating, content]
+      properties:
+        orderItemId: {type: integer, minimum: 1}
+        productId: {type: integer, minimum: 1, description: Phải đúng SKU của orderItemId}
+        rating: {type: integer, minimum: 1, maximum: 5}
+        content: {type: string, minLength: 1, maxLength: 5000}
+        mediaIds: {type: array, maxItems: 6, uniqueItems: true, default: [], items: {type: string, format: uuid}}
+    ReviewUpdateRequest:
+      type: object
+      minProperties: 1
+      description: "PATCH; trường bỏ qua được giữ nguyên. mediaIds nếu có là toàn bộ danh sách mong muốn theo thứ tự."
+      properties:
+        rating: {type: integer, minimum: 1, maximum: 5}
+        content: {type: string, minLength: 1, maxLength: 5000}
+        mediaIds: {type: array, maxItems: 6, uniqueItems: true, items: {type: string, format: uuid}}
+    ReviewAuthor:
+      type: object
+      required: [userId, fullName]
+      properties:
+        userId: {type: integer}
+        fullName: {type: string}
+    ReviewMedia:
+      type: object
+      required: [mediaType, mimeType, sizeBytes, sortOrder]
+      properties:
+        mediaId: {type: string, format: uuid, nullable: true, description: Chỉ null với dữ liệu V3 cũ}
+        mediaType: {type: string, enum: [IMAGE, VIDEO]}
+        mimeType: {type: string}
+        sizeBytes: {type: integer, format: int64, minimum: 1}
+        durationSecond: {type: integer, nullable: true, minimum: 1}
+        sortOrder: {type: integer, minimum: 0}
+        contentUrl: {type: string, nullable: true, description: Chỉ public khi Review PUBLISHED}
+    ReviewResponse:
+      type: object
+      required: [reviewId, orderItemId, orderId, productId, productName, author, rating, content, status, media, likeCount, likedByCurrentUser, verifiedPurchase]
+      description: "Không có createdAt/updatedAt vì schema T10 không lưu timestamp Review; newest/oldest dùng reviewId."
+      properties:
+        reviewId: {type: integer}
+        orderItemId: {type: integer}
+        orderId: {type: integer}
+        productId: {type: integer}
+        productName: {type: string}
+        author: {$ref: '#/components/schemas/ReviewAuthor'}
+        rating: {type: integer, minimum: 1, maximum: 5}
+        content: {type: string}
+        status: {type: string, enum: [PUBLISHED, HIDDEN, DELETED]}
+        media: {type: array, items: {$ref: '#/components/schemas/ReviewMedia'}}
+        likeCount: {type: integer, format: int64, minimum: 0, description: T27 quản lý dữ liệu like}
+        likedByCurrentUser: {type: boolean, description: false với guest}
+        verifiedPurchase: {type: boolean, enum: [true]}
+    ReviewDistribution:
+      type: object
+      required: [rating, count, percentage]
+      properties:
+        rating: {type: integer, minimum: 1, maximum: 5}
+        count: {type: integer, format: int64, minimum: 0}
+        percentage: {type: number, format: double, minimum: 0, maximum: 100}
+    ReviewSummary:
+      type: object
+      required: [productId, averageRating, totalReviews, distribution]
+      properties:
+        productId: {type: integer}
+        averageRating: {type: number, format: double, minimum: 0, maximum: 5}
+        totalReviews: {type: integer, format: int64, minimum: 0}
+        distribution: {type: array, minItems: 5, maxItems: 5, items: {$ref: '#/components/schemas/ReviewDistribution'}}
+    ReviewPageResponse:
+      type: object
+      required: [items, page, size, totalItems, totalPages, summary]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/ReviewResponse'}}
+        page: {type: integer, minimum: 0}
+        size: {type: integer, minimum: 1, maximum: 50}
+        totalItems: {type: integer, format: int64, minimum: 0}
+        totalPages: {type: integer, minimum: 0}
+        summary: {$ref: '#/components/schemas/ReviewSummary'}
 
     BuilderCatalogProduct:
       type: object
@@ -1705,6 +2215,40 @@ components:
         id: {type: string}
         status: {type: string, enum: [PASS, FAIL, UNKNOWN]}
         reason: {type: string}
+    ReviewLikeResponse:
+      type: object
+      additionalProperties: false
+      required: [reviewId, likesCount, isLiked]
+      properties:
+        reviewId: {type: integer, format: int32, minimum: 1}
+        likesCount: {type: integer, format: int64, minimum: 0, description: COUNT từ review_likes}
+        isLiked: {type: boolean, description: Customer đăng nhập còn like sau thao tác}
+    ModerateReviewRequest:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: {type: string, enum: [HIDDEN, PUBLISHED]}
+        moderationReason:
+          type: string
+          nullable: true
+          description: >-
+            HIDDEN bắt buộc lý do không trống sau strip(), tối đa 1000 đơn vị UTF-16 sau strip().
+            PUBLISHED chỉ được bỏ trường này hoặc gửi null.
+    ReviewModerationResponse:
+      type: object
+      additionalProperties: false
+      required: [reviewId, status, moderationReason, moderatedBy, moderatedAt]
+      properties:
+        reviewId: {type: integer, format: int32, minimum: 1}
+        status: {type: string, enum: [PUBLISHED, HIDDEN]}
+        moderationReason: {type: string, nullable: true}
+        moderatedBy: {type: integer, format: int32, nullable: true}
+        moderatedAt:
+          type: string
+          nullable: true
+          description: LocalDateTime ISO-8601 không có offset, diễn giải Asia/Bangkok (UTC+07), chính xác microsecond
+          example: '2026-10-08T15:00:00.123456'
     AdminCategoryInput:
       type: object
       additionalProperties: false
@@ -1832,6 +2376,7 @@ components:
           "type": "string"
           "enum":
             - "COD"
+            - "VNPAY"
       "additionalProperties": false
     OrderStatusUpdateRequest:
       "type": "object"
@@ -1846,6 +2391,7 @@ components:
             - "SHIPPING"
             - "DELIVERED"
             - "CANCELLED"
+            - "EXPIRED_PENDING_RECONCILIATION"
     OrderResponse:
       "type": "object"
       "required":
@@ -1881,6 +2427,10 @@ components:
           "type": "string"
           "nullable": true
           "description": "LocalDateTime ISO-8601 không có timezone"
+        "paymentExpiresAt":
+          "type": "string"
+          "nullable": true
+          "description": "Thời điểm hết hạn thanh toán (order_date + 15 phút) cho đơn VNPay"
         "items":
           "type": "array"
           "items":
@@ -1930,7 +2480,7 @@ components:
           "type": "string"
           "enum":
             - "COD"
-            - "BANK_TRANSFER"
+            - "VNPAY"
         "status":
           "type": "string"
           "enum":
@@ -1944,6 +2494,42 @@ components:
           "type": "string"
           "nullable": true
           "description": "LocalDateTime ISO-8601 không có timezone"
+    VNPayUrlResponse:
+      "type": "object"
+      "required":
+        - "orderId"
+        - "paymentMethod"
+        - "referenceCode"
+        - "paymentUrl"
+        - "expiresAt"
+      "properties":
+        "orderId":
+          "type": "integer"
+        "paymentMethod":
+          "type": "string"
+          "enum":
+            - "VNPAY"
+        "referenceCode":
+          "type": "string"
+          "description": "Mã tham chiếu vnp_TxnRef duy nhất"
+        "paymentUrl":
+          "type": "string"
+          "description": "URL chuyển hướng sang VNPay Sandbox"
+        "expiresAt":
+          "type": "string"
+          "description": "Thời điểm hết hạn ISO-8601"
+    VNPayIpnResponse:
+      "type": "object"
+      "required":
+        - "RspCode"
+        - "Message"
+      "properties":
+        "RspCode":
+          "type": "string"
+          "description": "Mã phản hồi chuẩn VNPay: 00, 01, 02, 04, 97"
+        "Message":
+          "type": "string"
+          "description": "Thông điệp phản hồi chuẩn VNPay"
     ErrorResponse:
       type: "object"
       required:
@@ -2256,3 +2842,37 @@ components:
       type: "object"
       description: "Bộ spec đầy đủ theo categories.component_type. CPU: socketCode, cores, threads, baseClockGhz, boostClockGhz, tdpWatts. MOTHERBOARD: socketCode, chipset, ramType, pcieVersion, formFactorCode, ramSlots, maxRamGb. RAM: ramType, capacityGb, speedMhz, moduleCount. GPU: vramGb, memoryType, interfaceType, lengthMm, powerConsumptionW, recommendedPsuW. STORAGE: storageType, interfaceType, capacityGb, readSpeedMBps, writeSpeedMBps. PSU: wattage, efficiencyRating, modularType. CASE: maxGpuLengthMm, maxCoolerHeightMm, maxRadiatorSizeMm, supportedFormFactors[]. COOLER: coolerType, maxTdpW, heightMm hoặc radiatorSizeMm, supportedSockets[]. Chi tiết ràng buộc tại docs/data-model.md mục 4.2 và 6.7. Nếu sản phẩm chưa có spec, response là null; không suy diễn PASS."
       additionalProperties: true
+    AddressRequest:
+      type: object
+      properties:
+        recipientName:
+          type: string
+        phone:
+          type: string
+        label:
+          type: string
+        address:
+          type: string
+        addressDetail:
+          type: string
+        isDefault:
+          type: boolean
+    AddressResponse:
+      type: object
+      required: [addressId, addressDetail, isDefault]
+      properties:
+        addressId:
+          type: integer
+          format: int32
+        addressDetail:
+          type: string
+        recipientName:
+          type: string
+        phone:
+          type: string
+        label:
+          type: string
+        address:
+          type: string
+        isDefault:
+          type: boolean

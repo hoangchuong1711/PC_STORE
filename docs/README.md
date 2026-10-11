@@ -7,12 +7,15 @@
 | Thứ tự và phạm vi triển khai | Trang này | Quyết định ưu tiên CORE → FEATURE → ADVANCED. |
 | Task và phụ thuộc | [Kế hoạch T01–T38](plane.md) | Bản kế hoạch tại thời điểm lập; trạng thái Work Item xem trên Plane. |
 | Tích hợp luồng mua hàng | [Nhật ký T20](T20_INTEGRATION_LOG.md) | Kết quả và giới hạn kiểm chứng khi ghép frontend với backend. |
+| Thanh toán VNPay & đối soát | [T20-B VNPay](T20B_VNPAY.md) | Đặc tả cổng VNPay Sandbox, expiration 15m, QueryDR và attempts. |
 | Schema và quy tắc dữ liệu | [Mô hình dữ liệu](data-model.md) | Thiết kế dữ liệu mục tiêu; đối chiếu migration để biết phần đã có. |
 | Cách chạy kiểm thử | [Hướng dẫn kiểm thử](testing.md) | Lệnh kiểm thử và môi trường cần chuẩn bị. |
 | API đã khai báo | [OpenAPI](../backend/src/main/webapp/api-docs/openapi.yaml) | Đặc tả HTTP; đối chiếu Servlet/DTO khi sửa endpoint. |
+| Like và kiểm duyệt Review | [T27 Review social](T27_REVIEW_SOCIAL.md) | Hợp đồng API, quy tắc gọi lặp, bàn giao T26 và fixture kiểm thử. |
 | Upload và truy cập media | [T21 media](../backend/T21_MEDIA.md) | Giới hạn, quyền và vòng đời file của dịch vụ media. |
 | API bài đăng Setup | [T29 Setup](T29_SETUP.md) | Endpoint, DTO, lỗi và quyền cho FE/QA; ranh giới với T30. |
 | Like, ranking và kiểm duyệt Setup | [T30 Setup social](T30_SETUP_SOCIAL.md) | Contract bổ sung T29, quyền, transaction và liên kết catalog/cart. |
+| API đánh giá sản phẩm | [T26 Review](T26_REVIEW_API.md) | Endpoint, DTO, lỗi và quyền cho FE/QA; contract dành trước cho T27. |
 | Dữ liệu kiểm thử Builder | [T22 Builder](T22_BUILDER.md) | Seed spec và đáp án PASS/FAIL/UNKNOWN cho T23/T24. |
 | Kiểm tra tương thích Builder | [T23 CompatibilityService](T23_COMPATIBILITY.md) | Contract, rule và giới hạn kiểm tra của backend. |
 | Lưu build và thêm giỏ | [T24 Build API](T24_BUILD_API.md) | Endpoint, quyền, giá và điều kiện thêm giỏ của Builder. |

@@ -15,7 +15,7 @@ const products = [
 
 const orders = [
   { id: "o1", code: "PCS-001", customerName: "Minh Anh", customerEmail: "minh@example.com", createdAt: "2026-10-01T10:00:00+07:00", total: 12_000_000, status: "PENDING", paymentMethod: "COD", paymentStatus: "PENDING", itemCount: 2 },
-  { id: "o2", code: "PCS-002", customerName: "Lan Phương", customerEmail: "lan@example.com", createdAt: "2026-10-02T10:00:00+07:00", total: 25_000_000, status: "SHIPPING", paymentMethod: "BANK_TRANSFER", paymentStatus: "PAID", itemCount: 1 },
+  { id: "o2", code: "PCS-002", customerName: "Lan Phương", customerEmail: "lan@example.com", createdAt: "2026-10-02T10:00:00+07:00", total: 25_000_000, status: "SHIPPING", paymentMethod: "VNPAY", paymentStatus: "PAID", itemCount: 1 },
 ];
 
 test("filters admin products by query, status and stock", () => {

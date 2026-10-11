@@ -58,4 +58,10 @@ class OrderValidationTest {
         var body = new CheckoutRequest("Customer", "0901234567", "Address", null);
         assertEquals(400, assertThrows(AppException.class, () -> service.checkout(1, "valid-key-001", body)).getStatus());
     }
+
+    @Test
+    void acceptsVnpayPaymentMethodInValidation() {
+        var body = new CheckoutRequest("Customer", "0901234567", "Address", PaymentMethod.VNPAY);
+        assertThrows(NullPointerException.class, () -> service.checkout(1, "valid-key-001", body));
+    }
 }

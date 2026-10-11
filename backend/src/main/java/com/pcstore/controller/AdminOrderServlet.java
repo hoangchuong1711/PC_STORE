@@ -15,10 +15,42 @@ import java.util.Map;
 @WebServlet(name = "adminOrderServlet", urlPatterns = {"/api/admin/orders", "/api/admin/orders/*"})
 public class AdminOrderServlet extends HttpServlet {
     private OrderService orderService;
+    private com.pcstore.service.VNPayQueryDrService vnPayQueryDrService;
+
+    public AdminOrderServlet() {
+    }
+
+    public AdminOrderServlet(OrderService orderService, com.pcstore.service.VNPayQueryDrService vnPayQueryDrService) {
+        this.orderService = orderService;
+        this.vnPayQueryDrService = vnPayQueryDrService;
+    }
 
     @Override
     public void init() {
-        orderService = new OrderService();
+        if (orderService == null) {
+            orderService = new OrderService();
+        }
+        if (vnPayQueryDrService == null) {
+            vnPayQueryDrService = new com.pcstore.service.VNPayQueryDrService();
+        }
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        try {
+            Integer orderId = OrderServlet.actionId(OrderServlet.normalizedPath(request), "reconcile");
+            if (orderId == null) {
+                notFound(response);
+                return;
+            }
+            JsonUtil.write(response, HttpServletResponse.SC_OK,
+                    vnPayQueryDrService.reconcileOrder(orderId));
+        } catch (AppException exception) {
+            writeError(response, exception);
+        } catch (RuntimeException exception) {
+            getServletContext().log("Admin order reconcile failed", exception);
+            internalError(response);
+        }
     }
 
     @Override

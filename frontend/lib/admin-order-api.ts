@@ -5,7 +5,8 @@ export type AdminOrderStatus =
   | "CONFIRMED"
   | "SHIPPING"
   | "DELIVERED"
-  | "CANCELLED";
+  | "CANCELLED"
+  | "EXPIRED_PENDING_RECONCILIATION";
 
 export class AdminOrderApiError extends Error {
   status: number;
@@ -126,6 +127,15 @@ export function createAdminOrderApi(transport: typeof fetch = fetch) {
       const data = await read(`/api/admin/orders/${orderId}/status`, "PUT", { status });
       if (!validOrder(data)) {
         throw new AdminOrderApiError(502, "INVALID_RESPONSE", "Phản hồi cập nhật đơn hàng không hợp lệ.");
+      }
+      return data;
+    },
+
+    async reconcile(orderId: number): Promise<OrderResponse> {
+      requireId(orderId);
+      const data = await read(`/api/admin/orders/${orderId}/reconcile`, "POST");
+      if (!validOrder(data)) {
+        throw new AdminOrderApiError(502, "INVALID_RESPONSE", "Phản hồi đối soát không hợp lệ.");
       }
       return data;
     },

@@ -6,16 +6,21 @@ import { Header, Footer } from "./storefront";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./auth-provider";
 import { authDestination, createAuthApi } from "../lib/auth-api";
+import { Eye, EyeOff } from "lucide-react";
+import { useToast } from "./toast";
 
 type AuthMode = "login" | "register";
 
 export function AuthPage({ mode }: { mode: AuthMode }) {
   const isLogin = mode === "login";
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+
   const { login } = useAuth();
+  const { toast } = useToast();
   const router = useRouter();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -38,101 +43,185 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
         const user = await login(email, password);
         router.replace(authDestination(user));
       } else {
-        await createAuthApi().register({ fullName: String(form.get("name") ?? "").trim(), email, password });
+        await createAuthApi().register({
+          fullName: String(form.get("name") ?? "").trim(),
+          email,
+          password,
+        });
         setSubmitted(true);
       }
-    } catch (cause) { setError((cause as Error).message); }
-    finally { setPending(false); }
+    } catch (cause) {
+      setError((cause as Error).message);
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
     <>
       <Header />
-      <main className="auth-page">
-        <div className="auth-layout container">
-          <section className="auth-aside">
-            <span className="eyebrow">PC Store account</span>
-            <h1>
-              Góc máy của bạn,
-              <em> bắt đầu từ đây.</em>
+      <main className="bg-[#f8fafc] min-h-[85vh] py-10 md:py-16 flex items-center justify-center">
+        <div className="w-full max-w-[440px] mx-auto px-4">
+          <section
+            className="bg-white border border-[#e2e8f0] rounded-2xl p-7 sm:p-9 shadow-xs"
+            aria-labelledby="auth-title"
+          >
+            {/* Tiêu đề trang */}
+            <h1
+              id="auth-title"
+              className="text-xl sm:text-2xl font-bold text-ink tracking-tight mb-6"
+            >
+              {isLogin ? "Đăng nhập Tài khoản" : "Đăng ký Tài khoản"}
             </h1>
-            <p>
-              Lưu cấu hình, theo dõi đơn hàng và nhận hỗ trợ phù hợp với
-              những thiết bị bạn đang dùng.
-            </p>
-            <div className="auth-aside-mark" aria-hidden="true">
-              <span>PC</span>
-              <strong>∞</strong>
-            </div>
-          </section>
-
-          <section className="auth-card" aria-labelledby="auth-title">
-            <div className="auth-card-heading">
-              <span className="eyebrow">{isLogin ? "Chào mừng trở lại" : "Tạo tài khoản"}</span>
-              <h2 id="auth-title">{isLogin ? "Đăng nhập" : "Bắt đầu cùng PC Store"}</h2>
-              <p>
-                {isLogin
-                  ? "Đăng nhập để tiếp tục với góc máy của bạn."
-                  : "Tạo tài khoản miễn phí để lưu lại hành trình mua sắm."}
-              </p>
-            </div>
 
             {submitted && (
-              <div className="form-message success" role="status">
-                {isLogin
-                  ? "Đăng nhập thành công."
-                  : "Đã tạo tài khoản. Hãy đăng nhập để tiếp tục."}
-                {!isLogin && <Link href="/auth/login"> Đăng nhập</Link>}
+              <div
+                className="mb-4 p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs"
+                role="status"
+              >
+                Đã tạo tài khoản thành công!{" "}
+                <Link href="/auth/login" className="font-semibold underline">
+                  Đăng nhập ngay
+                </Link>
               </div>
             )}
-            {error && <div className="form-message error" role="alert">{error}</div>}
 
-            <form className="auth-form" onSubmit={handleSubmit}>
+            {error && (
+              <div
+                className="mb-4 p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs"
+                role="alert"
+              >
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="flex flex-col">
+              {/* Họ và tên (chỉ khi Đăng ký) */}
               {!isLogin && (
-                <label>
-                  Họ và tên
-                  <input name="name" type="text" placeholder="Nguyễn Văn A" maxLength={255} autoComplete="name" required />
-                </label>
-              )}
-              <label>
-                Email
-                <input name="email" type="email" placeholder="ban@example.com" maxLength={254} autoComplete="email" required />
-              </label>
-              <label>
-                Mật khẩu
-                <span className="password-field">
+                <div className="flex flex-col mb-4">
+                  <label htmlFor="authName" className="text-xs font-semibold text-slate-800 mb-1">
+                    Họ và tên
+                  </label>
                   <input
+                    id="authName"
+                    name="name"
+                    type="text"
+                    required
+                    maxLength={255}
+                    placeholder="Nguyễn Văn A"
+                    className="w-full px-3.5 py-2.5 border border-[#cbd5e1] rounded-lg text-xs outline-none focus:border-[#006ce1] focus:ring-1 focus:ring-[#006ce1] bg-white text-ink transition-colors"
+                  />
+                  <span className="text-[11px] text-slate-500 mt-1">
+                    Vui lòng nhập họ và tên của bạn
+                  </span>
+                </div>
+              )}
+
+              {/* Tài khoản (Email) */}
+              <div className="flex flex-col mb-4">
+                <label htmlFor="authEmail" className="text-xs font-semibold text-slate-800 mb-1">
+                  Tài khoản
+                </label>
+                <input
+                  id="authEmail"
+                  name="email"
+                  type="email"
+                  required
+                  maxLength={254}
+                  autoComplete="email"
+                  className="w-full px-3.5 py-2.5 border border-[#cbd5e1] rounded-lg text-xs outline-none focus:border-[#006ce1] focus:ring-1 focus:ring-[#006ce1] bg-white text-ink transition-colors"
+                />
+                <span className="text-[11px] text-slate-500 mt-1">
+                  Vui lòng nhập email của bạn
+                </span>
+              </div>
+
+              {/* Mật khẩu */}
+              <div className="flex flex-col mb-4">
+                <label htmlFor="authPassword" className="text-xs font-semibold text-slate-800 mb-1">
+                  Mật khẩu
+                </label>
+                <div className="relative">
+                  <input
+                    id="authPassword"
                     name="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder={isLogin ? "Mật khẩu" : "Từ 8 đến 128 ký tự"}
+                    required
                     minLength={isLogin ? 1 : 8}
                     maxLength={128}
                     autoComplete={isLogin ? "current-password" : "new-password"}
-                    required
+                    className="w-full px-3.5 py-2.5 pr-10 border border-[#cbd5e1] rounded-lg text-xs outline-none focus:border-[#006ce1] focus:ring-1 focus:ring-[#006ce1] bg-white text-ink transition-colors"
                   />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)}>
-                    {showPassword ? "Ẩn" : "Hiện"}
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1 cursor-pointer"
+                    aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
-                </span>
-              </label>
-              {!isLogin && (
-                <label className="check-row">
-                  <input name="terms" type="checkbox" required />
-                  <span>Tôi đồng ý với điều khoản sử dụng của PC Store.</span>
-                </label>
-              )}
-              <button className="button button-primary auth-submit" type="submit" disabled={pending || submitted}>
-                {pending ? "Đang xử lý…" : isLogin ? "Đăng nhập" : "Tạo tài khoản"}
-                <span>↗</span>
-              </button>
-            </form>
+                </div>
+              </div>
 
-            <p className="auth-switch">
-              {isLogin ? "Chưa có tài khoản?" : "Đã có tài khoản?"}{" "}
-              <Link href={isLogin ? "/auth/register" : "/auth/login"}>
-                {isLogin ? "Đăng ký ngay" : "Đăng nhập"}
-              </Link>
-            </p>
+              {/* Nhớ tôi & Quên mật khẩu (chỉ khi Đăng nhập) */}
+              {isLogin && (
+                <div className="flex items-center justify-between mb-5">
+                  <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 rounded border-[#cbd5e1] text-[#006ce1] focus:ring-[#006ce1] cursor-pointer"
+                    />
+                    <span>Nhớ tôi</span>
+                  </label>
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      toast("Vui lòng liên hệ quản trị viên để hỗ trợ cấp lại mật khẩu.", "info");
+                    }}
+                    className="text-xs text-[#006ce1] hover:underline font-medium"
+                  >
+                    Quên mật khẩu của bạn?
+                  </a>
+                </div>
+              )}
+
+              {/* Điều khoản sử dụng (chỉ khi Đăng ký) */}
+              {!isLogin && (
+                <div className="mb-5">
+                  <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      required
+                      className="w-4 h-4 rounded border-[#cbd5e1] text-[#006ce1] focus:ring-[#006ce1] cursor-pointer mt-0.5"
+                    />
+                    <span>Tôi đồng ý với Điều khoản dịch vụ và Chính sách quyền riêng tư của PC Store.</span>
+                  </label>
+                </div>
+              )}
+
+              {/* Nút Đăng nhập / Đăng ký */}
+              <button
+                type="submit"
+                disabled={pending || submitted}
+                className="w-full py-3 px-4 bg-[#006ce1] hover:bg-[#0051a8] text-white font-semibold rounded-lg text-xs md:text-sm transition-colors cursor-pointer shadow-xs text-center disabled:opacity-60 mb-4"
+              >
+                {pending ? "Đang xử lý…" : isLogin ? "Đăng nhập" : "Đăng ký"}
+              </button>
+
+              {/* Chuyển đổi giữa Đăng ký và Đăng nhập */}
+              <div className="text-center text-xs text-slate-700">
+                {isLogin ? "Bạn chưa có tài khoản PC Store? " : "Bạn đã có tài khoản PC Store? "}
+                <Link
+                  href={isLogin ? "/auth/register" : "/auth/login"}
+                  className="text-[#006ce1] font-semibold hover:underline"
+                >
+                  {isLogin ? "Đăng ký ngay" : "Đăng nhập ngay"}
+                </Link>
+              </div>
+            </form>
           </section>
         </div>
       </main>
