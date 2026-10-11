@@ -92,6 +92,13 @@ export function AdminReviews() {
     hidden: reviews.filter((r) => r.status === "HIDDEN").length,
   };
 
+  const [isHideModalOpen, setIsHideModalOpen] = useState(false);
+  const [hideReason, setHideReason] = useState("");
+  const [hideError, setHideError] = useState("");
+  const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
+  const [restoreSubmitting, setRestoreSubmitting] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
@@ -102,6 +109,11 @@ export function AdminReviews() {
     setHideReason("");
     setHideError("");
     setIsHideModalOpen(true);
+  };
+
+  const handleOpenRestoreModal = (review: AdminReview) => {
+    setSelectedReview(review);
+    setIsRestoreModalOpen(true);
   };
 
   const handleConfirmHide = async () => {
@@ -142,8 +154,10 @@ export function AdminReviews() {
     showToast(`Đã ẩn đánh giá của "${selectedReview.userName}" thành công.`);
   };
 
-  const handleRestoreReview = async (review: AdminReview) => {
-    const numId = Number(review.id.replace(/^rev-?/i, ""));
+  const handleConfirmRestore = async () => {
+    if (!selectedReview) return;
+    setRestoreSubmitting(true);
+    const numId = Number(selectedReview.id.replace(/^rev-?/i, ""));
     if (numId > 0) {
       try {
         await reviewApi.moderate(numId, { status: "PUBLISHED" });
@@ -153,7 +167,7 @@ export function AdminReviews() {
     }
 
     const updated = reviews.map((r) =>
-      r.id === review.id
+      r.id === selectedReview.id
         ? {
             ...r,
             status: "PUBLISHED" as const,
@@ -165,8 +179,10 @@ export function AdminReviews() {
     );
 
     setReviews(updated);
-    setSelectedReview(updated.find((r) => r.id === review.id) || null);
-    showToast(`Đã khôi phục hiển thị đánh giá của "${review.userName}".`);
+    setSelectedReview(updated.find((r) => r.id === selectedReview.id) || null);
+    setIsRestoreModalOpen(false);
+    setRestoreSubmitting(false);
+    showToast(`Đã khôi phục hiển thị đánh giá của "${selectedReview.userName}".`);
   };
 
   return (
@@ -434,7 +450,7 @@ export function AdminReviews() {
                           <button
                             type="button"
                             className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold text-admin-green hover:bg-admin-green-soft transition-colors cursor-pointer"
-                            onClick={() => handleRestoreReview(review)}
+                            onClick={() => handleOpenRestoreModal(review)}
                             title="Khôi phục hiển thị"
                           >
                             <RotateCcw size={13} /> Hiện
@@ -588,7 +604,7 @@ export function AdminReviews() {
                 <button
                   type="button"
                   className="inline-flex items-center justify-center gap-1.5 min-h-[38px] px-4 rounded-lg text-xs font-bold bg-admin-accent-dark hover:bg-[#1e252c] text-white transition-colors cursor-pointer"
-                  onClick={() => handleRestoreReview(selectedReview)}
+                  onClick={() => handleOpenRestoreModal(selectedReview)}
                 >
                   <RotateCcw size={15} /> Khôi phục hiển thị
                 </button>
@@ -650,6 +666,58 @@ export function AdminReviews() {
                 onClick={handleConfirmHide}
               >
                 Xác nhận ẩn
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Restore Modal Dialog */}
+      {isRestoreModalOpen && selectedReview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs" role="dialog" aria-modal="true" aria-labelledby="restore-modal-title">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-admin-line flex flex-col gap-4">
+            <div className="flex items-start gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-admin-green-soft text-admin-green">
+                <RotateCcw size={18} />
+              </div>
+              <div>
+                <h3 id="restore-modal-title" className="text-base font-bold text-admin-ink">Xác nhận khôi phục đánh giá</h3>
+                <p className="text-xs text-admin-muted mt-0.5">Khách hàng: <strong className="text-admin-ink">{selectedReview.userName}</strong> ({selectedReview.productName})</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+              <div>
+                <span className="text-slate-500 font-medium">Nội dung đánh giá: </span>
+                <span className="text-admin-ink italic">"{selectedReview.content}"</span>
+              </div>
+              {selectedReview.moderationReason && (
+                <div>
+                  <span className="text-rose-600 font-medium">Lý do đã ẩn trước đó: </span>
+                  <span className="text-slate-700">{selectedReview.moderationReason}</span>
+                </div>
+              )}
+            </div>
+
+            <p className="text-xs text-admin-muted leading-relaxed m-0">
+              Đánh giá này sẽ được chuyển về trạng thái <strong>Hiển thị công khai</strong> và xuất hiện trở lại trên trang chi tiết sản phẩm cho khách hàng.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-admin-line">
+              <button
+                type="button"
+                className="inline-flex items-center justify-center min-h-[38px] px-3.5 rounded-lg text-xs font-bold border border-admin-line bg-white hover:bg-admin-bg text-admin-ink transition-colors cursor-pointer"
+                onClick={() => setIsRestoreModalOpen(false)}
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={restoreSubmitting}
+                className="inline-flex items-center justify-center min-h-[38px] px-3.5 rounded-lg text-xs font-bold bg-admin-green hover:bg-[#16a34a] text-white transition-colors cursor-pointer disabled:opacity-50"
+                onClick={handleConfirmRestore}
+              >
+                {restoreSubmitting ? "Đang xử lý..." : "Xác nhận khôi phục"}
               </button>
             </div>
           </div>
