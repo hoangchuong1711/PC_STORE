@@ -10,7 +10,9 @@ import jakarta.servlet.http.*;
 import java.io.IOException;
 import java.util.Map;
 
-@WebServlet(name = "reviewLikeServlet", urlPatterns = "/api/customer/reviews/*")
+// Note: @WebServlet is omitted because ReviewServlet already maps to /api/customer/reviews/*
+// and delegates /{reviewId}/like requests here. Duplicate servlet mappings to the same URL pattern
+// cause Tomcat deployment to fail with IllegalArgumentException.
 public class ReviewLikeServlet extends HttpServlet {
     @Override protected void service(HttpServletRequest req, HttpServletResponse res) throws IOException {
         res.setHeader("Cache-Control", "private, no-store");
@@ -33,7 +35,7 @@ public class ReviewLikeServlet extends HttpServlet {
         } catch (AppException error) {
             JsonUtil.write(res, error.getStatus(), Map.of("code", error.getCode(), "message", error.getMessage()));
         } catch (RuntimeException error) {
-            getServletContext().log("Review like request failed", error);
+            if (getServletContext() != null) getServletContext().log("Review like request failed", error);
             JsonUtil.write(res, 500, Map.of("code", "INTERNAL_ERROR", "message", "Không thể xử lý like lúc này."));
         }
     }

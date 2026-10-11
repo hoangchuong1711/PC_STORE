@@ -21,6 +21,7 @@ import java.util.Map;
 
 @WebServlet(name = "reviewServlet", urlPatterns = {"/api/reviews/*", "/api/customer/reviews/*"})
 public final class ReviewServlet extends HttpServlet {
+    private final ReviewLikeServlet reviewLikeServlet = new ReviewLikeServlet();
     private final ObjectMapper mapper = JsonMapper.builder()
             .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT)
             .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
@@ -30,11 +31,15 @@ public final class ReviewServlet extends HttpServlet {
         try {
             String requestPath = req.getRequestURI().substring(req.getContextPath().length());
             boolean customerRoute = requestPath.startsWith("/api/customer/reviews");
+            String tail = req.getPathInfo();
+            if (customerRoute && tail != null && tail.matches("/[^/]+/like")) {
+                reviewLikeServlet.service(req, res);
+                return;
+            }
             Integer userId = SessionUtil.userId(req);
             if (customerRoute && userId == null)
                 throw new AppException(401, "UNAUTHORIZED", "Bạn cần đăng nhập.");
 
-            String tail = req.getPathInfo();
             String method = req.getMethod();
             Object result;
             int status = 200;

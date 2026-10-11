@@ -266,10 +266,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#80c59c] ring-4 ring-[#80c59c]/20" />
             <div>
               <strong className="block text-xs font-semibold text-[#edf2f6]">
-                {pathname === "/admin/categories" ? "Dữ liệu từ máy chủ" : "Chế độ xem mẫu"}
+                {pathname === "/admin/categories" || pathname === "/admin/reviews" ? "Dữ liệu từ máy chủ" : "Chế độ xem mẫu"}
               </strong>
               <span className="mt-0.5 block text-[11px] text-[#98a3ae]">
-                {pathname === "/admin/categories" ? "Danh mục/hãng được lưu vào database" : "Dữ liệu lưu tạm phiên làm việc"}
+                {pathname === "/admin/categories" || pathname === "/admin/reviews" ? "Dữ liệu được đồng bộ từ database máy chủ" : "Dữ liệu lưu tạm phiên làm việc"}
               </span>
             </div>
           </div>

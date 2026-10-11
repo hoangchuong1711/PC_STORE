@@ -15,6 +15,7 @@ export type PaymentMethod = "COD" | "VNPAY";
 export type PaymentStatus = "PENDING" | "PAID" | "FAILED";
 
 export type OrderLine = {
+  orderItemId?: number;
   productId: string;
   slug: string;
   name: string;
@@ -226,6 +227,7 @@ export function toOrderModel(res: OrderResponse): Order {
       address: res.shippingAddressText,
     },
     lines: (res.items || []).map((item) => ({
+      orderItemId: item.orderItemId,
       productId: String(item.productId),
       slug: String(item.productId),
       name: item.productName,

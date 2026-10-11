@@ -1467,7 +1467,11 @@ export function ProductDetail({
         </section>
 
         {/* Product Reviews & Real Customer Feedback */}
-        <ProductReviewsSection productSlug={product.slug} productName={product.name} />
+        <ProductReviewsSection
+          productSlug={product.slug}
+          productName={product.name}
+          productId={/^\d+$/.test(product.id) ? Number(product.id) : parseInt(product.id.replace(/^p-?/i, ""), 10) || 1}
+        />
 
         {/* Related Products */}
         {relatedProducts.length > 0 && (

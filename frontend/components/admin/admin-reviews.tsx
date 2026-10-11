@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useState, useCallback, useEffect } from "react";
 import Image from "next/image";
 import {
   AlertTriangle,
@@ -13,13 +13,17 @@ import {
   ShieldAlert,
   Star,
   X,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import {
   type AdminReview,
   type AdminReviewFilters,
+  type AdminReviewStatus,
   initialAdminReviews,
   filterAdminReviews,
 } from "@/lib/admin-reviews";
+import { reviewApi } from "@/lib/review-api";
 
 const initialFilters: AdminReviewFilters = {
   query: "",
@@ -30,12 +34,52 @@ const initialFilters: AdminReviewFilters = {
 
 export function AdminReviews() {
   const [reviews, setReviews] = useState<AdminReview[]>(initialAdminReviews);
+  const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<AdminReviewFilters>(initialFilters);
   const [selectedReview, setSelectedReview] = useState<AdminReview | null>(null);
   const [isHideModalOpen, setIsHideModalOpen] = useState(false);
   const [hideReason, setHideReason] = useState("");
   const [hideError, setHideError] = useState("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const loadReviews = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await reviewApi.listAdmin();
+      if (data && data.length > 0) {
+        setReviews(
+          data.map((item) => ({
+            id: String(item.reviewId),
+            productSlug: `product-${item.productId}`,
+            productName: item.productName,
+            orderId: String(item.orderId),
+            orderItemId: String(item.orderItemId),
+            userName: item.userName,
+            rating: item.rating,
+            createdAt: item.moderatedAt || new Date().toISOString(),
+            content: item.content,
+            images: item.images || [],
+            likesCount: item.likesCount || 0,
+            verifiedBuyer: item.verifiedBuyer ?? true,
+            status: (item.status === "HIDDEN" ? "HIDDEN" : "PUBLISHED") as AdminReviewStatus,
+            moderationReason: item.moderationReason ?? undefined,
+            moderatedBy: item.moderatedBy ? `Admin #${item.moderatedBy}` : undefined,
+            moderatedAt: item.moderatedAt ?? undefined,
+          }))
+        );
+      } else {
+        setReviews(initialAdminReviews);
+      }
+    } catch {
+      setReviews(initialAdminReviews);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadReviews();
+  }, [loadReviews]);
 
   const filteredReviews = filterAdminReviews(reviews, filters);
 
@@ -60,12 +104,24 @@ export function AdminReviews() {
     setIsHideModalOpen(true);
   };
 
-  const handleConfirmHide = () => {
+  const handleConfirmHide = async () => {
     if (!hideReason.trim()) {
       setHideError("Vui lòng nhập lý do ẩn đánh giá để lưu vào nhật ký kiểm duyệt.");
       return;
     }
     if (!selectedReview) return;
+
+    const numId = Number(selectedReview.id.replace(/^rev-?/i, ""));
+    if (numId > 0) {
+      try {
+        await reviewApi.moderate(numId, {
+          status: "HIDDEN",
+          moderationReason: hideReason.trim(),
+        });
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Không thể đồng bộ trạng thái ẩn lên máy chủ.");
+      }
+    }
 
     const now = new Date().toISOString();
     const updated = reviews.map((r) =>
@@ -86,7 +142,16 @@ export function AdminReviews() {
     showToast(`Đã ẩn đánh giá của "${selectedReview.userName}" thành công.`);
   };
 
-  const handleRestoreReview = (review: AdminReview) => {
+  const handleRestoreReview = async (review: AdminReview) => {
+    const numId = Number(review.id.replace(/^rev-?/i, ""));
+    if (numId > 0) {
+      try {
+        await reviewApi.moderate(numId, { status: "PUBLISHED" });
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Không thể đồng bộ trạng thái khôi phục lên máy chủ.");
+      }
+    }
+
     const updated = reviews.map((r) =>
       r.id === review.id
         ? {
@@ -121,6 +186,15 @@ export function AdminReviews() {
           <h1 className="text-2xl sm:text-3xl lg:text-[34px] font-extrabold text-admin-ink tracking-tight mt-1 mb-1.5 leading-tight">Kiểm duyệt đánh giá sản phẩm</h1>
           <p className="text-sm text-admin-muted max-w-[570px] m-0">Rà soát trải nghiệm mua hàng, hình ảnh thực tế và ẩn các nhận xét vi phạm tiêu chuẩn.</p>
         </div>
+        <button
+          type="button"
+          onClick={() => void loadReviews()}
+          disabled={loading}
+          className="inline-flex items-center gap-2 h-9 px-3.5 rounded-lg border border-admin-line bg-white text-xs font-semibold text-admin-ink hover:bg-admin-bg transition-colors cursor-pointer disabled:opacity-50"
+        >
+          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          Làm mới
+        </button>
       </div>
 
       {/* Metric Cards */}
@@ -267,7 +341,14 @@ export function AdminReviews() {
               </tr>
             </thead>
             <tbody>
-              {filteredReviews.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-xs text-admin-muted">
+                    <Loader2 size={24} className="animate-spin text-admin-blue mx-auto mb-2" />
+                    Đang đồng bộ đánh giá thực tế từ máy chủ...
+                  </td>
+                </tr>
+              ) : filteredReviews.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-10 text-center text-xs text-admin-soft">
                     Không có đánh giá nào phù hợp với bộ lọc hiện tại.

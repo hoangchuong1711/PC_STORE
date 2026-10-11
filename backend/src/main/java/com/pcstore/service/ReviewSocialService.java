@@ -7,11 +7,12 @@ import com.pcstore.entity.enums.*;
 import com.pcstore.exception.AppException;
 import jakarta.persistence.EntityManager;
 
+import com.pcstore.dao.ReviewDao;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.util.*;
 import java.util.function.Supplier;
-
 
 public class ReviewSocialService {
     private static final ZoneId ZONE = ZoneId.of("Asia/Bangkok");
@@ -21,6 +22,48 @@ public class ReviewSocialService {
     public ReviewSocialService(EntityManager em) {
         this.em = em;
         this.reviews = new ReviewSocialDao(em);
+    }
+
+    public List<Map<String, Object>> listAllForAdmin(int userId) {
+        requireUser(userId, UserRole.ADMIN);
+        String sql = "SELECT r.review_id, r.order_item_id, i.order_id, i.product_id, p.name, "
+                + "o.user_id, u.full_name, r.rating, r.content, r.status, "
+                + "r.moderation_reason, r.moderated_by, r.moderated_at, "
+                + "(SELECT count(*) FROM review_likes l WHERE l.review_id=r.review_id) as likes_count "
+                + "FROM product_reviews r "
+                + "JOIN order_items i ON i.order_item_id=r.order_item_id "
+                + "JOIN orders o ON o.order_id=i.order_id "
+                + "JOIN products p ON p.product_id=i.product_id "
+                + "JOIN users u ON u.user_id=o.user_id "
+                + "ORDER BY r.review_id DESC";
+        List<?> rows = em.createNativeQuery(sql).getResultList();
+        List<Map<String, Object>> list = new ArrayList<>();
+        ReviewDao reviewDao = new ReviewDao(em);
+        for (Object item : rows) {
+            Object[] row = (Object[]) item;
+            int reviewId = ((Number) row[0]).intValue();
+            var mediaList = reviewDao.media(reviewId).stream()
+                    .map(ReviewDto.Media::contentUrl).filter(Objects::nonNull).toList();
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("reviewId", reviewId);
+            map.put("orderItemId", ((Number) row[1]).intValue());
+            map.put("orderId", ((Number) row[2]).intValue());
+            map.put("productId", ((Number) row[3]).intValue());
+            map.put("productName", row[4]);
+            map.put("userId", ((Number) row[5]).intValue());
+            map.put("userName", row[6]);
+            map.put("rating", ((Number) row[7]).intValue());
+            map.put("content", row[8]);
+            map.put("status", row[9]);
+            map.put("moderationReason", row[10]);
+            map.put("moderatedBy", row[11] == null ? null : ((Number) row[11]).intValue());
+            map.put("moderatedAt", row[12] == null ? null : row[12].toString());
+            map.put("likesCount", ((Number) row[13]).longValue());
+            map.put("images", mediaList);
+            map.put("verifiedBuyer", true);
+            list.add(map);
+        }
+        return list;
     }
 
     public ReviewLikeResponse like(int userId, Integer reviewId) {

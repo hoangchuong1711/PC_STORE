@@ -22,6 +22,7 @@ import { Footer, Header } from "./storefront";
 import { useCart } from "./cart-provider";
 import { useAuth } from "./auth-provider";
 import { orderApi } from "../lib/order-api";
+import { reviewApi } from "../lib/review-api";
 import { useToast } from "./toast";
 import { WriteReviewModal } from "./reviews";
 import { hasUserReviewedProduct } from "../lib/reviews";
@@ -401,12 +402,41 @@ export function OrderDetail({
   const [isPayingVNPay, setIsPayingVNPay] = useState(false);
   const [isSyncingVNPay, setIsSyncingVNPay] = useState(false);
   const [reviewProduct, setReviewProduct] = useState<{
+    orderItemId?: number;
+    productId: number;
     slug: string;
     name: string;
   } | null>(null);
-  const [, setReviewVersion] = useState(0);
+  const [reviewedItemIds, setReviewedItemIds] = useState<Set<number>>(new Set());
+  const [reviewVersion, setReviewVersion] = useState(0);
   const { add } = useCart();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (order && order.status === "DELIVERED" && order.lines.length > 0) {
+      let isMounted = true;
+      const itemIds = order.lines
+        .map((l) => l.orderItemId)
+        .filter((id): id is number => typeof id === "number" && id > 0);
+      if (itemIds.length > 0) {
+        Promise.all(
+          itemIds.map((id) =>
+            reviewApi.getByOrderItem(id).then((res) => (res ? id : null)).catch(() => null)
+          )
+        ).then((results) => {
+          if (!isMounted) return;
+          const reviewed = new Set<number>();
+          results.forEach((id) => {
+            if (id !== null) reviewed.add(id);
+          });
+          setReviewedItemIds(reviewed);
+        });
+      }
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [order, reviewVersion]);
 
   useEffect(() => {
     if (initialOrder) {
@@ -707,7 +737,7 @@ export function OrderDetail({
                     Đơn giá: {formatPrice(line.unitPrice)} · Số lượng: <b>{line.quantity}</b>
                   </p>
                   {order.status === "DELIVERED" && (
-                    hasUserReviewedProduct(line.slug, order.id) ? (
+                    (line.orderItemId && reviewedItemIds.has(line.orderItemId)) || hasUserReviewedProduct(line.slug, order.id) ? (
                       <span className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold px-2.5 py-1 rounded-lg">
                         <CheckCircle2 size={13} /> Đã đánh giá linh kiện
                       </span>
@@ -716,7 +746,12 @@ export function OrderDetail({
                         type="button"
                         className="inline-flex items-center gap-1.5 bg-slate-50 border border-[#e0e0e0] text-ink text-xs font-semibold px-3 py-1.5 rounded-lg hover:border-amber-400 hover:text-amber-700 transition-colors cursor-pointer"
                         onClick={() =>
-                          setReviewProduct({ slug: line.slug, name: line.name })
+                          setReviewProduct({
+                            orderItemId: line.orderItemId,
+                            productId: Number(line.productId) || 1,
+                            slug: line.slug,
+                            name: line.name,
+                          })
                         }
                       >
                         <Star size={14} /> Viết đánh giá linh kiện
@@ -918,10 +953,17 @@ export function OrderDetail({
           <WriteReviewModal
             isOpen={Boolean(reviewProduct)}
             onClose={() => setReviewProduct(null)}
+            orderItemId={reviewProduct.orderItemId}
+            productId={reviewProduct.productId}
             productSlug={reviewProduct.slug}
             productName={reviewProduct.name}
             orderId={order.id}
-            onSuccess={() => setReviewVersion((v) => v + 1)}
+            onSuccess={() => {
+              setReviewVersion((v) => v + 1);
+              if (reviewProduct.orderItemId) {
+                setReviewedItemIds((prev) => new Set(prev).add(reviewProduct.orderItemId!));
+              }
+            }}
           />
         )}
       </main>

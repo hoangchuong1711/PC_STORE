@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pcstore.config.PersistenceManager;
 import com.pcstore.controller.AuthServlet;
 import com.pcstore.controller.MediaContentServlet;
-import com.pcstore.controller.ReviewLikeServlet;
+import com.pcstore.controller.ReviewServlet;
 import com.pcstore.controller.ReviewModerationServlet;
 import com.pcstore.filter.*;
 import com.pcstore.service.MediaAccessService;
@@ -84,7 +84,7 @@ class ReviewSocialIT {
             for (String pattern : filter.getClass().getAnnotation(WebFilter.class).urlPatterns()) mapping.addURLPattern(pattern);
             context.addFilterMap(mapping);
         }
-        for (HttpServlet servlet : List.of(new AuthServlet(), new MediaContentServlet(), new ReviewLikeServlet(), new ReviewModerationServlet())) {
+        for (HttpServlet servlet : List.of(new AuthServlet(), new MediaContentServlet(), new ReviewServlet(), new ReviewModerationServlet())) {
             var annotation = servlet.getClass().getAnnotation(WebServlet.class);
             var wrapper = Tomcat.addServlet(context, servlet.getClass().getSimpleName(), servlet);
             for (String pattern : annotation.urlPatterns()) context.addServletMappingDecoded(pattern, wrapper.getName());
