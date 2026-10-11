@@ -80,6 +80,7 @@ export function AccountDashboard() {
   // Profile Form States
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileNotice, setProfileNotice] = useState<string | null>(null);
 
@@ -220,16 +221,35 @@ export function AccountDashboard() {
       setName(user.fullName);
       setPhone(user.phone || "");
       setProfileNotice(null);
+      setPhoneError(null);
     }
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!hasProfileChanges) return;
+
+    const trimmedName = name.trim();
+    if (!trimmedName || trimmedName.length < 2) {
+      toast("Họ và tên phải có tối thiểu 2 ký tự.", "error");
+      return;
+    }
+
+    const trimmedPhone = phone.trim();
+    let cleanPhone: string | null = null;
+    if (trimmedPhone) {
+      cleanPhone = trimmedPhone.replace(/[\s.-]/g, "");
+      if (!/^(0|\+84)[35789]\d{8}$/.test(cleanPhone)) {
+        setPhoneError("Số điện thoại không đúng định dạng Việt Nam (Ví dụ: 0901234567 hoặc +84901234567).");
+        toast("Số điện thoại không đúng định dạng. Ví dụ: 0901234567 hoặc +84901234567", "error");
+        return;
+      }
+    }
+    setPhoneError(null);
     setProfileSaving(true);
     setProfileNotice(null);
     try {
-      await authApi.updateProfile({ fullName: name.trim(), phone: phone.trim() || null });
+      await authApi.updateProfile({ fullName: trimmedName, phone: cleanPhone });
       await refresh();
       setProfileNotice("Cập nhật thông tin tài khoản thành công!");
       toast("Đã lưu thay đổi thông tin cá nhân.", "success");
@@ -701,10 +721,22 @@ export function AccountDashboard() {
                         onChange={(e) => {
                           setPhone(e.target.value);
                           setProfileNotice(null);
+                          if (phoneError) setPhoneError(null);
                         }}
-                        placeholder="Chưa cập nhật số điện thoại"
-                        className="h-10 px-3.5 border border-[#e2e8f0] rounded-xl text-sm outline-none focus:border-[#006ce1] focus:ring-1 focus:ring-[#006ce1] transition-colors"
+                        placeholder="Ví dụ: 0901234567 hoặc +84901234567"
+                        className={`h-10 px-3.5 border rounded-xl text-sm outline-none transition-colors ${
+                          phoneError
+                            ? "border-rose-400 focus:border-rose-500 bg-rose-50/20"
+                            : "border-[#e2e8f0] focus:border-[#006ce1] focus:ring-1 focus:ring-[#006ce1]"
+                        }`}
                       />
+                      {phoneError ? (
+                        <span className="text-[11px] text-rose-500 font-medium">{phoneError}</span>
+                      ) : (
+                        <span className="text-[11px] text-slate-400">
+                          Hỗ trợ định dạng 10 số (03x, 05x, 07x, 08x, 09x) hoặc quốc tế (+84x)
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex flex-col gap-1.5">

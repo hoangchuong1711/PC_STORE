@@ -395,7 +395,11 @@ public class OrderService {
             throw new ValidationException("Idempotency-Key phải dài 8-128 ký tự và chỉ gồm chữ, số, '.', '_', ':' hoặc '-'.");
         }
         String name = requiredText(request.shippingName(), 255, "Tên người nhận");
-        String phone = requiredText(request.shippingPhone(), 32, "Số điện thoại");
+        String rawPhone = requiredText(request.shippingPhone(), 32, "Số điện thoại");
+        String phone = rawPhone.replaceAll("[\\s.-]", "");
+        if (!phone.matches("^(0|\\+84)[35789]\\d{8}$")) {
+            throw new ValidationException("Số điện thoại nhận hàng không đúng định dạng Việt Nam (Ví dụ: 0901234567 hoặc +84901234567).");
+        }
         String address = requiredText(request.shippingAddressText(), null, "Địa chỉ nhận hàng");
         if (request.paymentMethod() == null) {
             throw new ValidationException("Phương thức thanh toán là bắt buộc.");
