@@ -1,5 +1,8 @@
-import { mediaContentUrl } from "./media-api";
 import type { SetupPost } from "./community-api";
+
+function mediaContentUrl(mediaId: string): string {
+  return `/api/media/${mediaId}/content`;
+}
 
 export type SetupStyle = "all" | "minimalist" | "rgb-gaming" | "workstation" | "ergonomic";
 

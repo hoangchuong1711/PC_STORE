@@ -685,7 +685,7 @@ export function AdminReviews() {
             <div className="flex flex-col gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
               <div>
                 <span className="text-slate-500 font-medium">Nội dung đánh giá: </span>
-                <span className="text-admin-ink italic">"{selectedReview.content}"</span>
+                <span className="text-admin-ink italic">&ldquo;{selectedReview.content}&rdquo;</span>
               </div>
               {selectedReview.moderationReason && (
                 <div>

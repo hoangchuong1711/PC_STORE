@@ -94,7 +94,7 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
           if (stored) {
             const parsed = JSON.parse(stored);
             if (Array.isArray(parsed) && parsed.length > 0) {
-              const mapped: CheckoutAddress[] = parsed.map((a: any) => ({
+              const mapped: CheckoutAddress[] = parsed.map((a: { id: string | number; label?: string; recipientName?: string; phone?: string; address: string; isDefault?: boolean }) => ({
                 id: String(a.id),
                 label: a.label
                   ? (a.isDefault ? `${a.label} (Mặc định)` : a.label)

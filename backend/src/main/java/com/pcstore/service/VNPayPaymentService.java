@@ -39,11 +39,11 @@ public class VNPayPaymentService {
     private final Clock clock;
 
     public VNPayPaymentService() {
-        this(PersistenceManager.get(), new VNPayConfig(), Clock.systemDefaultZone());
+        this(PersistenceManager.get(), new VNPayConfig(), Clock.system(VN_ZONE));
     }
 
     public VNPayPaymentService(EntityManagerFactory entityManagerFactory, VNPayConfig vnpayConfig) {
-        this(entityManagerFactory, vnpayConfig, Clock.systemDefaultZone());
+        this(entityManagerFactory, vnpayConfig, Clock.system(VN_ZONE));
     }
 
     public VNPayPaymentService(EntityManagerFactory entityManagerFactory, VNPayConfig vnpayConfig, Clock clock) {

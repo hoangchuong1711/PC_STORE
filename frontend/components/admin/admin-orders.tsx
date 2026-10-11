@@ -517,7 +517,7 @@ export function AdminOrders() {
                 <div>
                   <strong className="block text-rose-800 font-bold">Đơn hàng hết hạn 15 phút — Đang giữ chỗ kho</strong>
                   <span className="text-rose-700 leading-relaxed block mt-0.5">
-                    Đơn hàng đã quá hạn 15 phút thanh toán. Tồn kho vẫn được giữ chỗ an toàn. Vui lòng bấm <strong>"Đối soát QueryDR với VNPay"</strong> để đồng bộ thanh toán hoặc chọn hủy đơn nếu khách không trả tiền.
+                    Đơn hàng đã quá hạn 15 phút thanh toán. Tồn kho vẫn được giữ chỗ an toàn. Vui lòng bấm <strong>&ldquo;Đối soát QueryDR với VNPay&rdquo;</strong> để đồng bộ thanh toán hoặc chọn hủy đơn nếu khách không trả tiền.
                   </span>
                 </div>
               </div>

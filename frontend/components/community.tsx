@@ -838,7 +838,7 @@ export function CreateSetupModal({
       .then((data) => {
         if (!data) return;
         const items = Array.isArray(data) ? data : data.items || [];
-        const mapped = items.map((p: any) => ({
+        const mapped = items.map((p: { productId: number; name: string; price?: number; category?: { name?: string } }) => ({
           productId: p.productId,
           name: p.name,
           price: p.price,
