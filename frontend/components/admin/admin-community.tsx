@@ -14,17 +14,19 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, useEffect, type FormEvent } from "react";
 import {
   adminCommunityStatuses,
   communityStatusLabels,
   communityStyleLabels,
   filterAdminCommunityPosts,
   initialAdminCommunityPosts,
+  setupModeratedItemToAdminPost,
   type AdminCommunityFilters,
   type AdminCommunityPost,
   type AdminCommunityStatus,
 } from "../../lib/admin-community";
+import { communityApi, CommunityApiError } from "../../lib/community-api";
 import type { SetupStyle } from "../../lib/community";
 import { formatAdminDate } from "../../lib/admin";
 
@@ -52,6 +54,33 @@ export function AdminCommunity() {
   const [hideReason, setHideReason] = useState("");
   const [showHideForm, setShowHideForm] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [isModerating, setIsModerating] = useState(false);
+  const [reloadTrigger, setReloadTrigger] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchAdminSetups() {
+      try {
+        const statusParam = filters.status === "ALL" ? undefined : filters.status;
+        const apiItems = await communityApi.adminList({ status: statusParam, limit: 50 });
+        if (cancelled) return;
+        const liveConverted = apiItems.map(setupModeratedItemToAdminPost);
+
+        const mockFiltered = initialAdminCommunityPosts.filter((m) =>
+          filters.status === "ALL" ? true : m.status === filters.status
+        );
+
+        setItems([...liveConverted, ...mockFiltered]);
+      } catch (err) {
+        console.warn("Could not load setups from admin API:", err);
+      }
+    }
+
+    fetchAdminSetups();
+    return () => {
+      cancelled = true;
+    };
+  }, [filters.status, reloadTrigger]);
 
   const filteredPosts = useMemo(() => filterAdminCommunityPosts(items, filters), [items, filters]);
   const totalPages = Math.max(1, Math.ceil(filteredPosts.length / itemsPerPage));
@@ -83,29 +112,71 @@ export function AdminCommunity() {
     setShowHideForm(false);
   }
 
-  function restorePost() {
+  async function restorePost() {
     if (!selectedPost) return;
-    const updated = { ...selectedPost, status: "PUBLISHED" as const };
-    setItems((current) => current.map((post) => (post.id === updated.id ? updated : post)));
-    setSelectedPost(updated);
-    setFeedback("Đã khôi phục bài setup và cho phép hiển thị lại trên trang cộng đồng.");
+    const numericId = parseInt(selectedPost.id, 10);
+    setIsModerating(true);
+    try {
+      if (!isNaN(numericId) && numericId > 0) {
+        await communityApi.adminModerate(numericId, {
+          status: "PUBLISHED",
+          reason: "Khôi phục hiển thị bởi quản trị viên",
+        });
+      }
+      const updated = {
+        ...selectedPost,
+        status: "PUBLISHED" as const,
+        moderationReason: undefined,
+      };
+      setItems((current) => current.map((post) => (post.id === updated.id ? updated : post)));
+      setSelectedPost(updated);
+      setFeedback("Đã khôi phục bài setup và cho phép hiển thị lại trên trang cộng đồng.");
+      setReloadTrigger((v) => v + 1);
+    } catch (err) {
+      if (err instanceof CommunityApiError && err.status === 401) {
+        setFeedback("Lỗi: Bạn cần đăng nhập với tài khoản Quản trị viên (Admin).");
+      } else {
+        setFeedback(err instanceof Error ? err.message : "Khôi phục bài viết thất bại.");
+      }
+    } finally {
+      setIsModerating(false);
+    }
   }
 
-  function hidePost(event: FormEvent<HTMLFormElement>) {
+  async function hidePost(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedPost || !hideReason.trim()) return;
-    const updated = {
-      ...selectedPost,
-      status: "HIDDEN" as const,
-      moderationReason: hideReason.trim(),
-      moderatedBy: "Minh Anh",
-      moderatedAt: new Date().toISOString(),
-    };
-    setItems((current) => current.map((post) => (post.id === updated.id ? updated : post)));
-    setSelectedPost(updated);
-    setShowHideForm(false);
-    setHideReason("");
-    setFeedback("Đã ẩn bài setup khỏi bảng tin và lưu lý do kiểm duyệt.");
+    const numericId = parseInt(selectedPost.id, 10);
+    setIsModerating(true);
+    try {
+      if (!isNaN(numericId) && numericId > 0) {
+        await communityApi.adminModerate(numericId, {
+          status: "HIDDEN",
+          reason: hideReason.trim(),
+        });
+      }
+      const updated = {
+        ...selectedPost,
+        status: "HIDDEN" as const,
+        moderationReason: hideReason.trim(),
+        moderatedBy: "Quản trị viên",
+        moderatedAt: new Date().toISOString(),
+      };
+      setItems((current) => current.map((post) => (post.id === updated.id ? updated : post)));
+      setSelectedPost(updated);
+      setShowHideForm(false);
+      setHideReason("");
+      setFeedback("Đã ẩn bài setup khỏi bảng tin và lưu lý do kiểm duyệt.");
+      setReloadTrigger((v) => v + 1);
+    } catch (err) {
+      if (err instanceof CommunityApiError && err.status === 401) {
+        setFeedback("Lỗi: Bạn cần đăng nhập với tài khoản Quản trị viên (Admin).");
+      } else {
+        setFeedback(err instanceof Error ? err.message : "Ẩn bài viết thất bại.");
+      }
+    } finally {
+      setIsModerating(false);
+    }
   }
 
   return (

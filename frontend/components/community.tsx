@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Heart,
   MessageSquare,
@@ -24,6 +25,11 @@ import {
   MAX_IMAGE_SIZE_BYTES,
 } from "../lib/media-api";
 import {
+  communityApi,
+  CommunityApiError,
+  type SetupPost,
+} from "../lib/community-api";
+import {
   CommunityPost,
   SetupStyle,
   styleCategories,
@@ -33,6 +39,7 @@ import {
   addCommentToPost,
   createCommunityPost,
   formatTimeAgo,
+  setupDtoToCommunityPost,
 } from "../lib/community";
 import { products, formatPrice } from "../lib/products";
 import { useCart } from "./cart-provider";
@@ -45,17 +52,120 @@ export function CommunityFeed() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [postsVersion, setPostsVersion] = useState(0);
+  const [livePosts, setLivePosts] = useState<CommunityPost[]>([]);
+  const [isLoadingLive, setIsLoadingLive] = useState(false);
   const { toast } = useToast();
 
-  const featured = useMemo(() => getFeaturedPost(), []);
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSetups() {
+      setIsLoadingLive(true);
+      try {
+        const [rankingItems, feedItems] = await Promise.all([
+          communityApi.ranking(0, 50).catch(() => []),
+          communityApi.feed(0, 50).catch(() => []),
+        ]);
+
+        if (cancelled) return;
+
+        const rankMap = new Map<number, { likeCount: number; liked: boolean }>();
+        rankingItems.forEach((r) => {
+          rankMap.set(r.post.postId, { likeCount: r.likeCount, liked: r.liked });
+        });
+
+        const seenIds = new Set<number>();
+        const combined: CommunityPost[] = [];
+
+        rankingItems.forEach((item) => {
+          if (!seenIds.has(item.post.postId)) {
+            seenIds.add(item.post.postId);
+            combined.push(
+              setupDtoToCommunityPost(item.post, {
+                likeCount: item.likeCount,
+                liked: item.liked,
+              })
+            );
+          }
+        });
+
+        feedItems.forEach((post) => {
+          if (!seenIds.has(post.postId)) {
+            seenIds.add(post.postId);
+            const rank = rankMap.get(post.postId);
+            combined.push(setupDtoToCommunityPost(post, rank));
+          }
+        });
+
+        setLivePosts(combined);
+      } catch (err) {
+        console.warn("Failed to load community setups from API:", err);
+      } finally {
+        if (!cancelled) setIsLoadingLive(false);
+      }
+    }
+
+    loadSetups();
+    return () => {
+      cancelled = true;
+    };
+  }, [postsVersion]);
 
   const posts = useMemo(() => {
-    return getCommunityPosts(selectedStyle, sortBy, searchQuery, postsVersion);
-  }, [selectedStyle, sortBy, searchQuery, postsVersion]);
+    const mockPosts = getCommunityPosts(selectedStyle, sortBy, searchQuery, postsVersion);
+    const filteredLive = livePosts.filter((post) => {
+      if (selectedStyle !== "all" && post.style !== selectedStyle) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchesTitle = post.title.toLowerCase().includes(q);
+        const matchesAuthor = post.author.name.toLowerCase().includes(q);
+        const matchesDesc = post.description.toLowerCase().includes(q);
+        if (!matchesTitle && !matchesAuthor && !matchesDesc) return false;
+      }
+      return true;
+    });
 
-  const handleToggleLike = (id: string, e: React.MouseEvent) => {
+    const sortedLive = [...filteredLive].sort((a, b) => {
+      if (sortBy === "likes") return b.likesCount - a.likesCount;
+      if (sortBy === "views") return b.viewsCount - a.viewsCount;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+    return [...sortedLive, ...mockPosts];
+  }, [selectedStyle, sortBy, searchQuery, postsVersion, livePosts]);
+
+  const featured = useMemo(() => livePosts[0] || getFeaturedPost(), [livePosts]);
+
+  const handleToggleLike = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    const numericId = parseInt(id, 10);
+    if (!isNaN(numericId) && numericId > 0) {
+      const current = livePosts.find((p) => p.id === id);
+      try {
+        const res = current?.isLiked
+          ? await communityApi.unlike(numericId)
+          : await communityApi.like(numericId);
+        setLivePosts((prev) =>
+          prev.map((p) =>
+            p.id === id ? { ...p, likesCount: res.likeCount, isLiked: res.liked } : p
+          )
+        );
+        if (res.liked) {
+          toast("Đã thêm vào danh sách góc máy yêu thích!", "success");
+        } else {
+          toast("Đã bỏ yêu thích góc máy.", "info");
+        }
+      } catch (err) {
+        if (err instanceof CommunityApiError && err.status === 401) {
+          toast("Vui lòng đăng nhập tài khoản để thích bài viết.", "info");
+        } else {
+          toast(err instanceof Error ? err.message : "Không thể thích bài viết lúc này.", "error");
+        }
+      }
+      return;
+    }
+
     const updated = toggleLikePost(id);
     setPostsVersion((v) => v + 1);
     if (updated?.isLiked) {
@@ -315,7 +425,33 @@ export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) 
   const { add } = useCart();
   const { toast } = useToast();
 
-  const handleToggleLike = () => {
+  const handleToggleLike = async () => {
+    const numericId = parseInt(post.id, 10);
+    if (!isNaN(numericId) && numericId > 0) {
+      try {
+        const res = post.isLiked
+          ? await communityApi.unlike(numericId)
+          : await communityApi.like(numericId);
+        setPost((prev) => ({
+          ...prev,
+          likesCount: res.likeCount,
+          isLiked: res.liked,
+        }));
+        if (res.liked) {
+          toast("Đã thêm vào danh sách góc máy yêu thích!", "success");
+        } else {
+          toast("Đã bỏ yêu thích góc máy.", "info");
+        }
+      } catch (err) {
+        if (err instanceof CommunityApiError && err.status === 401) {
+          toast("Vui lòng đăng nhập tài khoản để thích bài viết.", "info");
+        } else {
+          toast(err instanceof Error ? err.message : "Không thể cập nhật lượt thích.", "error");
+        }
+      }
+      return;
+    }
+
     const updated = toggleLikePost(post.id);
     if (updated) {
       setPost({ ...updated });
@@ -641,6 +777,7 @@ export function CreateSetupModal({
   onClose: () => void;
   onSuccess?: () => void;
 }) {
+  const router = useRouter();
   const [title, setTitle] = useState("");
   const [authorName, setAuthorName] = useState("");
   const [authorRole, setAuthorRole] = useState("Thành viên PC Store");
@@ -650,16 +787,24 @@ export function CreateSetupModal({
     Array<{ mediaId: string; previewUrl: string; name: string }>
   >([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadMessage, setUploadMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [description, setDescription] = useState("");
   const [deskModel, setDeskModel] = useState("Bàn nâng hạ tự động 1m6 x 80cm");
   const [chairModel, setChairModel] = useState("Ghế công thái học lưới thoáng khí");
   const [lightingModel, setLightingModel] = useState("Đèn treo màn hình chống cận");
-  const [selectedComponentSlugs, setSelectedComponentSlugs] = useState<string[]>([
-    "pc-creator-pro-x",
-    "ultrawide-monitor-34",
-  ]);
+
+  const [eligibility, setEligibility] = useState<{
+    checked: boolean;
+    eligible: boolean;
+    reason: string | null;
+  }>({ checked: false, eligible: true, reason: null });
+
+  const [availableProducts, setAvailableProducts] = useState<
+    Array<{ productId: number; name: string; price: number; category?: string }>
+  >([]);
+  const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
 
   const { toast } = useToast();
 
@@ -669,6 +814,43 @@ export function CreateSetupModal({
     "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1400&auto=format&fit=crop&q=80",
     "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1400&auto=format&fit=crop&q=80",
   ];
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Check customer eligibility
+    communityApi
+      .checkEligibility()
+      .then((res) => {
+        setEligibility({ checked: true, eligible: res.eligible, reason: res.reason });
+      })
+      .catch((err) => {
+        if (err instanceof CommunityApiError && err.status === 401) {
+          setEligibility({ checked: true, eligible: false, reason: "UNAUTHORIZED" });
+        } else {
+          setEligibility({ checked: true, eligible: true, reason: null });
+        }
+      });
+
+    // Load available products for tagging
+    fetch("/api/products?size=50")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        const items = Array.isArray(data) ? data : data.items || [];
+        const mapped = items.map((p: any) => ({
+          productId: p.productId,
+          name: p.name,
+          price: p.price,
+          category: p.category?.name || "Linh kiện",
+        }));
+        setAvailableProducts(mapped);
+        if (mapped.length > 0) {
+          setSelectedProductIds((prev) => (prev.length === 0 ? [mapped[0].productId] : prev));
+        }
+      })
+      .catch(() => {});
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -728,44 +910,66 @@ export function CreateSetupModal({
     setUploadedImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const toggleComponentSelect = (slug: string) => {
-    if (selectedComponentSlugs.includes(slug)) {
-      setSelectedComponentSlugs(selectedComponentSlugs.filter((s) => s !== slug));
+  const toggleProductSelect = (productId: number) => {
+    if (selectedProductIds.includes(productId)) {
+      setSelectedProductIds(selectedProductIds.filter((id) => id !== productId));
     } else {
-      setSelectedComponentSlugs([...selectedComponentSlugs, slug]);
+      setSelectedProductIds([...selectedProductIds, productId]);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !description.trim()) {
       toast("Vui lòng nhập đầy đủ tiêu đề và câu chuyện góc máy.", "error");
       return;
     }
 
-    const customImages = uploadedImages.map((img) => img.previewUrl);
-    const coverImage = customImages.length > 0 ? customImages[0] : presetPhotos[selectedPresetPhoto];
-    const allImages = customImages.length > 0 ? customImages : [presetPhotos[selectedPresetPhoto]];
+    if (uploadedImages.length === 0) {
+      toast(
+        "Vui lòng tải lên ít nhất 1 ảnh chụp góc máy thực tế của bạn (tối đa 8 ảnh).",
+        "error"
+      );
+      return;
+    }
 
-    createCommunityPost({
-      title,
-      authorName: authorName.trim() || "Thành viên PC Store",
-      authorRole,
-      style,
-      coverImage,
-      images: allImages,
-      description,
-      deskSpecs: {
-        desk: deskModel,
-        chair: chairModel,
-        lighting: lightingModel,
-      },
-      componentSlugs: selectedComponentSlugs,
-    });
+    if (selectedProductIds.length === 0) {
+      toast("Vui lòng chọn ít nhất 1 sản phẩm / linh kiện trong góc máy.", "error");
+      return;
+    }
 
-    toast("Góc máy của bạn đã được chia sẻ lên cộng đồng PC Store!", "success");
-    onSuccess?.();
-    onClose();
+    setIsSubmitting(true);
+    try {
+      const created = await communityApi.create({
+        title: title.trim(),
+        description: description.trim(),
+        mediaIds: uploadedImages.map((img) => img.mediaId),
+        productIds: selectedProductIds,
+      });
+
+      toast("Góc máy của bạn đã được đăng tải thành công!", "success");
+      onSuccess?.();
+      onClose();
+      // Chuyển hướng ngay đến trang chi tiết góc máy vừa tạo
+      router.push(`/community/${created.postId}`);
+    } catch (err) {
+      if (err instanceof CommunityApiError) {
+        if (err.status === 401) {
+          toast("Bạn cần đăng nhập tài khoản khách hàng để chia sẻ góc máy.", "error");
+        } else if (err.code === "SETUP_PURCHASE_REQUIRED" || err.status === 403) {
+          toast(
+            "Chính sách PC Store: Bạn cần có ít nhất 1 đơn hàng đã giao thành công (DELIVERED) để đăng bài.",
+            "error"
+          );
+        } else {
+          toast(err.message, "error");
+        }
+      } else {
+        toast(err instanceof Error ? err.message : "Đăng bài thất bại.", "error");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -792,6 +996,26 @@ export function CreateSetupModal({
             <X size={20} />
           </button>
         </div>
+
+        {eligibility.checked && !eligibility.eligible && (
+          <div className="mb-4 p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-center justify-between gap-3">
+            {eligibility.reason === "UNAUTHORIZED" ? (
+              <>
+                <span>Bạn cần đăng nhập tài khoản khách hàng để chia sẻ góc máy.</span>
+                <Link
+                  href="/auth/login"
+                  className="font-bold underline text-amber-950 shrink-0"
+                >
+                  Đăng nhập ngay
+                </Link>
+              </>
+            ) : (
+              <span>
+                <strong>Chính sách cộng đồng:</strong> Bạn cần có ít nhất 1 đơn hàng đã giao thành công (DELIVERED) tại PC Store để đăng bài góc máy.
+              </span>
+            )}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
@@ -987,25 +1211,49 @@ export function CreateSetupModal({
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-bold text-ink">Gắn thẻ linh kiện có sẵn tại PC Store:</label>
-            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-slate-50 border border-slate-200 rounded-xl">
-              {products.map((p) => {
-                const selected = selectedComponentSlugs.includes(p.slug);
-                return (
-                  <button
-                    key={p.slug}
-                    type="button"
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer transition-colors border ${
-                      selected
-                        ? "bg-[#006ce1] text-white border-[#006ce1]"
-                        : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
-                    }`}
-                    onClick={() => toggleComponentSelect(p.slug)}
-                  >
-                    {selected && <Check size={12} />} {p.name}
-                  </button>
-                );
-              })}
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-bold text-ink">Gắn thẻ linh kiện có sẵn tại PC Store *:</label>
+              <span className="text-[11px] text-muted">
+                Đã chọn: {selectedProductIds.length} sản phẩm
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 bg-slate-50 border border-slate-200 rounded-xl">
+              {availableProducts.length > 0
+                ? availableProducts.map((p) => {
+                    const selected = selectedProductIds.includes(p.productId);
+                    return (
+                      <button
+                        key={p.productId}
+                        type="button"
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer transition-colors border ${
+                          selected
+                            ? "bg-[#006ce1] text-white border-[#006ce1]"
+                            : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                        }`}
+                        onClick={() => toggleProductSelect(p.productId)}
+                      >
+                        {selected && <Check size={12} />} {p.name}
+                      </button>
+                    );
+                  })
+                : products.map((p, idx) => {
+                    const dummyId = idx + 1;
+                    const selected = selectedProductIds.includes(dummyId);
+                    return (
+                      <button
+                        key={p.slug}
+                        type="button"
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer transition-colors border ${
+                          selected
+                            ? "bg-[#006ce1] text-white border-[#006ce1]"
+                            : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                        }`}
+                        onClick={() => toggleProductSelect(dummyId)}
+                      >
+                        {selected && <Check size={12} />} {p.name}
+                      </button>
+                    );
+                  })}
             </div>
           </div>
 
@@ -1032,9 +1280,16 @@ export function CreateSetupModal({
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm cursor-pointer border-none"
+              disabled={isSubmitting || isUploading}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm cursor-pointer border-none disabled:opacity-50"
             >
-              Đăng góc máy ngay
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" /> Đang đăng góc máy...
+                </>
+              ) : (
+                "Đăng góc máy ngay"
+              )}
             </button>
           </div>
         </form>

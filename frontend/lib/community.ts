@@ -1,3 +1,6 @@
+import { mediaContentUrl } from "./media-api";
+import type { SetupPost } from "./community-api";
+
 export type SetupStyle = "all" | "minimalist" | "rgb-gaming" | "workstation" | "ergonomic";
 
 export const knownProductMap: Record<
@@ -521,3 +524,92 @@ export function formatTimeAgo(dateStr: string): string {
     return dateStr;
   }
 }
+
+export function setupDtoToCommunityPost(
+  dto: SetupPost,
+  meta?: { likeCount?: number; liked?: boolean }
+): CommunityPost {
+  const images =
+    dto.mediaIds && dto.mediaIds.length > 0
+      ? dto.mediaIds.map((id) => mediaContentUrl(id))
+      : [
+          "https://images.unsplash.com/photo-1593305841991-05c297ba4575?w=1400&auto=format&fit=crop&q=80",
+        ];
+
+  return {
+    id: String(dto.postId),
+    title: dto.title,
+    author: {
+      name: `Khách hàng #${dto.authorId}`,
+      handle: `@member_${dto.authorId}`,
+      avatar:
+        "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+      role: "Thành viên PC Store",
+    },
+    style: "rgb-gaming",
+    coverImage: images[0],
+    images,
+    description: dto.description,
+    deskSpecs: {
+      desk: "Không gian làm việc & giải trí cá nhân",
+      chair: "Ghế công thái học tiêu chuẩn",
+      lighting: "Đèn LED trang trí bàn làm việc",
+    },
+    components: (dto.products || []).map((p) => {
+      const known =
+        knownProductMap[p.name.toLowerCase()] ||
+        Object.values(knownProductMap).find(
+          (k) => k.name.toLowerCase() === p.name.toLowerCase()
+        );
+      return {
+        productId: String(p.productId),
+        name: p.name,
+        category: known?.category || "Linh kiện",
+        price: known?.price,
+        specsSummary: known?.specsSummary,
+      };
+    }),
+    likesCount: meta?.likeCount ?? 0,
+    isLiked: meta?.liked ?? false,
+    viewsCount: Math.max(1, (meta?.likeCount ?? 0) * 3 + 7),
+    createdAt: dto.createdAt,
+    comments: [],
+  };
+}
+
+export async function getOrFetchCommunityPost(id: string): Promise<CommunityPost | null> {
+  const local = getCommunityPost(id);
+  if (local) return local;
+
+  const numericId = parseInt(id, 10);
+  if (!isNaN(numericId) && numericId > 0) {
+    const origin = process.env.BACKEND_ORIGIN || "http://localhost:8080";
+    try {
+      const res = await fetch(`${origin}/pc-store-backend/api/setups/${numericId}`, {
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const dto: SetupPost = await res.json();
+        let likeCount = 0;
+        let liked = false;
+        try {
+          const likeRes = await fetch(`${origin}/pc-store-backend/api/setup-likes/${numericId}`, {
+            cache: "no-store",
+          });
+          if (likeRes.ok) {
+            const likeData = await likeRes.json();
+            likeCount = likeData.likeCount || 0;
+            liked = likeData.liked || false;
+          }
+        } catch {}
+
+        return setupDtoToCommunityPost(dto, { likeCount, liked });
+      }
+    } catch (err) {
+      console.warn("Failed to fetch setup by ID from backend:", err);
+    }
+  }
+
+  return null;
+}
+
