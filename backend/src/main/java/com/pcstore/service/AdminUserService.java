@@ -11,7 +11,7 @@ import com.pcstore.entity.User;
 import com.pcstore.entity.enums.UserStatus;
 import com.pcstore.exception.ResourceNotFoundException;
 import com.pcstore.exception.ValidationException;
-import com.pcstore.util.PersistenceManager;
+import com.pcstore.config.PersistenceManager;
 
 import jakarta.persistence.EntityManager;
 
