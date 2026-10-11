@@ -70,7 +70,9 @@ public class AuthService {
         if (email == null || email.length() > 254) throw new UnauthorizedException("Email hoặc mật khẩu không đúng.");
         try (EntityManager em = PersistenceManager.get().createEntityManager()) {
             User user = userDAO.findByEmail(em, email).orElseThrow(() -> new UnauthorizedException("Email hoặc mật khẩu không đúng."));
-            if (user.getStatus() != UserStatus.ACTIVE || !PasswordUtil.verify(request.password(), user.getPasswordHash()))
+            if (user.getStatus() != UserStatus.ACTIVE)
+                throw new AppException(403, "ACCOUNT_LOCKED", "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
+            if (!PasswordUtil.verify(request.password(), user.getPasswordHash()))
                 throw new UnauthorizedException("Email hoặc mật khẩu không đúng.");
             return AuthResponse.from(user);
         }
@@ -80,7 +82,7 @@ public class AuthService {
     public AuthResponse findById(int userId) {
         try (EntityManager em = PersistenceManager.get().createEntityManager()) {
             User user = userDAO.findById(em, userId).orElseThrow(() -> new UnauthorizedException("Phiên đăng nhập không còn hợp lệ."));
-            if (user.getStatus() != UserStatus.ACTIVE) throw new UnauthorizedException("Tài khoản đã bị vô hiệu hóa.");
+            if (user.getStatus() != UserStatus.ACTIVE) throw new AppException(403, "ACCOUNT_LOCKED", "Tài khoản của bạn đã bị khóa.");
             return AuthResponse.from(user);
         }
     }

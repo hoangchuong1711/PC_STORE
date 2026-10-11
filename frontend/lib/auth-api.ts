@@ -2,7 +2,12 @@ export type AuthUser = { userId: number; fullName: string; email: string; phone:
 export function authDestination(user: AuthUser): string { return user.role === "ADMIN" ? "/admin" : "/"; }
 export class AuthApiError extends Error {
   status: number;
-  constructor(status: number, message: string) { super(message); this.status = status; }
+  code?: string;
+  constructor(status: number, message: string, code?: string) {
+    super(message);
+    this.status = status;
+    this.code = code;
+  }
 }
 export function createAuthApi(transport: typeof fetch = fetch) {
   async function request(path: string, body?: unknown) {
@@ -17,7 +22,7 @@ export function createAuthApi(transport: typeof fetch = fetch) {
     } catch { throw new AuthApiError(0, "Không thể kết nối máy chủ. Vui lòng thử lại."); }
     if (response.status === 204 && path === "logout") return null;
     const data = await response.json().catch(() => null);
-    if (!response.ok) throw new AuthApiError(response.status, data?.message ?? `Máy chủ trả lỗi ${response.status}. Vui lòng thử lại.`);
+    if (!response.ok) throw new AuthApiError(response.status, data?.message ?? `Máy chủ trả lỗi ${response.status}. Vui lòng thử lại.`, data?.code);
     if (!data || !Number.isInteger(data.userId) || typeof data.fullName !== "string" || typeof data.email !== "string"
       || !["ADMIN", "CUSTOMER"].includes(data.role)) throw new AuthApiError(502, "Phản hồi tài khoản không hợp lệ.");
     return data as AuthUser;
