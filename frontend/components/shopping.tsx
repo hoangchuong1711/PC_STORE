@@ -102,7 +102,7 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
                 name: a.recipientName || currentUser.fullName,
                 phone: a.phone || currentUser.phone || "",
                 address: a.address,
-                isDefault: a.isDefault,
+                isDefault: Boolean(a.isDefault),
               }));
               setAddresses(mapped);
               const defaultAddr = mapped.find((a) => a.isDefault) ?? mapped[0];
