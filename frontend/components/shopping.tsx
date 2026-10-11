@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   ShoppingBag,
   CheckCircle2,
@@ -19,25 +19,18 @@ import { Header, Footer } from "./storefront";
 import { useCart } from "./cart-provider";
 import { useAuth } from "./auth-provider";
 import { orderApi, OrderApiError } from "../lib/order-api";
+import { addressApi } from "../lib/address-api";
 import { useToast } from "./toast";
 import { formatPrice, products } from "../lib/products";
 
-const savedAddresses = [
-  {
-    id: "addr-1",
-    label: "Nhà riêng (Mặc định)",
-    name: "Nguyễn Minh Anh",
-    phone: "090 123 4567",
-    address: "24 Nguyễn Văn Linh, Phường Nam Dương, Quận Hải Châu, TP. Đà Nẵng",
-  },
-  {
-    id: "addr-2",
-    label: "Văn phòng công ty",
-    name: "Nguyễn Minh Anh",
-    phone: "090 123 4567",
-    address: "Tầng 5, Tòa nhà Software Park, 02 Quang Trung, Hải Châu, Đà Nẵng",
-  },
-];
+type CheckoutAddress = {
+  id: string;
+  label: string;
+  name: string;
+  phone: string;
+  address: string;
+  isDefault: boolean;
+};
 
 export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
   const { user } = useAuth();
@@ -50,8 +43,87 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
   const [copied, setCopied] = useState(false);
 
   // Address selection
+  const [addresses, setAddresses] = useState<CheckoutAddress[]>([]);
+  const [addressesLoading, setAddressesLoading] = useState(false);
   const [addressMode, setAddressMode] = useState<"saved" | "custom">("saved");
-  const [selectedAddrId, setSelectedAddrId] = useState("addr-1");
+  const [selectedAddrId, setSelectedAddrId] = useState("");
+
+  // Load real saved addresses from backend or local fallback
+  useEffect(() => {
+    if (!user) {
+      setAddresses([]);
+      setAddressMode("custom");
+      return;
+    }
+    const currentUser = user;
+    let active = true;
+    setAddressesLoading(true);
+    async function fetchAddresses() {
+      try {
+        const items = await addressApi.list();
+        if (!active) return;
+        if (items.length > 0) {
+          const mapped: CheckoutAddress[] = items.map((a) => ({
+            id: String(a.addressId),
+            label: a.label
+              ? (a.isDefault ? `${a.label} (Mặc định)` : a.label)
+              : (a.isDefault ? "Nhà riêng (Mặc định)" : "Địa chỉ"),
+            name: a.recipientName || currentUser.fullName,
+            phone: a.phone || currentUser.phone || "",
+            address: a.address || a.addressDetail,
+            isDefault: a.isDefault,
+          }));
+          setAddresses(mapped);
+          const defaultAddr = mapped.find((a) => a.isDefault) ?? mapped[0];
+          setSelectedAddrId(defaultAddr.id);
+          setAddressMode("saved");
+          return;
+        } else {
+          setAddresses([]);
+          setAddressMode("custom");
+        }
+      } catch {
+        // Fallback to local storage if API is unreachable
+        try {
+          const stored = localStorage.getItem(`pcstore_addresses_${currentUser.userId}`);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const mapped: CheckoutAddress[] = parsed.map((a: any) => ({
+                id: String(a.id),
+                label: a.label
+                  ? (a.isDefault ? `${a.label} (Mặc định)` : a.label)
+                  : (a.isDefault ? "Nhà riêng (Mặc định)" : "Địa chỉ"),
+                name: a.recipientName || currentUser.fullName,
+                phone: a.phone || currentUser.phone || "",
+                address: a.address,
+                isDefault: a.isDefault,
+              }));
+              setAddresses(mapped);
+              const defaultAddr = mapped.find((a) => a.isDefault) ?? mapped[0];
+              setSelectedAddrId(defaultAddr.id);
+              setAddressMode("saved");
+              return;
+            }
+          }
+        } catch {
+          // ignore
+        }
+        if (active) {
+          setAddresses([]);
+          setAddressMode("custom");
+        }
+      } finally {
+        if (active) {
+          setAddressesLoading(false);
+        }
+      }
+    }
+    void fetchAddresses();
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   // Promo code
   const [promoInput, setPromoInput] = useState("");
@@ -131,7 +203,7 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
     let recipientAddress = "";
 
     if (addressMode === "saved") {
-      const addr = savedAddresses.find((a) => a.id === selectedAddrId);
+      const addr = addresses.find((a) => a.id === selectedAddrId);
       if (addr) {
         recipientName = addr.name;
         recipientPhone = addr.phone;
@@ -143,12 +215,18 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
       recipientAddress = String(data.get("address") ?? "");
     }
 
+    const cleanPhone = recipientPhone.trim().replace(/[\s.-]/g, "");
     if (
       recipientName.trim().length < 2 ||
-      recipientPhone.trim().length < 9 ||
-      recipientAddress.trim().length < 8
+      recipientAddress.trim().length < 6
     ) {
-      setError("Vui lòng kiểm tra lại tên người nhận, số điện thoại và địa chỉ đầy đủ.");
+      setError("Vui lòng kiểm tra lại tên người nhận và địa chỉ chi tiết đầy đủ.");
+      return;
+    }
+
+    if (!/^(0|\+84)[35789]\d{8}$/.test(cleanPhone)) {
+      setError("Số điện thoại nhận hàng không hợp lệ (Ví dụ: 0901234567 hoặc +84901234567).");
+      toast("Số điện thoại không đúng định dạng!", "error");
       return;
     }
 
@@ -161,7 +239,7 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
       const res = await orderApi.checkout(
         {
           shippingName: recipientName.trim(),
-          shippingPhone: recipientPhone.trim(),
+          shippingPhone: cleanPhone,
           shippingAddressText: recipientAddress.trim(),
           paymentMethod: paymentMethod,
         },
@@ -396,41 +474,52 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
                       <h2 className="text-lg font-bold text-ink m-0">Địa chỉ nhận hàng</h2>
                     </div>
 
-                    <div className="flex gap-2 mb-4">
-                      <button
-                        type="button"
-                        className={`px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all cursor-pointer ${
-                          addressMode === "saved"
-                            ? "bg-ink text-white"
-                            : "bg-slate-50 text-slate-700 border border-[#e0e0e0] hover:bg-slate-100"
-                        }`}
-                        onClick={() => setAddressMode("saved")}
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                      <div className="flex gap-2">
+                        {addresses.length > 0 && (
+                          <button
+                            type="button"
+                            className={`px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all cursor-pointer ${addressMode === "saved"
+                                ? "bg-ink text-white"
+                                : "bg-slate-50 text-slate-700 border border-[#e0e0e0] hover:bg-slate-100"
+                              }`}
+                            onClick={() => setAddressMode("saved")}
+                          >
+                            Sổ địa chỉ đã lưu ({addresses.length})
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className={`px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all cursor-pointer ${addressMode === "custom" || addresses.length === 0
+                              ? "bg-ink text-white"
+                              : "bg-slate-50 text-slate-700 border border-[#e0e0e0] hover:bg-slate-100"
+                            }`}
+                          onClick={() => setAddressMode("custom")}
+                        >
+                          + Nhập địa chỉ mới
+                        </button>
+                      </div>
+                      <Link
+                        href="/account"
+                        className="text-xs text-[#006ce1] hover:underline font-medium"
                       >
-                        Sổ địa chỉ đã lưu (2)
-                      </button>
-                      <button
-                        type="button"
-                        className={`px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all cursor-pointer ${
-                          addressMode === "custom"
-                            ? "bg-ink text-white"
-                            : "bg-slate-50 text-slate-700 border border-[#e0e0e0] hover:bg-slate-100"
-                        }`}
-                        onClick={() => setAddressMode("custom")}
-                      >
-                        + Nhập địa chỉ mới
-                      </button>
+                        Quản lý sổ địa chỉ →
+                      </Link>
                     </div>
 
-                    {addressMode === "saved" ? (
+                    {addressesLoading ? (
+                      <div className="p-6 text-center text-xs md:text-sm text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        Đang tải sổ địa chỉ đã lưu...
+                      </div>
+                    ) : addressMode === "saved" && addresses.length > 0 ? (
                       <div className="flex flex-col gap-3">
-                        {savedAddresses.map((addr) => (
+                        {addresses.map((addr) => (
                           <label
                             key={addr.id}
-                            className={`flex items-start gap-3 p-4 border rounded-xl cursor-pointer transition-all ${
-                              selectedAddrId === addr.id
+                            className={`flex items-start gap-3 p-4 border rounded-xl cursor-pointer transition-all ${selectedAddrId === addr.id
                                 ? "border-[#006ce1] bg-blue-50/50 ring-1 ring-[#006ce1]"
                                 : "border-[#e0e0e0] hover:border-slate-300"
-                            }`}
+                              }`}
                           >
                             <input
                               type="radio"
@@ -460,6 +549,7 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
                             autoComplete="name"
                             required
                             minLength={2}
+                            defaultValue={user?.fullName ?? ""}
                             placeholder="Ví dụ: Nguyễn Văn A"
                             className="w-full p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
                           />
@@ -472,9 +562,11 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
                             type="tel"
                             autoComplete="tel"
                             inputMode="tel"
-                            pattern="(0[0-9]{9}|\+84[0-9]{9})"
+                            pattern="(0|\+84)[35789][0-9]{8}"
+                            title="Số điện thoại Việt Nam (VD: 0901234567 hoặc +84901234567)"
                             required
-                            placeholder="0901 234 567"
+                            defaultValue={user?.phone ?? ""}
+                            placeholder="Ví dụ: 0901234567"
                             className="w-full p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
                           />
                         </div>

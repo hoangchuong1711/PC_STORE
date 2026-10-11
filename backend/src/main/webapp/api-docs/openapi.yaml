@@ -513,6 +513,106 @@ paths:
               schema: {$ref: '#/components/schemas/CompatibilityReport'}
         "400": {$ref: '#/components/responses/BadRequest'}
         "404": {$ref: '#/components/responses/NotFound'}
+  "/api/customer/addresses":
+    get:
+      tags: [Account]
+      operationId: listAddresses
+      summary: Danh sách địa chỉ của Customer hiện tại
+      security: [{sessionCookie: []}]
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/AddressResponse'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+    post:
+      tags: [Account]
+      operationId: createAddress
+      summary: Thêm địa chỉ mới
+      security: [{sessionCookie: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AddressRequest'}
+      responses:
+        "201":
+          description: Đã tạo địa chỉ
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AddressResponse'}
+        "400": {$ref: '#/components/responses/BadRequest'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+  "/api/customer/addresses/{id}":
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer, minimum: 1}
+    get:
+      tags: [Account]
+      operationId: getAddress
+      summary: Xem chi tiết một địa chỉ
+      security: [{sessionCookie: []}]
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AddressResponse'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "404": {$ref: '#/components/responses/NotFound'}
+    put:
+      tags: [Account]
+      operationId: updateAddress
+      summary: Cập nhật địa chỉ
+      security: [{sessionCookie: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AddressRequest'}
+      responses:
+        "200":
+          description: Đã cập nhật
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AddressResponse'}
+        "400": {$ref: '#/components/responses/BadRequest'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "404": {$ref: '#/components/responses/NotFound'}
+    delete:
+      tags: [Account]
+      operationId: deleteAddress
+      summary: Xóa địa chỉ
+      security: [{sessionCookie: []}]
+      responses:
+        "204":
+          description: Đã xóa địa chỉ
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "404": {$ref: '#/components/responses/NotFound'}
+  "/api/customer/addresses/{id}/default":
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer, minimum: 1}
+    put:
+      tags: [Account]
+      operationId: setDefaultAddress
+      summary: Đặt làm địa chỉ mặc định
+      security: [{sessionCookie: []}]
+      responses:
+        "200":
+          description: Đã đặt mặc định
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AddressResponse'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "404": {$ref: '#/components/responses/NotFound'}
   "/api/customer/builds":
     get:
       tags: [Builder]
@@ -2141,3 +2241,37 @@ components:
       type: "object"
       description: "Bộ spec đầy đủ theo categories.component_type. CPU: socketCode, cores, threads, baseClockGhz, boostClockGhz, tdpWatts. MOTHERBOARD: socketCode, chipset, ramType, pcieVersion, formFactorCode, ramSlots, maxRamGb. RAM: ramType, capacityGb, speedMhz, moduleCount. GPU: vramGb, memoryType, interfaceType, lengthMm, powerConsumptionW, recommendedPsuW. STORAGE: storageType, interfaceType, capacityGb, readSpeedMBps, writeSpeedMBps. PSU: wattage, efficiencyRating, modularType. CASE: maxGpuLengthMm, maxCoolerHeightMm, maxRadiatorSizeMm, supportedFormFactors[]. COOLER: coolerType, maxTdpW, heightMm hoặc radiatorSizeMm, supportedSockets[]. Chi tiết ràng buộc tại docs/data-model.md mục 4.2 và 6.7. Nếu sản phẩm chưa có spec, response là null; không suy diễn PASS."
       additionalProperties: true
+    AddressRequest:
+      type: object
+      properties:
+        recipientName:
+          type: string
+        phone:
+          type: string
+        label:
+          type: string
+        address:
+          type: string
+        addressDetail:
+          type: string
+        isDefault:
+          type: boolean
+    AddressResponse:
+      type: object
+      required: [addressId, addressDetail, isDefault]
+      properties:
+        addressId:
+          type: integer
+          format: int32
+        addressDetail:
+          type: string
+        recipientName:
+          type: string
+        phone:
+          type: string
+        label:
+          type: string
+        address:
+          type: string
+        isDefault:
+          type: boolean
