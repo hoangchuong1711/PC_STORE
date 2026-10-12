@@ -28,6 +28,106 @@ tags:
     name: "Setup"
     description: "Bài đăng Setup Community (T29), like/ranking/kiểm duyệt (T30)"
 paths:
+  /api/auth/forgot-password:
+    post:
+      tags: [Auth]
+      operationId: forgotPassword
+      summary: Gửi OTP quên mật khẩu qua email
+      description: "OTP 6 số hết hạn sau 5 phút. Response chung cho email không tồn tại/tài khoản không ACTIVE và khi provider từ chối gửi. Tối đa 1 lần/phút/email, 5 lượt/giờ/email, 20 yêu cầu/giờ/IP. Không yêu cầu session."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              additionalProperties: false
+              properties:
+                email: {type: string, format: email, maxLength: 254}
+      responses:
+        '200':
+          description: Nếu email hợp lệ và tài khoản hoạt động, mã sẽ được gửi; kiểm tra cả Spam
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuthMessage'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '403':
+          description: ORIGIN_NOT_ALLOWED
+        '429':
+          description: RATE_LIMITED; chờ cooldown hoặc quota giờ
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '503':
+          description: MAIL_UNAVAILABLE; gửi email đang tắt hoặc thiếu cấu hình
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+  /api/auth/verify-reset-otp:
+    post:
+      tags: [Auth]
+      operationId: verifyResetOtp
+      summary: Xác minh OTP và nhận quyền đặt lại mật khẩu
+      description: "Tối đa 5 lần sai/mã; 60 request đúng định dạng/5 phút/IP. Thành công hủy OTP; resetToken ngẫu nhiên dùng một lần, hiệu lực 5 phút. Không yêu cầu session. Response no-store."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, otp]
+              additionalProperties: false
+              properties:
+                email: {type: string, format: email, maxLength: 254}
+                otp: {type: string, pattern: '^[0-9]{6}$', example: '012345'}
+      responses:
+        '200':
+          description: Quyền đặt lại mật khẩu, chỉ giữ trong bộ nhớ frontend
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [resetToken]
+                properties:
+                  resetToken: {type: string, minLength: 43, maxLength: 43}
+        '400':
+          description: INVALID_OTP hoặc dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '403': {description: ORIGIN_NOT_ALLOWED}
+        '429': {description: RATE_LIMITED}
+  /api/auth/reset-password:
+    post:
+      tags: [Auth]
+      operationId: resetPassword
+      summary: Đặt mật khẩu mới sau xác minh OTP
+      description: "Token phải thuộc email yêu cầu, chưa hết hạn/chưa dùng. Thành công hủy challenge và thu hồi các session cũ bằng auth_version; không tự đăng nhập. Gửi email thông báo sau commit. 60 request đúng định dạng/5 phút/IP."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, resetToken, newPassword]
+              additionalProperties: false
+              properties:
+                email: {type: string, format: email, maxLength: 254}
+                resetToken: {type: string, pattern: '^[A-Za-z0-9_-]{43}$'}
+                newPassword: {type: string, format: password, minLength: 8, maxLength: 128}
+      responses:
+        '200':
+          description: Mật khẩu đã đặt lại; đăng nhập bằng mật khẩu mới
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuthMessage'}
+        '400':
+          description: INVALID_RESET_TOKEN hoặc dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '403': {description: ORIGIN_NOT_ALLOWED}
+        '429': {description: RATE_LIMITED}
   "/api/setups/ranking":
     get:
       tags: [Setup]
@@ -342,7 +442,7 @@ paths:
         - "Auth"
       operationId: "register"
       summary: "Đăng ký tài khoản CUSTOMER"
-      description: "Email được trim/chuyển chữ thường. Đăng ký không tự đăng nhập."
+      description: "Email được trim/chuyển chữ thường. Đăng ký không tự đăng nhập. Gửi email chào mừng qua Brevo sau commit nếu MAIL_ENABLED=true và đã cấu hình. Lỗi gửi email không hủy tài khoản. Email này không phải bước xác minh kích hoạt."
       requestBody:
         required: true
         content:
@@ -2100,6 +2200,11 @@ components:
           schema:
             "$ref": "#/components/schemas/ErrorResponse"
   schemas:
+    AuthMessage:
+      type: object
+      required: [message]
+      properties:
+        message: {type: string}
     SetupLike:
       type: object
       required: [postId, likeCount, liked]
