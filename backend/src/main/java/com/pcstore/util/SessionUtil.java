@@ -9,13 +9,18 @@ import jakarta.servlet.http.HttpSession;
 public final class SessionUtil {
     public static final String USER_ID = "userId";
     public static final String USER_ROLE = "userRole";
+    public static final String AUTH_VERSION = "authVersion";
     private SessionUtil() { }
 
     public static void login(HttpServletRequest request, User user) {
-        login(request, user.getUserId(), user.getRole());
+        login(request, user.getUserId(), user.getRole(), user.getAuthVersion());
     }
 
     public static void login(HttpServletRequest request, Integer userId, UserRole role) {
+        login(request, userId, role, 0L);
+    }
+
+    public static void login(HttpServletRequest request, Integer userId, UserRole role, long authVersion) {
         // Xóa phiên làm việc cũ (nếu có)
         HttpSession old = request.getSession(false);
         if (old != null) old.invalidate();
@@ -24,6 +29,7 @@ public final class SessionUtil {
         request.changeSessionId();
         session.setAttribute(USER_ID, userId);
         session.setAttribute(USER_ROLE, role.name());
+        session.setAttribute(AUTH_VERSION, authVersion);
     }
 
     // Lấy ID người dùng từ phiên làm việc

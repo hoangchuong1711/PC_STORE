@@ -6,6 +6,7 @@ import com.pcstore.config.PersistenceManager;
 import com.pcstore.controller.*;
 import com.pcstore.filter.*;
 import com.pcstore.util.PasswordUtil;
+import com.pcstore.service.EmailSender;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.servlet.Filter;
 import jakarta.servlet.annotation.WebFilter;
@@ -44,6 +45,13 @@ class CoreHttpIT {
     private Tomcat tomcat;
     private URI base;
     private final List<HttpClient> clients = new ArrayList<>();
+    private String recoveryOtp;
+    private final EmailSender mail = new EmailSender() {
+        public boolean enabled() { return true; }
+        public void welcome(String email, String name) { }
+        public void otp(String email, String code) { recoveryOtp = code; }
+        public void passwordChanged(String email) { }
+    };
 
     @BeforeEach
     void start() throws Exception {
@@ -80,7 +88,7 @@ class CoreHttpIT {
         tomcat.getConnector().setProperty("address", "127.0.0.1");
         var context = tomcat.addContext("", temp.toString());
         context.setParentClassLoader(getClass().getClassLoader());
-        for (Filter filter : List.of(new CorsFilter(), new AuthenticationFilter(), new AdminAuthorizationFilter())) {
+        for (Filter filter : List.of(new CorsFilter(), new SessionVersionFilter(), new AuthenticationFilter(), new AdminAuthorizationFilter())) {
             String name = filter.getClass().getSimpleName();
             var definition = new FilterDef(); definition.setFilterName(name); definition.setFilter(filter);
             context.addFilterDef(definition);
@@ -88,7 +96,7 @@ class CoreHttpIT {
             for (String pattern : filter.getClass().getAnnotation(WebFilter.class).urlPatterns()) mapping.addURLPattern(pattern);
             context.addFilterMap(mapping);
         }
-        for (HttpServlet servlet : List.of(new AuthServlet(), new CartServlet(), new OrderServlet(), new AdminOrderServlet(), new AdminTaxonomyServlet(), new CategoryServlet(), new BrandServlet())) {
+        for (HttpServlet servlet : List.of(new AuthServlet(mail), new CartServlet(), new OrderServlet(), new AdminOrderServlet(), new AdminTaxonomyServlet(), new CategoryServlet(), new BrandServlet())) {
             WebServlet annotation = servlet.getClass().getAnnotation(WebServlet.class);
             var wrapper = Tomcat.addServlet(context, servlet.getClass().getSimpleName(), servlet);
             wrapper.setLoadOnStartup(1);
@@ -116,6 +124,39 @@ class CoreHttpIT {
                     finally { connection.close(); }
                 }
             }
+        }
+    }
+
+    @Test
+    void recoveryOverHttpRevokesOldCookieAndRequiresNewPassword() throws Exception {
+        var oldSession = login("a@example.test");
+        var guest = client();
+        String email = "\"email\":\"a@example.test\"";
+        var missing = send(guest, "POST", "/api/auth/forgot-password", "{\"email\":\"missing@example.test\"}", null);
+        var issued = send(guest, "POST", "/api/auth/forgot-password", "{" + email + "}", null);
+        assertEquals(200, issued.statusCode(), issued.body());
+        assertEquals(missing.body(), issued.body());
+        assertEquals("no-store", issued.headers().firstValue("Cache-Control").orElseThrow());
+        assertNotNull(recoveryOtp);
+        var verified = send(guest, "POST", "/api/auth/verify-reset-otp", "{" + email + ",\"otp\":\"" + recoveryOtp + "\"}", null);
+        assertEquals(200, verified.statusCode(), verified.body());
+        String token = body(verified).path("resetToken").asText();
+        String reset = "{" + email + ",\"resetToken\":\"" + token + "\",\"newPassword\":\"New-pass-123\"}";
+        assertEquals(200, send(guest, "POST", "/api/auth/reset-password", reset, null).statusCode());
+        assertEquals(401, send(oldSession, "GET", "/api/auth/me", null, null).statusCode());
+        assertEquals(400, send(guest, "POST", "/api/auth/reset-password", reset, null).statusCode());
+        assertEquals(401, send(guest, "POST", "/api/auth/login", "{" + email + ",\"password\":\"Test-pass-123\"}", null).statusCode());
+        var loggedIn = send(guest, "POST", "/api/auth/login", "{" + email + ",\"password\":\"New-pass-123\"}", null);
+        assertEquals(200, loggedIn.statusCode(), loggedIn.body());
+        assertFalse(body(loggedIn).has("authVersion"));
+        assertEquals(200, send(guest, "GET", "/api/auth/me", null, null).statusCode());
+    }
+
+    @Test
+    void passwordRecoveryEndpointsValidateBodiesWithoutLogin() throws Exception {
+        var guest = client();
+        for (String endpoint : List.of("forgot-password", "verify-reset-otp", "reset-password")) {
+            assertEquals(400, send(guest, "POST", "/api/auth/" + endpoint, "{}", null).statusCode());
         }
     }
 

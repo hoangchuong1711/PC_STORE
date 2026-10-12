@@ -24,9 +24,14 @@ public class AuthService {
     private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
     private static final Pattern PHONE_PATTERN = Pattern.compile("^(0|\\+84)[35789]\\d{8}$");
     private final UserDAO userDAO;
+    private final java.util.function.Supplier<jakarta.persistence.EntityManagerFactory> factory;
+    private final EmailSender mail;
 
     public AuthService() { this(new UserDAOImpl()); }
-    public AuthService(UserDAO userDAO) { this.userDAO = userDAO; }
+    public AuthService(UserDAO userDAO) { this(userDAO, PersistenceManager::get, BrevoEmailSender.fromEnvironment()); }
+    public AuthService(UserDAO userDAO, java.util.function.Supplier<jakarta.persistence.EntityManagerFactory> factory, EmailSender mail) {
+        this.userDAO = userDAO; this.factory = factory; this.mail = mail;
+    }
 
     public static String validateAndCleanPhone(String rawPhone) {
         if (rawPhone == null || rawPhone.isBlank()) {
@@ -50,7 +55,7 @@ public class AuthService {
         if (email == null || email.length() > 254 || !EMAIL.matcher(email).matches()) throw new ValidationException("Email không hợp lệ.");
         if (password == null || password.length() < 8 || password.length() > 128) throw new ValidationException("Mật khẩu phải dài từ 8 đến 128 ký tự.");
 
-        try (EntityManager em = PersistenceManager.get().createEntityManager()) {
+        try (EntityManager em = factory.get().createEntityManager()) {
             try {
                 em.getTransaction().begin();
                 if (userDAO.findByEmail(em, email).isPresent()) throw new AppException(409, "EMAIL_ALREADY_EXISTS", "Email đã được sử dụng.");
@@ -61,6 +66,11 @@ public class AuthService {
                 // lưu vào cơ sở dữ liệu
                 userDAO.save(em, user);
                 em.getTransaction().commit();
+                try { mail.welcome(email, name); }
+                catch (RuntimeException error) {
+                    java.util.logging.Logger.getLogger(AuthService.class.getName())
+                            .warning("Account created, but welcome email failed. Check provider logs.");
+                }
                 // trả về thông tin người dùng
                 return AuthResponse.from(user);
             } catch (PersistenceException exception) {
@@ -70,7 +80,7 @@ public class AuthService {
                 if (hasSqlState(exception, "23505"))
                     throw new AppException(409, "EMAIL_ALREADY_EXISTS", "Email đã được sử dụng.");
                 throw new AppException(500, "PERSISTENCE_ERROR", "Không thể tạo tài khoản lúc này.");
-            } finally { em.close(); }
+            } finally { if (em.getTransaction().isActive()) em.getTransaction().rollback(); }
         }
     }
 
@@ -130,16 +140,20 @@ public class AuthService {
         if (newPass.length() < 6 || newPass.length() > 128)
             throw new ValidationException("Mật khẩu mới phải có từ 6 đến 128 ký tự.");
 
-        try (EntityManager em = PersistenceManager.get().createEntityManager()) {
+        try (EntityManager em = factory.get().createEntityManager()) {
             em.getTransaction().begin();
             try {
                 User user = userDAO.findById(em, userId)
                         .orElseThrow(() -> new UnauthorizedException("Phiên đăng nhập không còn hợp lệ."));
+                em.refresh(user, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
                 if (user.getStatus() != UserStatus.ACTIVE)
                     throw new UnauthorizedException("Tài khoản đã bị vô hiệu hóa.");
                 if (!PasswordUtil.verify(request.oldPassword(), user.getPasswordHash()))
                     throw new AppException(400, "INVALID_OLD_PASSWORD", "Mật khẩu hiện tại không chính xác.");
                 user.setPasswordHash(PasswordUtil.hash(newPass));
+                var recoveryDAO = new com.pcstore.dao.PasswordRecoveryDAO();
+                var challenge = recoveryDAO.find(em, userId);
+                if (challenge != null) recoveryDAO.delete(em, challenge);
                 em.getTransaction().commit();
             } catch (RuntimeException e) {
                 if (em.getTransaction().isActive()) em.getTransaction().rollback();

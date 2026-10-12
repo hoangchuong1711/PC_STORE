@@ -5,6 +5,31 @@ import { createAuthApi, authDestination } from "./auth-api.ts";
 const customer = { userId: 7, fullName: "An", email: "an@example.test", phone: null, role: "CUSTOMER" };
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 
+test("password recovery sends each stage to Java and returns reset permission only after OTP", async () => {
+  const calls = [];
+  const api = createAuthApi(async (url, options) => {
+    calls.push([url, JSON.parse(options.body)]);
+    assert.equal(options.method, "POST");
+    assert.equal(options.cache, "no-store");
+    return json(url.endsWith("verify-reset-otp") ? { resetToken: "a".repeat(43) } : { message: "OK" });
+  });
+  await api.forgotPassword("an@example.test");
+  const result = await api.verifyResetOtp("an@example.test", "012345");
+  assert.equal(result.resetToken, "a".repeat(43));
+  await api.resetPassword("an@example.test", result.resetToken, "new-secret123");
+  assert.deepEqual(calls, [
+    ["/api/auth/forgot-password", { email: "an@example.test" }],
+    ["/api/auth/verify-reset-otp", { email: "an@example.test", otp: "012345" }],
+    ["/api/auth/reset-password", { email: "an@example.test", resetToken: "a".repeat(43), newPassword: "new-secret123" }],
+  ]);
+});
+
+test("recovery rejects missing reset tokens and preserves rate-limit errors", async () => {
+  await assert.rejects(createAuthApi(async () => json({})).verifyResetOtp("a@b.test", "123456"));
+  await assert.rejects(createAuthApi(async () => json({ code: "RATE_LIMITED", message: "Wait" }, 429)).forgotPassword("a@b.test"),
+    error => error.status === 429 && error.code === "RATE_LIMITED");
+});
+
 test("login sends credentials to Java session endpoint and returns its user", async () => {
   const api = createAuthApi(async (url, options) => {
     assert.equal(url, "/api/auth/login");

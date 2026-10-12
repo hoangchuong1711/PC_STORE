@@ -7,9 +7,9 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "./auth-provider";
 import { authDestination, createAuthApi } from "../lib/auth-api";
 import { Eye, EyeOff, AlertCircle, Ban } from "lucide-react";
-import { useToast } from "./toast";
+import { PasswordRecoveryForm } from "./password-recovery";
 
-type AuthMode = "login" | "register";
+type AuthMode = "login" | "register" | "forgot";
 
 export function AuthPage({ mode }: { mode: AuthMode }) {
   const isLogin = mode === "login";
@@ -20,7 +20,6 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
   const [pending, setPending] = useState(false);
 
   const { login } = useAuth();
-  const { toast } = useToast();
   const router = useRouter();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -69,9 +68,9 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
             {/* Tiêu đề trang */}
             <h1
               id="auth-title"
-              className="text-xl sm:text-2xl font-bold text-ink tracking-tight mb-6"
+              className="text-xl! sm:text-2xl! font-bold text-ink tracking-tight mb-6"
             >
-              {isLogin ? "Đăng nhập Tài khoản" : "Đăng ký Tài khoản"}
+              {mode === "forgot" ? "Quên mật khẩu" : isLogin ? "Đăng nhập Tài khoản" : "Đăng ký Tài khoản"}
             </h1>
 
             {submitted && (
@@ -111,7 +110,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="flex flex-col">
+            {mode === "forgot" ? <PasswordRecoveryForm /> : <form onSubmit={handleSubmit} className="flex flex-col">
               {/* Họ và tên (chỉ khi Đăng ký) */}
               {!isLogin && (
                 <div className="flex flex-col mb-4">
@@ -191,16 +190,12 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                     />
                     <span>Nhớ tôi</span>
                   </label>
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      toast("Vui lòng liên hệ quản trị viên để hỗ trợ cấp lại mật khẩu.", "info");
-                    }}
+                  <Link
+                    href="/auth/forgot-password"
                     className="text-xs text-[#006ce1] hover:underline font-medium"
                   >
                     Quên mật khẩu của bạn?
-                  </a>
+                  </Link>
                 </div>
               )}
 
@@ -237,7 +232,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                   {isLogin ? "Đăng ký ngay" : "Đăng nhập ngay"}
                 </Link>
               </div>
-            </form>
+            </form>}
           </section>
         </div>
       </main>
