@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { X, Trash2, ShoppingBag, ArrowRight, AlertCircle } from "lucide-react";
 import { useCart } from "./cart-provider";
+import { summarizeSelection } from "../lib/cart";
 import { formatPrice, products } from "../lib/products";
 
 export function CartDrawer() {
-  const { items, totalAmount, isOpen, closeCart, update, remove, error, loading } = useCart();
+  const { items, selectedIds, toggleSelected, selectAll, isOpen, closeCart, update, remove, error, loading } = useCart();
+  const router = useRouter();
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -45,10 +48,7 @@ export function CartDrawer() {
     return { ...item, product };
   });
 
-  const total =
-    totalAmount > 0
-      ? totalAmount
-      : lines.reduce((sum, line) => sum + line.price * line.quantity, 0);
+  const { subtotal: total } = summarizeSelection(items, selectedIds);
 
   const totalCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -101,10 +101,20 @@ export function CartDrawer() {
         ) : (
           <>
             <div className="cart-drawer-items">
+              <label className="mb-4 flex items-center gap-3 text-sm font-semibold">
+                <input type="checkbox" className="h-5 w-5 shrink-0 accent-[#006ce1]"
+                  checked={selectedIds.length === items.length}
+                  ref={(node) => { if (node) node.indeterminate = selectedIds.length > 0 && selectedIds.length < items.length; }}
+                  disabled={loading} onChange={(event) => selectAll(event.target.checked)} />
+                Chọn tất cả ({selectedIds.length}/{items.length})
+              </label>
               {lines.map((line) => {
                 const targetKey = line.cartItemId ?? line.product.id;
                 return (
                   <div key={line.cartItemId ? `cart-${line.cartItemId}` : `prod-${line.product.id}`} className="cart-drawer-item">
+                    <input type="checkbox" className="mt-3 h-5 w-5 shrink-0 accent-[#006ce1]"
+                      aria-label={`Chọn ${line.product.name}`} checked={selectedIds.includes(line.id)}
+                      disabled={loading} onChange={() => toggleSelected(line.id)} />
                     <div
                       className="cart-drawer-item-mark"
                       style={{ background: line.product.accent }}
@@ -160,20 +170,21 @@ export function CartDrawer() {
 
             <div className="cart-drawer-footer">
               <div className="cart-drawer-subtotal">
-                <span>Tạm tính (Backend):</span>
-                <strong>{formatPrice(total)}</strong>
+                <span>Tạm tính ({selectedIds.length} món đã chọn):</span>
+                <strong aria-live="polite">{formatPrice(total)}</strong>
               </div>
               <p className="cart-drawer-shipping-note">
                 Miễn phí vận chuyển toàn quốc cho mọi đơn hàng.
               </p>
               <div className="cart-drawer-actions">
-                <Link
-                  href="/checkout"
-                  className="button button-primary cart-drawer-checkout-btn"
-                  onClick={closeCart}
+                <button
+                  type="button"
+                  disabled={loading || selectedIds.length === 0}
+                  className="button button-primary cart-drawer-checkout-btn disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => { closeCart(); router.push("/checkout"); }}
                 >
                   Thanh toán ngay <ArrowRight size={16} />
-                </Link>
+                </button>
                 <Link
                   href="/cart"
                   className="button button-outline cart-drawer-cart-btn"
@@ -182,6 +193,7 @@ export function CartDrawer() {
                   Xem giỏ hàng chi tiết
                 </Link>
               </div>
+              {selectedIds.length === 0 && <p role="status" className="mt-3 text-sm text-muted">Vui lòng chọn ít nhất một sản phẩm để thanh toán.</p>}
             </div>
           </>
         )}

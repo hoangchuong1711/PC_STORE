@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   ShoppingBag,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import { Header, Footer } from "./storefront";
 import { useCart } from "./cart-provider";
+import { summarizeSelection } from "../lib/cart";
 import { useAuth } from "./auth-provider";
 import { orderApi, OrderApiError } from "../lib/order-api";
 import { addressApi } from "../lib/address-api";
@@ -35,7 +37,8 @@ type CheckoutAddress = {
 
 export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
   const { user } = useAuth();
-  const { items, add, update, clear } = useCart();
+  const { items, add, update, clear, refreshCart, selectedIds, toggleSelected, selectAll, loading: cartLoading } = useCart();
+  const router = useRouter();
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [order, setOrder] = useState("");
@@ -158,13 +161,11 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
       warranty: "Chính hãng",
       images: ["Góc nhìn chính"],
     };
-    return { ...item, product };
+    return { ...item, product: { ...product, name: item.name, price: item.unitPrice, stock: item.stock ?? product.stock } };
   });
 
-  const subtotal = lines.reduce(
-    (sum, line) => sum + (line.price || line.product.price) * line.quantity,
-    0,
-  );
+  const selectedLines = lines.filter((line) => selectedIds.includes(line.id));
+  const { subtotal, cartItemIds } = summarizeSelection(items, selectedIds);
 
   const discountAmount = appliedDiscount ? appliedDiscount.amount : 0;
   const finalTotal = Math.max(0, subtotal - discountAmount);
@@ -194,11 +195,16 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting.current || !lines.length) return;
+    if (submitting.current || cartLoading || !selectedLines.length) return;
 
     if (!user) {
       setError("Vui lòng đăng nhập tài khoản để tiến hành đặt hàng.");
       toast("Vui lòng đăng nhập để tiếp tục thanh toán!", "error");
+      return;
+    }
+
+    if (cartItemIds.length !== selectedLines.length) {
+      setError("Vui lòng tải lại giỏ hàng để đồng bộ sản phẩm trước khi thanh toán.");
       return;
     }
 
@@ -247,6 +253,7 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
           shippingPhone: cleanPhone,
           shippingAddressText: recipientAddress.trim(),
           paymentMethod: paymentMethod,
+          cartItemIds,
         },
         idempotencyKey,
       );
@@ -255,7 +262,7 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
       setOrder(orderCode);
       setCreatedOrderId(res.order.orderId);
       setOrderTotalAmount(res.order.totalAmount);
-      await clear();
+      await refreshCart();
 
       if (paymentMethod === "VNPAY") {
         setIsGeneratingPaymentUrl(true);
@@ -669,8 +676,16 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
               ) : (
                 /* Cart Items List */
                 <div className="flex flex-col gap-4">
-                  {lines.map(({ product, quantity }) => (
+                  <label className="flex items-center gap-3 rounded-xl border border-[#e0e0e0] bg-white p-4 font-semibold">
+                    <input type="checkbox" className="h-5 w-5 accent-[#006ce1]" checked={selectedLines.length === lines.length}
+                      ref={(node) => { if (node) node.indeterminate = selectedLines.length > 0 && selectedLines.length < lines.length; }}
+                      disabled={cartLoading || busy} onChange={(event) => selectAll(event.target.checked)} />
+                    Chọn tất cả ({selectedLines.length}/{lines.length})
+                  </label>
+                  {lines.map(({ id, cartItemId, product, quantity }) => (
                     <article className="flex flex-col sm:flex-row items-start sm:items-center gap-5 p-6 bg-white border border-[#e0e0e0] rounded-2xl hover:border-slate-300 transition-colors" key={product.id}>
+                      <input type="checkbox" className="h-5 w-5 shrink-0 accent-[#006ce1]" aria-label={`Chọn ${product.name}`}
+                        checked={selectedIds.includes(id)} disabled={cartLoading || busy} onChange={() => toggleSelected(id)} />
                       <div
                         className="w-18 h-18 rounded-xl text-white font-gaming text-2xl font-bold shrink-0 grid place-items-center"
                         style={{ background: product.accent }}
@@ -695,8 +710,8 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
                           <div className="inline-flex items-center border border-[#e0e0e0] rounded-xl overflow-hidden bg-white">
                             <button
                               type="button"
-                              disabled={quantity <= 1}
-                              onClick={() => update(product.id, quantity - 1)}
+                              disabled={cartLoading || quantity <= 1}
+                              onClick={() => update(cartItemId ?? id, quantity - 1)}
                               aria-label={`Giảm số lượng ${product.name}`}
                               className="w-8 h-8 grid place-items-center text-sm font-bold hover:bg-slate-100 disabled:opacity-40 cursor-pointer border-none bg-transparent"
                             >
@@ -707,8 +722,8 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
                             </output>
                             <button
                               type="button"
-                              disabled={quantity >= product.stock}
-                              onClick={() => update(product.id, quantity + 1)}
+                              disabled={cartLoading || quantity >= product.stock}
+                              onClick={() => update(cartItemId ?? id, quantity + 1)}
                               aria-label={`Tăng số lượng ${product.name}`}
                               className="w-8 h-8 grid place-items-center text-sm font-bold hover:bg-slate-100 disabled:opacity-40 cursor-pointer border-none bg-transparent"
                             >
@@ -719,7 +734,7 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
                             type="button"
                             className="inline-flex items-center gap-1.5 text-red-600 hover:bg-red-50 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer border-none bg-transparent"
                             onClick={() => {
-                              update(product.id, 0);
+                              update(cartItemId ?? id, 0);
                               toast(`Đã gỡ "${product.name}" khỏi giỏ`, "info");
                             }}
                             aria-label={`Xóa ${product.name}`}
@@ -763,7 +778,7 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
 
               {checkout && (
                 <div className="flex flex-col gap-2.5 pb-4 mb-4 border-b border-[#e0e0e0] max-h-48 overflow-y-auto">
-                  {lines.map(({ product, quantity }) => (
+                  {selectedLines.map(({ product, quantity }) => (
                     <div className="flex justify-between items-center text-xs" key={product.id}>
                       <span className="text-ink max-w-[220px] truncate">
                         {product.name} <small className="text-muted font-semibold">×{quantity}</small>
@@ -814,8 +829,8 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
 
               <dl className="text-xs md:text-sm space-y-3 mb-5">
                 <div className="flex justify-between">
-                  <dt className="text-muted">Tạm tính hàng ({lines.length} món)</dt>
-                  <dd className="font-semibold text-ink">{formatPrice(subtotal)}</dd>
+                  <dt className="text-muted">Tạm tính hàng ({selectedLines.length} món đã chọn)</dt>
+                  <dd aria-live="polite" className="font-semibold text-ink">{formatPrice(subtotal)}</dd>
                 </div>
                 {appliedDiscount && (
                   <div className="flex justify-between text-red-600 font-semibold">
@@ -838,18 +853,21 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
                   form="checkout-form"
                   type="submit"
                   className="w-full p-3.5 font-nav text-sm md:text-base font-bold bg-[#006ce1] hover:bg-[#0051a8] text-white rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-50"
-                  disabled={busy}
+                  disabled={busy || cartLoading || !selectedLines.length}
                 >
                   {busy ? "Đang tạo đơn hàng…" : "Xác nhận đặt đơn"}
                 </button>
               ) : (
-                <Link
+                <button
+                  type="button"
+                  disabled={cartLoading || !selectedLines.length}
                   className="w-full inline-flex items-center justify-center gap-2 p-3.5 font-nav text-sm md:text-base font-bold bg-[#006ce1] hover:bg-[#0051a8] text-white rounded-xl transition-all shadow-md"
-                  href="/checkout"
+                  onClick={() => router.push("/checkout")}
                 >
                   Tiến hành đặt hàng <ArrowRight size={16} />
-                </Link>
+                </button>
               )}
+              {!selectedLines.length && <p role="status" className="mt-3 text-sm text-muted">Vui lòng chọn ít nhất một sản phẩm để thanh toán.</p>}
 
               <div className="flex items-center gap-2 text-[11px] text-muted mt-4 leading-relaxed">
                 <ShieldCheck size={16} className="text-emerald-600 shrink-0" />

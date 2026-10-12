@@ -1,5 +1,17 @@
 export type CartItem = { id: string; quantity: number };
 
+export function summarizeSelection(
+  items: readonly { id: string; cartItemId?: number; unitPrice: number; quantity: number }[],
+  selectedIds: readonly string[],
+) {
+  const selected = new Set(selectedIds);
+  const lines = items.filter((item) => selected.has(item.id));
+  return {
+    subtotal: lines.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0),
+    cartItemIds: lines.flatMap((item) => item.cartItemId === undefined ? [] : [item.cartItemId]),
+  };
+}
+
 export function changeQuantity(
   items: CartItem[],
   id: string,

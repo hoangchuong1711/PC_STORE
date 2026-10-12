@@ -38,6 +38,9 @@ export type UnifiedCartItem = {
 
 type CartContextValue = {
   items: UnifiedCartItem[];
+  selectedIds: string[];
+  toggleSelected: (id: string) => void;
+  selectAll: (selected: boolean) => void;
   totalAmount: number;
   totalCount: number;
   isOpen: boolean;
@@ -86,7 +89,10 @@ function mapServerCart(serverCart: CartResponse): UnifiedCartItem[] {
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const userId = user?.userId;
   const [items, setItems] = useState<UnifiedCartItem[]>([]);
+  const [selection, setSelection] = useState<string[] | null>(null);
+  const selectedIds = items.filter((item) => selection === null || selection.includes(item.id)).map((item) => item.id);
   const [totalAmount, setTotalAmount] = useState<number>(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -131,6 +137,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
     return () => cancelAnimationFrame(frame);
   }, [user, refreshCart]);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setSelection(null));
+    return () => cancelAnimationFrame(frame);
+  }, [userId]);
 
   const add = useCallback(
     async (id: string | number, quantity: number) => {
@@ -202,7 +213,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     async (id: string | number, quantity: number) => {
       setError(null);
       // id can be cartItemId or productId
-      const targetItem = items.find(
+      const targetItem = items.find((i) => i.cartItemId !== undefined && String(i.cartItemId) === String(id)) ?? items.find(
         (i) =>
           (i.cartItemId !== undefined && String(i.cartItemId) === String(id)) ||
           i.id === String(id) ||
@@ -296,6 +307,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     <CartContext.Provider
       value={{
         items,
+        selectedIds,
+        toggleSelected: (id) => setSelection(selectedIds.includes(id) ? selectedIds.filter((value) => value !== id) : [...selectedIds, id]),
+        selectAll: (selected) => setSelection(selected ? items.map((item) => item.id) : []),
         totalAmount: calculatedTotal,
         totalCount,
         isOpen,

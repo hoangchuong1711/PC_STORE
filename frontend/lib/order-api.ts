@@ -1,5 +1,5 @@
 export type PaymentMethod = "COD" | "VNPAY";
-export type CheckoutInput = { shippingName: string; shippingPhone: string; shippingAddressText: string; paymentMethod: PaymentMethod };
+export type CheckoutInput = { shippingName: string; shippingPhone: string; shippingAddressText: string; paymentMethod: PaymentMethod; cartItemIds?: number[] };
 export type VNPayUrlResponse = {
   orderId: number;
   paymentMethod: string;
