@@ -525,6 +525,13 @@ h1 {
   background: var(--product-accent);
   color: #fff;
 }
+.product-visual-has-image {
+  background: #fff;
+}
+.product-photo {
+  object-fit: contain;
+  padding: 16px;
+}
 .visual-orbit {
   position: absolute;
   width: 180px;
