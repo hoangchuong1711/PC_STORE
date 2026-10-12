@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCart } from "./cart-provider";
 import { useAuth } from "./auth-provider";
@@ -280,22 +281,47 @@ export function Footer() {
   );
 }
 
+function isProductImageSource(source: string | undefined): source is string {
+  return Boolean(source && /^(https?:\/\/|\/(?!\/))/.test(source));
+}
+
 function ProductVisual({
   product,
   large = false,
+  imageIndex = 0,
 }: {
   product: Product;
   large?: boolean;
+  imageIndex?: number;
 }) {
+  const source = product.images?.[imageIndex];
+  const [failedSource, setFailedSource] = useState<string | null>(null);
+  const showImage = isProductImageSource(source) && source !== failedSource;
+
   return (
     <div
-      className={`product-visual ${large ? "product-visual-large" : ""}`}
+      className={`product-visual ${large ? "product-visual-large" : ""} ${showImage ? "product-visual-has-image" : ""}`}
       style={{ "--product-accent": product.accent } as React.CSSProperties}
     >
-      <span className="visual-orbit" />
-      <span className="visual-label">{product.category}</span>
-      <span className="visual-letter">{product.name.slice(0, 1)}</span>
-      <span className="visual-brand">{product.brand}</span>
+      {showImage ? (
+        <Image
+          key={source}
+          src={source}
+          alt={product.name}
+          fill
+          unoptimized
+          sizes={large ? "(max-width: 900px) 100vw, 50vw" : "(max-width: 768px) 100vw, 33vw"}
+          className="product-photo"
+          onError={() => setFailedSource(source)}
+        />
+      ) : (
+        <>
+          <span className="visual-orbit" />
+          <span className="visual-label">{product.category}</span>
+          <span className="visual-letter">{product.name.slice(0, 1)}</span>
+          <span className="visual-brand">{product.brand}</span>
+        </>
+      )}
     </div>
   );
 }
@@ -1301,9 +1327,9 @@ export function ProductDetail({
           {/* Image Gallery */}
           <div className="detail-gallery">
             <div className="detail-main-visual">
-              <ProductVisual product={product} large />
+              <ProductVisual product={product} large imageIndex={selectedImageIdx} />
               <div className="detail-gallery-caption">
-                Góc ảnh: <strong>{images[selectedImageIdx]}</strong>
+                Góc ảnh: <strong>{isProductImageSource(images[selectedImageIdx]) ? `Ảnh ${selectedImageIdx + 1}` : images[selectedImageIdx]}</strong>
               </div>
             </div>
             <div className="detail-thumbnails" role="group" aria-label="Danh sách ảnh">
@@ -1318,7 +1344,7 @@ export function ProductDetail({
                     className="thumbnail-swatch"
                     style={{ background: product.accent }}
                   />
-                  <small>{imgLabel}</small>
+                  <small>{isProductImageSource(imgLabel) ? `Ảnh ${idx + 1}` : imgLabel}</small>
                 </button>
               ))}
             </div>
