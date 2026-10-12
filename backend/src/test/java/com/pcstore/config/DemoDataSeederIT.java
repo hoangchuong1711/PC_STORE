@@ -150,6 +150,8 @@ class DemoDataSeederIT {
                     assertEquals(3, count(connection, "SELECT count(*) FROM products WHERE name LIKE 'T05-DEMO %'"));
                     assertEquals(0, count(connection, "SELECT count(*) FROM users"));
                     assertEquals(2, count(connection, "SELECT count(*) FROM products p JOIN categories c ON c.category_id=p.category_id JOIN brands b ON b.brand_id=p.brand_id JOIN inventory i ON i.product_id=p.product_id WHERE p.name LIKE 'T05-DEMO %' AND p.status='ACTIVE' AND c.status='ACTIVE' AND b.status='ACTIVE' AND i.quantity_on_hand-i.reserved_quantity>0"));
+                    assertEquals(6, count(connection, "SELECT count(*) FROM products p JOIN inventory i ON i.product_id=p.product_id WHERE p.name IN ('PC Creator Pro X','ROG Strix G16 2025','TUF Gaming A15','Kingston Fury 32GB DDR5-6000','Samsung 990 Pro NVMe 2TB','Ultrawide Monitor 34') AND p.status='ACTIVE' AND i.quantity_on_hand-i.reserved_quantity>0"));
+                    assertEquals(3, count(connection, "SELECT quantity_on_hand FROM inventory i JOIN products p ON p.product_id=i.product_id WHERE p.name='PC Creator Pro X'"));
 
                     try (var statement = connection.createStatement()) {
                         statement.executeUpdate("UPDATE inventory SET quantity_on_hand=7 WHERE product_id=(SELECT product_id FROM products WHERE name='T05-DEMO Ryzen 5 7600')");
@@ -158,12 +160,12 @@ class DemoDataSeederIT {
 
                 try (var factory = PersistenceManager.createEntityManagerFactory(schemaUrl, user, password);
                      var entityManager = factory.createEntityManager()) {
-                    assertEquals(2, new BrandDao(entityManager).findActive().size());
-                    assertEquals(2, new CategoryDao(entityManager).findActive().size());
+                    assertTrue(new BrandDao(entityManager).findActive().size() >= 5);
+                    assertTrue(new CategoryDao(entityManager).findActive().size() >= 4);
                     var catalog = new ProductCatalogService(entityManager);
                     var page = catalog.search(new ProductSearchQuery(null, null, null, null, null, 0, 20));
-                    assertEquals(2, page.totalItems());
-                    assertEquals(2, page.items().size());
+                    assertTrue(page.totalItems() >= 8);
+                    assertFalse(page.items().isEmpty());
                     assertEquals(page.items().getFirst().productId(), catalog.find(page.items().getFirst().productId()).productId());
                 }
 

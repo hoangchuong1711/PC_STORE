@@ -64,6 +64,33 @@ test("never turns a legacy mock id into a backend product id", async () => {
   assert.equal(missing.productId, undefined);
 });
 
+test("maps legacy community variants to their canonical catalog name", async () => {
+  const lookedUp = [];
+  const [component] = await resolveCommunityComponents(
+    [{
+      slug: "ultrawide-monitor-34",
+      name: "LG UltraWide 34 inch 165Hz",
+      category: "Màn hình",
+      price: 1,
+    }],
+    {
+      async getById() {
+        assert.fail("a legacy component must be resolved by canonical name");
+      },
+      async findExactByName(name) {
+        lookedUp.push(name);
+        return { ...catalogProduct, productId: 51, name: "Ultrawide Monitor 34" };
+      },
+    },
+  );
+
+  assert.deepEqual(lookedUp, ["Ultrawide Monitor 34"]);
+  assert.equal(component.productId, 51);
+  assert.equal(component.name, "Ultrawide Monitor 34");
+  assert.equal(component.price, catalogProduct.price);
+  assert.equal(component.catalogState, "available");
+});
+
 test("adds a setup sequentially and skips unavailable catalog items", async () => {
   const calls = [];
   let active = 0;

@@ -28,6 +28,8 @@ Các GET/PUT/DELETE thành công trả 200. Phân trang: offset 0–1.000.000, l
 
 `post.products[]` giữ `{productId,name}` của T29. FE dùng `productId` để gọi `GET /api/products/{id}` và `POST /api/customer/cart/items` với `{"productId":id,"quantity":1}`. Không lấy giá/kho từ bài Setup; catalog/cart kiểm tra lại trạng thái, giá và kho. T30 không tự thêm sản phẩm vào giỏ khi đọc bài. Việc nối UI thực hiện ở T34.
 
+Các bài showcase cũ không có `productId` được frontend đối chiếu tên chuẩn theo slug, không chuyển slug giả thành ID. Khi `DEMO_SEED_ENABLED=true`, `community_catalog.sql` tạo idempotent 6 sản phẩm còn hàng (gồm PC Creator Pro X) cùng inventory thật; chạy lại không ghi đè giá hoặc tồn kho đã chỉnh trong Admin. Các mục không có catalog/tồn kho thật vẫn không thể thêm vào giỏ.
+
 ## Lỗi và kiểm thử
 
 - 401 `UNAUTHORIZED`: thao tác cần đăng nhập nhưng không có session.

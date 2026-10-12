@@ -26,7 +26,6 @@ import {
   adminProductStatuses,
   filterAdminProducts,
   formatAdminPrice,
-  initialAdminProducts,
   productStatusLabels,
   type AdminProduct,
   type AdminProductFilters,
@@ -52,20 +51,6 @@ function loadDraftProduct(): AdminProductFormState | null {
       stock: draft.stock === 0 || draft.stock === "0" ? "" : draft.stock,
     };
   } catch { return null; }
-}
-
-function loadStoredProducts(): AdminProduct[] | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch {
-    // fallback
-  }
-  return null;
 }
 
 function saveStoredProducts(products: AdminProduct[]) {
@@ -145,7 +130,7 @@ const statusTone: Record<AdminProductStatus, string> = {
 };
 
 export function AdminProducts() {
-  const [items, setItems] = useState<AdminProduct[]>(() => loadStoredProducts() ?? initialAdminProducts);
+  const [items, setItems] = useState<AdminProduct[]>([]);
   const [categoriesList, setCategoriesList] = useState<CatalogCategoryOption[]>([]);
   const [brandsList, setBrandsList] = useState<CatalogBrandOption[]>([]);
   const [loading, setLoading] = useState(false);
@@ -208,36 +193,14 @@ export function AdminProducts() {
         const adminList = await adminProductApi.list();
         serverProds = adminList.map(fromAdminProductItem);
       } catch {
-        const publicPage = await catalogApi.list({ size: 100 }).catch(() => ({ items: [] }));
+        const publicPage = await catalogApi.list({ size: 100 });
         serverProds = (publicPage.items || []).map(toAdminProduct);
       }
 
-      setItems((prev) => {
-        if (serverProds.length === 0) return prev;
-
-        const serverMap = new Map<string, AdminProduct>();
-        serverProds.forEach((p) => serverMap.set(p.id, p));
-
-        const updated = prev.map((local) => {
-          const fromServer = serverMap.get(local.id);
-          if (fromServer) {
-            serverMap.delete(local.id);
-            return {
-              ...local,
-              price: fromServer.price,
-              stock: fromServer.stock,
-              status: local.status === "DRAFT" || local.status === "HIDDEN" ? local.status : fromServer.status,
-              category: fromServer.category || local.category,
-              brand: fromServer.brand || local.brand,
-            };
-          }
-          return local;
-        });
-
-        const merged = [...updated, ...Array.from(serverMap.values())];
-        saveStoredProducts(merged);
-        return merged;
-      });
+      // The server is the source of truth. Never merge the old browser fixture
+      // rows into purchasable inventory: those rows have no backend product id.
+      setItems(serverProds);
+      saveStoredProducts(serverProds);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Không thể kết nối máy chủ để tải danh mục sản phẩm.",
