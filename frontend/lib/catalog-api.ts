@@ -199,6 +199,10 @@ function queryString(query: CatalogQuery = {}): string {
   return encoded ? `?${encoded}` : "";
 }
 
+function normalizedProductName(value: string): string {
+  return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("vi-VN");
+}
+
 export function createCatalogApi(transport: typeof fetch = fetch) {
   async function request(endpoint: string): Promise<unknown> {
     let response: Response;
@@ -224,15 +228,26 @@ export function createCatalogApi(transport: typeof fetch = fetch) {
     return data;
   }
 
+  async function list(query?: CatalogQuery): Promise<CatalogPage> {
+    return parsePage(await request(`/api/products${queryString(query)}`));
+  }
+
   return {
-    async list(query?: CatalogQuery): Promise<CatalogPage> {
-      return parsePage(await request(`/api/products${queryString(query)}`));
-    },
+    list,
     async getById(productId: number): Promise<CatalogProduct> {
       if (!Number.isInteger(productId) || productId < 1) {
         throw new CatalogApiError(400, "Product id không hợp lệ.", "INVALID_ID");
       }
       return parseProduct(await request(`/api/products/${productId}`));
+    },
+    async findExactByName(name: string): Promise<CatalogProduct | null> {
+      const queryName = name.trim().replace(/\s+/g, " ");
+      const normalizedName = normalizedProductName(queryName);
+      if (!normalizedName) return null;
+      const page = await list({ q: queryName, page: 0, size: 50 });
+      return page.items.find(
+        (product) => normalizedProductName(product.name) === normalizedName,
+      ) ?? null;
     },
     async listCategories(): Promise<CatalogCategoryOption[]> {
       const data = await request("/api/categories");

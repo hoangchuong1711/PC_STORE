@@ -37,7 +37,7 @@ type CheckoutAddress = {
 
 export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
   const { user } = useAuth();
-  const { items, add, update, clear, refreshCart, selectedIds, toggleSelected, selectAll, loading: cartLoading } = useCart();
+  const { items, update, clear, refreshCart, selectedIds, toggleSelected, selectAll, loading: cartLoading } = useCart();
   const router = useRouter();
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
@@ -443,17 +443,6 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
               >
                 Đi đến PC Builder
               </Link>
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors border-none cursor-pointer"
-                onClick={() => {
-                  add("p1", 1);
-                  add("p5", 2);
-                  toast("Đã thêm 2 sản phẩm mẫu vào giỏ hàng!", "info");
-                }}
-              >
-                Thử giỏ mẫu nhanh
-              </button>
             </div>
           </section>
         ) : (

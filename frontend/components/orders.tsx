@@ -27,6 +27,7 @@ import { useToast } from "./toast";
 import { WriteReviewModal } from "./reviews";
 import { hasUserReviewedProduct } from "../lib/reviews";
 import { formatPrice } from "../lib/products";
+import { parseServerProductId } from "../lib/cart";
 import {
   filterOrders,
   formatOrderDate,
@@ -213,14 +214,24 @@ export function OrdersPage() {
     }
   }, [authLoading, user]);
 
-  const handleReorder = (order: Order) => {
-    order.lines.forEach((line) => {
-      const numId = /^\d+$/.test(line.productId)
-        ? Number(line.productId)
-        : parseInt(line.productId.replace(/^p-?/i, ""), 10) || 1;
-      add(numId, line.quantity);
-    });
-    toast(`Đã thêm ${order.lines.length} sản phẩm của đơn ${order.code} vào giỏ hàng!`, "success");
+  const handleReorder = async (order: Order) => {
+    let added = 0;
+    try {
+      for (const line of order.lines) {
+        const productId = parseServerProductId(line.productId);
+        if (productId === null) continue;
+        await add(productId, line.quantity);
+        added += 1;
+      }
+      toast(
+        added > 0
+          ? `Đã thêm ${added} sản phẩm của đơn ${order.code} vào giỏ hàng!`
+          : "Đơn mẫu này không liên kết với sản phẩm trong catalog hiện tại.",
+        added > 0 ? "success" : "info",
+      );
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Không thể mua lại đơn hàng.", "error");
+    }
   };
 
   const visibleOrders = useMemo(
@@ -488,15 +499,25 @@ export function OrderDetail({
 
   const progress = order ? getOrderProgress(order.status) : [];
 
-  const handleReorder = () => {
+  const handleReorder = async () => {
     if (!order) return;
-    order.lines.forEach((line) => {
-      const numId = /^\d+$/.test(line.productId)
-        ? Number(line.productId)
-        : parseInt(line.productId.replace(/^p-?/i, ""), 10) || 1;
-      add(numId, line.quantity);
-    });
-    toast(`Đã thêm ${order.lines.length} sản phẩm vào giỏ hàng!`, "success");
+    let added = 0;
+    try {
+      for (const line of order.lines) {
+        const productId = parseServerProductId(line.productId);
+        if (productId === null) continue;
+        await add(productId, line.quantity);
+        added += 1;
+      }
+      toast(
+        added > 0
+          ? `Đã thêm ${added} sản phẩm vào giỏ hàng!`
+          : "Đơn mẫu này không liên kết với sản phẩm trong catalog hiện tại.",
+        added > 0 ? "success" : "info",
+      );
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Không thể mua lại đơn hàng.", "error");
+    }
   };
 
   const handleConfirmCancel = async () => {

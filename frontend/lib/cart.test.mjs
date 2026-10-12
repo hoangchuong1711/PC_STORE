@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { addItem, changeQuantity } from "./cart.ts";
+import { addItem, changeQuantity, parseServerProductId } from "./cart.ts";
+
+test("accepts only canonical backend product ids", () => {
+  assert.equal(parseServerProductId(42), 42);
+  assert.equal(parseServerProductId("42"), 42);
+  assert.equal(parseServerProductId("p42"), null);
+  assert.equal(parseServerProductId("product-42"), null);
+  assert.equal(parseServerProductId("042"), null);
+  assert.equal(parseServerProductId(0), null);
+});
 
 test("adding the same product merges quantities without exceeding demo stock", () => {
   const first = addItem([], "p1", 2, 5);

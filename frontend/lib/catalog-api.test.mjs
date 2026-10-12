@@ -72,6 +72,23 @@ test("gets one public product by numeric id", async () => {
   assert.deepEqual(result.category, product.category);
 });
 
+test("finds an exact catalog product by name without accepting a partial match", async () => {
+  const api = createCatalogApi(async (url) => {
+    assert.equal(url, "/api/products?q=ROG+Strix+G16+2025&page=0&size=50");
+    return json({
+      ...page,
+      page: 0,
+      size: 50,
+      items: [
+        { ...product, productId: 41, name: "ROG Strix G16 2025 Special" },
+        product,
+      ],
+    });
+  });
+
+  assert.equal((await api.findExactByName("  ROG   Strix G16 2025 "))?.productId, 42);
+});
+
 test("rejects invalid product ids before making a request", async () => {
   let calls = 0;
   const api = createCatalogApi(async () => {
