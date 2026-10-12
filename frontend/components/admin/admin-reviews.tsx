@@ -20,7 +20,7 @@ import {
   type AdminReview,
   type AdminReviewFilters,
   type AdminReviewStatus,
-  initialAdminReviews,
+  publishedAverage,
   filterAdminReviews,
 } from "@/lib/admin-reviews";
 import { reviewApi } from "@/lib/review-api";
@@ -33,7 +33,9 @@ const initialFilters: AdminReviewFilters = {
 };
 
 export function AdminReviews() {
-  const [reviews, setReviews] = useState<AdminReview[]>(initialAdminReviews);
+  const [reviews, setReviews] = useState<AdminReview[]>([]);
+  const [loadError, setLoadError] = useState("");
+  const [hideSubmitting, setHideSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<AdminReviewFilters>(initialFilters);
   const [selectedReview, setSelectedReview] = useState<AdminReview | null>(null);
@@ -47,10 +49,11 @@ export function AdminReviews() {
   const loadReviews = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError("");
       const data = await reviewApi.listAdmin();
       if (data && data.length > 0) {
         setReviews(
-          data.map((item) => ({
+          data.filter((item) => item.status === "PUBLISHED" || item.status === "HIDDEN").map((item) => ({
             id: String(item.reviewId),
             productSlug: `product-${item.productId}`,
             productName: item.productName,
@@ -70,10 +73,10 @@ export function AdminReviews() {
           }))
         );
       } else {
-        setReviews(initialAdminReviews);
+        setReviews([]);
       }
-    } catch {
-      setReviews(initialAdminReviews);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Không thể tải đánh giá.");
     } finally {
       setLoading(false);
     }
@@ -87,9 +90,7 @@ export function AdminReviews() {
 
   const stats = {
     total: reviews.length,
-    averageRating: (
-      reviews.reduce((acc, r) => acc + r.rating, 0) / (reviews.length || 1)
-    ).toFixed(1),
+    averageRating: publishedAverage(reviews).toFixed(1),
     withMedia: reviews.filter((r) => (r.images?.length ?? 0) > 0).length,
     hidden: reviews.filter((r) => r.status === "HIDDEN").length,
   };
@@ -117,7 +118,8 @@ export function AdminReviews() {
       setHideError("Vui lòng nhập lý do ẩn đánh giá để lưu vào nhật ký kiểm duyệt.");
       return;
     }
-    if (!selectedReview) return;
+    if (!selectedReview || hideSubmitting) return;
+    setHideSubmitting(true);
 
     const numId = Number(selectedReview.id.replace(/^rev-?/i, ""));
     if (numId > 0) {
@@ -128,6 +130,8 @@ export function AdminReviews() {
         });
       } catch (err) {
         showToast(err instanceof Error ? err.message : "Không thể đồng bộ trạng thái ẩn lên máy chủ.");
+        setHideSubmitting(false);
+        return;
       }
     }
 
@@ -147,11 +151,12 @@ export function AdminReviews() {
     setReviews(updated);
     setSelectedReview(updated.find((r) => r.id === selectedReview.id) || null);
     setIsHideModalOpen(false);
+    setHideSubmitting(false);
     showToast(`Đã ẩn đánh giá của "${selectedReview.userName}" thành công.`);
   };
 
   const handleConfirmRestore = async () => {
-    if (!selectedReview) return;
+    if (!selectedReview || restoreSubmitting) return;
     setRestoreSubmitting(true);
     const numId = Number(selectedReview.id.replace(/^rev-?/i, ""));
     if (numId > 0) {
@@ -159,6 +164,8 @@ export function AdminReviews() {
         await reviewApi.moderate(numId, { status: "PUBLISHED" });
       } catch (err) {
         showToast(err instanceof Error ? err.message : "Không thể đồng bộ trạng thái khôi phục lên máy chủ.");
+        setRestoreSubmitting(false);
+        return;
       }
     }
 
@@ -183,6 +190,7 @@ export function AdminReviews() {
 
   return (
     <div className="max-w-[1250px] mx-auto font-sans">
+      {loadError && <p role="alert" className="mb-4 text-admin-red">{loadError}</p>}
       {/* Toast Alert */}
       {toastMessage && (
         <aside aria-label="Thông báo thao tác" aria-live="polite" className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-xs font-semibold text-white shadow-xl">
@@ -229,7 +237,7 @@ export function AdminReviews() {
           <div className="min-w-0 flex-1">
             <span className="block text-[11px] font-semibold text-admin-muted">Điểm trung bình</span>
             <strong className="block text-xl sm:text-2xl font-extrabold text-admin-ink tracking-tight my-0.5 font-mono">{stats.averageRating} ★</strong>
-            <small className="block text-[10px] text-admin-soft">Thang điểm 5 sao</small>
+            <small className="block text-[10px] text-admin-soft">Chỉ tính bài đang hiển thị</small>
           </div>
         </article>
 
@@ -660,6 +668,7 @@ export function AdminReviews() {
                 type="button"
                 className="inline-flex items-center justify-center min-h-[38px] px-3.5 rounded-lg text-xs font-bold border border-rose-200 bg-admin-red-soft hover:bg-rose-100 text-admin-red transition-colors cursor-pointer"
                 onClick={handleConfirmHide}
+                disabled={hideSubmitting}
               >
                 Xác nhận ẩn
               </button>

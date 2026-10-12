@@ -1,4 +1,9 @@
 export const adminReviewStatuses = ["PUBLISHED", "HIDDEN"] as const;
+
+export function publishedAverage(items: readonly { rating: number; status: string }[]): number {
+  const published = items.filter((item) => item.status === "PUBLISHED");
+  return published.length === 0 ? 0 : published.reduce((sum, item) => sum + item.rating, 0) / published.length;
+}
 export type AdminReviewStatus = (typeof adminReviewStatuses)[number];
 
 export type AdminReview = {
