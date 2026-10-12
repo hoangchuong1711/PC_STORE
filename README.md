@@ -2,75 +2,56 @@
 
 Dự án môn Lập trình Web xây dựng cửa hàng linh kiện máy tính. Frontend dùng Next.js/TypeScript; backend dùng Java 21, Servlet trên Tomcat 10.1, Service → DAO → JPA/Hibernate → PostgreSQL 17. Frontend gọi backend qua HTTP/JSON. Flyway quản lý schema và Hibernate dùng `validate`.
 
-## Chạy bằng Docker với Neon
+## Chạy frontend với backend và database dùng chung
 
-Cần Docker Desktop ở chế độ Linux containers và Docker Compose. Từ thư mục gốc:
+Backend chạy trên Railway và kết nối PostgreSQL trên Neon. Thành viên chỉ làm frontend không cần khởi động Docker, backend hoặc database trên máy. Cần Node.js 22 và npm. Tạo file `frontend/.env.local` với nội dung:
 
-```powershell
-if (-not (Test-Path .env)) { Copy-Item .env.example .env }
-# Điền NEON_DB_URL, NEON_DB_USER, NEON_DB_PASSWORD trong .env.
-docker compose up --build -d
+```dotenv
+BACKEND_ORIGIN=https://pcstore-production-f981.up.railway.app
 ```
 
-- Frontend: http://localhost:3000
-- Backend và Swagger UI: http://localhost:8080/pc-store-backend/api-docs/
-- Health qua frontend: http://localhost:3000/api/health
+Từ thư mục gốc repo, chạy:
 
-Trong Swagger UI, gọi `POST /api/auth/login` trước khi thử endpoint cần session; trình duyệt sẽ gửi cookie phiên cho các request tiếp theo.
-
-`compose.yaml` chạy backend và frontend trên máy, backend kết nối Neon; lệnh này không khởi động PostgreSQL local. Backend dùng cổng host `8080`. Để chỉ khởi động backend, chạy `docker compose up --build -d backend`. Sau khi sửa code, chạy lại `docker compose up --build -d`; xem log bằng `docker compose logs -f backend` và dừng bằng `docker compose down`. Không commit `.env`. Nếu `.env` cũ đã bật seed/VNPay cho local, cấu hình Neon vẫn dùng các cờ riêng `NEON_DEMO_SEED_ENABLED`, `NEON_DEMO_ACCOUNTS_ENABLED`, `NEON_VNPAY_ENABLED` (đều mặc định `false`).
-
-Upload ảnh/video cần `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` và `CLOUDINARY_API_SECRET` trong `.env` ở thư mục gốc. Compose truyền các biến này vào backend. Xem [hướng dẫn media](backend/T21_MEDIA.md) để biết giới hạn và trạng thái kiểm chứng.
-
-### Dữ liệu và tài khoản demo
-
-Seed mặc định tắt ở cả hai cách chạy. Bật `DEMO_SEED_ENABLED=true` cho DB local hoặc `NEON_DEMO_SEED_ENABLED=true` cho Neon nếu thực sự cần nạp dữ liệu. Sau Flyway, backend chạy các file trong `DemoDataSeeder.SQL_SEEDS` theo thứ tự `t05_catalog.sql`, `t09_catalog.sql`, `t22_builder_specs.sql`. Hai file T09/T22 hiện còn `BEGIN`/`COMMIT` riêng dù Java cũng quản lý transaction; cần rà soát trước khi dựa vào seed tự động trên DB dùng chung. Chỉ bật seed trên một DB khi đã xác nhận script chạy lặp an toàn và không ghi đè dữ liệu đã sửa.
-
-Hai tài khoản thử đăng nhập chỉ được tạo khi cả seed và tài khoản demo đều bật cho cùng môi trường (`DEMO_*` trên local, `NEON_DEMO_*` trên Neon) rồi khởi động lại backend. Thông tin demo: `admin@gmail.com` / `admin123` (ADMIN) và `user@gmail.com` / `user123` (CUSTOMER). Backend hash mật khẩu bằng `PasswordUtil`; SQL seed không lưu mật khẩu thô. Nếu DB local còn hai tài khoản demo cũ, seed đổi email và mật khẩu của chúng nhưng giữ `user_id`; các lần chạy tiếp theo không reset tài khoản với email mới. Không bật tài khoản demo mật khẩu mặc định trên backend public. Tắt cờ seed chỉ ngừng chạy seed; dữ liệu đã nạp vẫn nằm trong DB.
-
-Nếu chạy frontend riêng trong VS Code, vào `frontend/`, chạy `npm install` rồi `npm run dev`. Frontend cần backend hoạt động để gọi API thật.
-
-## Các môi trường local, Neon và Railway
-
-| Cách chạy | Backend | Database | Dùng cấu hình nào |
-| --- | --- | --- | --- |
-| `docker compose up --build -d` | Docker trên máy | Neon | `compose.yaml` |
-| `docker compose -f compose.local.yaml up --build -d` | Docker trên máy | PostgreSQL local trong Compose | `compose.local.yaml` |
-| Gọi URL Railway | Railway | Neon, theo biến `DB_*` của Railway | Cấu hình service Railway; không dùng Compose trên máy |
-
-`compose.neon.yaml` là file override của cách chạy cũ, không cần dùng với cấu hình mới. Nó không điều khiển backend đã deploy trên Railway. Các thao tác ghi API, kể cả tạo đơn trên Swagger/Postman, lưu vào DB mà backend nhận request đang kết nối. Hai DB không tự đồng bộ dữ liệu.
-
-### Chuyển sang DB local khi cần
-
-Đặt `POSTGRES_PASSWORD` trong `.env`. Nếu đang chạy cấu hình Neon trên máy, dừng nó bằng `docker compose down`; sau đó chạy cấu hình local độc lập (không cần biến Neon):
-
-```powershell
-docker compose -f compose.local.yaml up --build -d
+```bash
+cd frontend
+npm ci
+npm run dev
 ```
 
-Lệnh `down` dừng các container Neon chạy trên máy; nó không xóa DB Neon. `compose.local.yaml` tạo PostgreSQL local với volume `pcstore_pgdata`. Để nạp seed demo vào DB local, đặt `DEMO_SEED_ENABLED=true` trong `.env` và tạo lại backend sau khi đã kiểm tra script; mặc định ví dụ đang tắt seed. Dừng bằng `docker compose -f compose.local.yaml down` thông thường vẫn giữ volume.
+Mở http://localhost:3000. Next.js chuyển các request `/api/...` tới backend Railway qua cấu hình trong `frontend/next.config.ts`; không thêm `/pc-store-backend` vào `BACKEND_ORIGIN`. Khi đổi `.env.local`, khởi động lại `npm run dev`. File `.env.local` được Git bỏ qua và không chứa mật khẩu Neon hoặc khóa VNPay.
 
-Để quay lại backend local kết nối Neon:
-
-```powershell
-docker compose -f compose.local.yaml down
-docker compose up --build -d
-```
-
-Backend chạy Flyway trên DB được chọn khi khởi tạo kết nối; migration đã áp dụng được theo dõi trong `flyway_schema_history` của từng DB. Volume PostgreSQL local được giữ khi dùng `down` không kèm `-v`.
-
-### Backend chung trên Railway
-
-Backend đang được triển khai từ thư mục `/backend` bằng `backend/Dockerfile` (Java 21, Tomcat 10.1). Domain Railway đã cấp là `pcstore-production-f981.up.railway.app`. Các đường dẫn để kiểm tra:
-
-- Catalog: https://pcstore-production-f981.up.railway.app/pc-store-backend/api/categories
+- Catalog API: https://pcstore-production-f981.up.railway.app/pc-store-backend/api/categories
 - Swagger UI: https://pcstore-production-f981.up.railway.app/pc-store-backend/api-docs/
 
-Trên service Railway, đặt `DB_URL` (JDBC URL Neon có `sslmode=require`), `DB_USER`, `DB_PASSWORD`, `PORT=8080`, `TZ=Asia/Ho_Chi_Minh`, `DEMO_SEED_ENABLED=false` và `DEMO_ACCOUNTS_ENABLED=false`. Chỉ bật seed trên DB chung sau khi kiểm tra script và có chủ đích nạp dữ liệu; không bật tài khoản demo mật khẩu mặc định trên backend public. Railway lấy code đã push lên nhánh triển khai; thay đổi chỉ có trên máy local chưa xuất hiện ở service. Có thể dùng `/pc-store-backend/api/categories` làm healthcheck sau khi xác nhận endpoint trả HTTP 200. Lưu mật khẩu/secret trong Railway Variables, không đưa vào Git.
+Domain Railway hiện phục vụ backend, nên mở URL gốc của domain có thể trả 404; giao diện cửa hàng chạy tại `localhost:3000`. Các thao tác trên FE local như tạo tài khoản, tạo đơn và thay đổi tồn kho đi qua backend Railway sẽ ghi vào **Neon dùng chung**. Trong Swagger, gọi `POST /api/auth/login` trước các endpoint cần session.
 
-Nếu chạy frontend local và muốn gọi backend Railway, đặt `BACKEND_ORIGIN=https://pcstore-production-f981.up.railway.app` trong môi trường frontend rồi khởi động lại frontend. Không thêm `/pc-store-backend` vào biến này vì `frontend/next.config.ts` đã nối đường dẫn đó. Giữ `CORS_ALLOWED_ORIGINS` trên backend phù hợp với origin của frontend đang dùng (ví dụ `http://localhost:3000`).
+## Phát triển trên nhánh tính năng
 
-VNPay Sandbox **chưa cấu hình cho backend chung** vì tài khoản Sandbox mới chưa được tạo. Khi có tài khoản, cấu hình `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_PAY_URL`, `VNPAY_API_URL`, `VNPAY_RETURN_URL` và bật `VNPAY_ENABLED` trên Railway. Địa chỉ IPN phía backend là `https://pcstore-production-f981.up.railway.app/pc-store-backend/api/payment/vnpay/ipn`; return URL trỏ về frontend (có thể là `http://localhost:3000/orders/payment-return` khi frontend chạy local). Kiểm tra luồng thanh toán và callback thực tế trước khi coi VNPay đã hoạt động. Xem [thiết kế VNPay](docs/T20B_VNPAY.md).
+Tạo nhánh Git không tạo một backend Railway riêng. Railway vẫn chạy bản đã deploy; code backend hoặc migration mới trên nhánh chỉ tồn tại trên máy cho đến khi được đưa lên môi trường chung.
+
+| Công việc | Cách chạy để thử |
+| --- | --- |
+| Chỉ sửa FE, dùng API đã deploy | Chạy `npm run dev` như trên, gọi Railway + Neon. |
+| Sửa BE, thêm API hoặc migration | Chạy BE + PostgreSQL local bằng `compose.local.yaml`; cho FE gọi BE local. |
+| Kiểm tra tích hợp trên môi trường chung | Đưa bản đã review lên nhánh triển khai, để Railway deploy rồi thử với Neon. |
+
+Để thử BE và DB riêng, từ thư mục gốc tạo `.env` dựa trên `.env.example` và đặt `POSTGRES_PASSWORD` local. Sau đó chạy:
+
+```bash
+docker compose -f compose.local.yaml up --build -d backend
+```
+
+Đổi `BACKEND_ORIGIN` trong `frontend/.env.local` thành `http://localhost:8080`, khởi động lại `npm run dev`, rồi thử API mới. Dừng BE/DB local bằng `docker compose -f compose.local.yaml down`; volume PostgreSQL được giữ nếu không thêm `-v`. Flyway chạy migration trên DB mà BE đang kết nối. Nếu cần dữ liệu demo local, đặt `DEMO_SEED_ENABLED=true` trong `.env` rồi tạo lại backend; kiểm tra seed T09/T22 trước khi dựa vào việc chạy lặp vì hai file còn `BEGIN`/`COMMIT` riêng.
+
+Task thanh toán cũng có thể thử trên nhánh riêng với BE + DB local: đặt `VNPAY_ENABLED=true`, `VNPAY_TMN_CODE` và `VNPAY_HASH_SECRET` của Sandbox trong `.env`, giữ `VNPAY_RETURN_URL=http://localhost:3000/orders/payment-return`, rồi cho FE gọi `http://localhost:8080` như trên. Sau khi khách thanh toán, trang return hiện gửi các tham số VNPay đã ký đến BE local để cập nhật đơn trong DB local; có thể thử thêm chức năng đồng bộ trạng thái thanh toán từ chi tiết đơn. Không cần merge nhánh mới thử được luồng này. Tuy nhiên, IPN server-to-server do VNPay gọi không tới được `localhost`. Nếu IPN Sandbox đang trỏ về Railway, nó sẽ gọi BE Railway và không tìm thấy đơn chỉ có trong DB local. Muốn kiểm tra riêng callback IPN trước khi merge, cần URL HTTPS công khai chuyển tiếp tới BE đang thử và cấu hình IPN tương ứng trên Sandbox, hoặc môi trường thử nghiệm riêng với BE và DB của nhánh đó.
+
+`compose.yaml` vẫn có thể chạy BE local kết nối Neon để kiểm tra tích hợp, nhưng mọi lệnh ghi sẽ tác động dữ liệu chung. Không dùng DB Neon chung để thử migration hoặc seed chưa kiểm tra. Các thay đổi chỉ có trong nhánh Git trên máy không tự xuất hiện trên Railway. Xem [hướng dẫn kiểm thử](docs/testing.md) để chạy test với DB test riêng.
+
+## Cấu hình dịch vụ chung
+
+Railway dùng `DB_URL`, `DB_USER`, `DB_PASSWORD` để kết nối Neon, cùng các biến môi trường của backend. Mật khẩu DB, khóa Cloudinary và VNPay chỉ lưu trong Railway Variables hoặc `.env` local; không commit chúng. Migration đã chạy được Flyway theo dõi trong `flyway_schema_history`; khi đổi schema, tạo migration mới thay vì sửa migration đã áp dụng trên Neon. Seed chỉ chạy khi bật `DEMO_SEED_ENABLED`; tắt cờ không xóa dữ liệu đã nạp.
+
+Khi frontend chạy local và dùng VNPay Sandbox, `VNPAY_RETURN_URL` trên Railway phải trỏ đến `http://localhost:3000/orders/payment-return`; đây là trang FE mà trình duyệt khách quay về. IPN để VNPay báo kết quả cho backend là `https://pcstore-production-f981.up.railway.app/pc-store-backend/api/payment/vnpay/ipn`. Không đặt Return URL thành đường dẫn `/orders/payment-return` trên domain backend Railway vì ở đó không có FE. Xem [thiết kế VNPay](docs/T20B_VNPAY.md) và [hướng dẫn media](backend/T21_MEDIA.md) cho các biến backend tương ứng.
 
 ## Tìm tài liệu
 
