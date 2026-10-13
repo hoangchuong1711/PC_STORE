@@ -77,7 +77,10 @@ export const products: Product[] = [
     rating: 4.7,
     reviewCount: 22,
     warranty: "24 tháng chính hãng",
-    images: ["Mặt trước", "Bàn phím số", "Góc nghiêng tản nhiệt"],
+    images: [
+      "https://images.unsplash.com/photo-1593642632823-8f785ba67e45?auto=format&fit=crop&w=1600&q=80",
+      "https://images.unsplash.com/photo-1611078489935-0cb964de46d6?auto=format&fit=crop&w=1600&q=80",
+    ],
   },
   {
     id: "p3",
@@ -95,7 +98,11 @@ export const products: Product[] = [
     rating: 5.0,
     reviewCount: 15,
     warranty: "36 tháng tận nơi",
-    images: ["Thùng máy kính cường lực", "Nội thất RGB", "Góc làm việc thực tế"],
+    images: [
+      "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&w=1600&q=80",
+      "https://images.unsplash.com/photo-1593640408182-31c70c8268f5?auto=format&fit=crop&w=1600&q=80",
+      "https://images.unsplash.com/photo-1587202372634-32705e3bf49c?auto=format&fit=crop&w=1600&q=80",
+    ],
   },
   {
     id: "p4",
@@ -111,7 +118,10 @@ export const products: Product[] = [
     rating: 4.8,
     reviewCount: 29,
     warranty: "36 tháng",
-    images: ["Mặt quạt Windforce", "Backplate kim loại", "Hộp sản phẩm"],
+    images: [
+      "https://images.unsplash.com/photo-1591488320449-011701bb6704?auto=format&fit=crop&w=1600&q=80",
+      "https://images.unsplash.com/photo-1555680202-c86f0e12f086?auto=format&fit=crop&w=1600&q=80",
+    ],
   },
   {
     id: "p5",
@@ -161,7 +171,10 @@ export const products: Product[] = [
     rating: 4.8,
     reviewCount: 31,
     warranty: "12 tháng",
-    images: ["Tổng thể bàn phím", "Góc nghiêng núm xoay", "Phụ kiện đi kèm"],
+    images: [
+      "https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=1600&q=80",
+      "https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=1600&q=80",
+    ],
   },
   {
     id: "p8",
@@ -177,7 +190,10 @@ export const products: Product[] = [
     rating: 4.7,
     reviewCount: 19,
     warranty: "24 tháng",
-    images: ["Màn hình cong", "Mặt lưng chân đế", "Không gian làm việc"],
+    images: [
+      "https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?auto=format&fit=crop&w=1600&q=80",
+      "https://images.unsplash.com/photo-1547082299-de196ea013d6?auto=format&fit=crop&w=1600&q=80",
+    ],
   },
   {
     id: "p9",
