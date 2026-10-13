@@ -73,6 +73,43 @@ JOIN categories c ON c.name = seed.category_name
 JOIN brands b ON b.name = seed.brand_name
 WHERE NOT EXISTS (SELECT 1 FROM products p WHERE p.name = seed.name);
 
+-- Replace only image paths created by earlier local-only seed revisions.
+-- Any other URL set through Admin is preserved.
+UPDATE product_images image
+SET image_url = seed.image_url
+FROM (VALUES
+    ('PC Creator Pro X', '/admin/products/pc.svg', '/products/community/pc-creator-pro-x.jpg', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ4_W8u8LxkYGYy7xM8zmSuX9MzSYgPRgeoZYTfWRcC6Q&s'),
+    ('ROG Strix G16 2025', '/admin/products/laptop.svg', '/products/community/rog-strix-g16-2025.jpg', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSj29fWWMDDLMBbRFnPXu85JT3nMKxTnSK2hoRhLWA3KQ&s=10'),
+    ('TUF Gaming A15', '/admin/products/laptop.svg', '/products/community/tuf-gaming-a15.jpg', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT9_gw_Z-baLhNH5R1KDScQdfIYPUGzwSMXFe2uS66R2Q&s=10'),
+    ('Kingston Fury 32GB DDR5-6000', '/admin/products/ram.svg', '/products/community/kingston-fury-32gb-ddr5-6000.jpg', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRImg2XyBjAeSHys3JY9lO9D807NpPACtZDs3xqKNmPPg&s=10'),
+    ('Samsung 990 Pro NVMe 2TB', '/admin/products/ssd.svg', '/products/community/samsung-990-pro-nvme-2tb.jpg', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQVDsxENhjftMUPNrUn-gzC_xZXsz9wW_taSskrLFFPuQ&s=10'),
+    ('Ultrawide Monitor 34', '/admin/products/monitor.svg', '/products/community/ultrawide-monitor-34.jpg', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSGrAHCi6H5scGhyrbPOaSehcKyjJ6GGKnTGVg8ICL2-g&s=10'),
+    ('Keychron Q1 Pro Custom QMK', '/admin/products/keyboard.svg', '/products/community/keychron-q1-pro-custom-qmk.jpg', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSeMXpf2ZIKZjeu1bDOUCVdHDAE4ZQI26oqpIg0ZTZMaw&s=10'),
+    ('RTX 4070 Super Dual 12GB', '/admin/products/gpu.svg', '/products/community/rtx-4070-super-dual-12gb.jpg', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSahHQ6z3uXdCf3mH1eKv4T7uZ2zyZa0dMnZLnrnitpcw&s=10')
+) AS seed(name, old_svg_url, old_local_url, image_url)
+JOIN products p ON p.name = seed.name
+WHERE image.product_id = p.product_id
+  AND image.image_url IN (seed.old_svg_url, seed.old_local_url);
+
+-- Store public image URLs in the catalog so every deployed frontend can
+-- render the same photos without shipping machine-local assets.
+INSERT INTO product_images (product_id, image_url, is_primary, sort_order)
+SELECT p.product_id, seed.image_url, TRUE, 0
+FROM (VALUES
+    ('PC Creator Pro X', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ4_W8u8LxkYGYy7xM8zmSuX9MzSYgPRgeoZYTfWRcC6Q&s'),
+    ('ROG Strix G16 2025', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSj29fWWMDDLMBbRFnPXu85JT3nMKxTnSK2hoRhLWA3KQ&s=10'),
+    ('TUF Gaming A15', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT9_gw_Z-baLhNH5R1KDScQdfIYPUGzwSMXFe2uS66R2Q&s=10'),
+    ('Kingston Fury 32GB DDR5-6000', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRImg2XyBjAeSHys3JY9lO9D807NpPACtZDs3xqKNmPPg&s=10'),
+    ('Samsung 990 Pro NVMe 2TB', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQVDsxENhjftMUPNrUn-gzC_xZXsz9wW_taSskrLFFPuQ&s=10'),
+    ('Ultrawide Monitor 34', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSGrAHCi6H5scGhyrbPOaSehcKyjJ6GGKnTGVg8ICL2-g&s=10'),
+    ('Keychron Q1 Pro Custom QMK', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSeMXpf2ZIKZjeu1bDOUCVdHDAE4ZQI26oqpIg0ZTZMaw&s=10'),
+    ('RTX 4070 Super Dual 12GB', 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSahHQ6z3uXdCf3mH1eKv4T7uZ2zyZa0dMnZLnrnitpcw&s=10')
+) AS seed(name, image_url)
+JOIN products p ON p.name = seed.name
+WHERE NOT EXISTS (
+    SELECT 1 FROM product_images image WHERE image.product_id = p.product_id
+);
+
 INSERT INTO inventory (product_id, quantity_on_hand, reserved_quantity)
 SELECT p.product_id, seed.quantity_on_hand, 0
 FROM (VALUES

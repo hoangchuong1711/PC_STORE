@@ -28,7 +28,7 @@ Các GET/PUT/DELETE thành công trả 200. Phân trang: offset 0–1.000.000, l
 
 `post.products[]` giữ `{productId,name}` của T29. FE dùng `productId` để gọi `GET /api/products/{id}` và `POST /api/customer/cart/items` với `{"productId":id,"quantity":1}`. Không lấy giá/kho từ bài Setup; catalog/cart kiểm tra lại trạng thái, giá và kho. T30 không tự thêm sản phẩm vào giỏ khi đọc bài. Việc nối UI thực hiện ở T34.
 
-Các bài showcase cũ không có `productId` được frontend đối chiếu tên chuẩn theo slug, không chuyển slug giả thành ID. Khi `DEMO_SEED_ENABLED=true`, `community_catalog.sql` tạo idempotent 8 sản phẩm còn hàng (gồm PC Creator Pro X, Keychron Q1 Pro và RTX 4070 Super Dual) cùng inventory thật; chạy lại không ghi đè giá hoặc tồn kho đã chỉnh trong Admin. Seed cũ `T05-DEMO` không còn được tạo; dữ liệu T05 chưa có tham chiếu được xóa, còn bản ghi thuộc lịch sử đơn hàng/cấu hình được chuyển `DISCONTINUED` và tồn khả dụng về 0.
+Các bài showcase cũ không có `productId` được frontend đối chiếu tên chuẩn theo slug, không chuyển slug giả thành ID. Khi `DEMO_SEED_ENABLED=true`, `community_catalog.sql` tạo idempotent 8 sản phẩm còn hàng (gồm PC Creator Pro X, Keychron Q1 Pro và RTX 4070 Super Dual) cùng inventory thật và URL ảnh công khai trong `product_images`; frontend ở mọi môi trường đọc cùng URL từ catalog, không cần chép ảnh local. Chạy lại seed không ghi đè giá, tồn kho hoặc URL ảnh đã chỉnh trong Admin. Seed cũ `T05-DEMO` không còn được tạo; dữ liệu T05 chưa có tham chiếu được xóa, còn bản ghi thuộc lịch sử đơn hàng/cấu hình được chuyển `DISCONTINUED` và tồn khả dụng về 0.
 
 ## Lỗi và kiểm thử
 
