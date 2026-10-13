@@ -8,6 +8,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.util.Arrays;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /** Invalid requests must be rejected before opening a transaction. */
@@ -63,5 +66,25 @@ class OrderValidationTest {
     void acceptsVnpayPaymentMethodInValidation() {
         var body = new CheckoutRequest("Customer", "0901234567", "Address", PaymentMethod.VNPAY);
         assertThrows(NullPointerException.class, () -> service.checkout(1, "valid-key-001", body));
+    }
+
+    @Test
+    void acceptsSelectedCartItemIdsInValidation() {
+        var body = new CheckoutRequest("Customer", "0901234567", "Address", PaymentMethod.COD, List.of(2, 1));
+        assertThrows(NullPointerException.class, () -> service.checkout(1, "valid-key-001", body));
+    }
+
+    @Test
+    void rejectsInvalidSelectedCartItemIds() {
+        for (List<Integer> ids : List.of(
+                List.<Integer>of(),
+                List.of(0),
+                List.of(-1),
+                List.of(1, 1),
+                Arrays.asList(1, null))) {
+            var body = new CheckoutRequest("Customer", "0901234567", "Address", PaymentMethod.COD, ids);
+            assertEquals(400, assertThrows(AppException.class,
+                    () -> service.checkout(1, "valid-key-001", body)).getStatus());
+        }
     }
 }

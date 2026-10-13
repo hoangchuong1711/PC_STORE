@@ -272,6 +272,36 @@ class OrderServiceIT {
     }
 
     @Test
+    void checkoutSelectedLinesLeavesUnselectedItemsInCart() throws Exception {
+        salesFixture(5, false);
+        secondProduct(5, 3);
+        int selectedId = scalarInt("SELECT cart_item_id FROM cart_items WHERE product_id=1");
+        var selectedRequest = new CheckoutRequest(
+                "Nguyen Van A", "0901234567", "Selected address", PaymentMethod.COD, List.of(selectedId));
+
+        var order = service.checkout(1, "selected-lines-001", selectedRequest).order();
+
+        assertEquals(1, order.items().size());
+        assertEquals(1, order.items().getFirst().productId());
+        assertEquals(new BigDecimal("1000000"), order.totalAmount());
+        assertEquals(1, scalarInt("SELECT count(*) FROM cart_items WHERE product_id=2"));
+        assertEquals(0, scalarInt("SELECT count(*) FROM cart_items WHERE product_id=1"));
+        assertEquals(1, scalarInt("SELECT reserved_quantity FROM inventory WHERE product_id=1"));
+        assertEquals(0, scalarInt("SELECT reserved_quantity FROM inventory WHERE product_id=2"));
+    }
+
+    @Test
+    void checkoutRejectsSelectionThatNoLongerExistsInCart() throws Exception {
+        salesFixture(5, false);
+        var selectedRequest = new CheckoutRequest(
+                "Nguyen Van A", "0901234567", "Selected address", PaymentMethod.COD, List.of(999));
+
+        rejects("CART_CHANGED", () -> service.checkout(1, "missing-line-001", selectedRequest));
+
+        assertUnchangedCheckout(1, 0);
+    }
+
+    @Test
     void overflowingTotalDoesNotReserveStockOrClearCart() throws Exception {
         salesFixture(3, false);
         execute(schemaConnection, "UPDATE products SET price=9999999999999999999");

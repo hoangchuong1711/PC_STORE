@@ -179,7 +179,7 @@ Catalog public chỉ trả Product có `status = ACTIVE`, Category và Brand có
 
 ### 6.2. T14 checkout và đơn hàng (đã triển khai)
 
-`POST /api/orders` chỉ hỗ trợ COD trong T14 và bắt buộc `Idempotency-Key` dài 8–128 ký tự. Checkout khóa Cart, sau đó khóa Inventory theo `product_id` tăng dần; đọc lại trạng thái/giá backend, snapshot giá và địa chỉ, tăng `reserved_quantity`, tạo Order/OrderItem/Payment rồi xóa dòng giỏ trong cùng transaction. Cùng key và cùng request trả lại đơn cũ với header `Idempotent-Replayed: true`; cùng key nhưng đổi nội dung trả `409 IDEMPOTENCY_KEY_REUSED`.
+`POST /api/orders` bắt buộc `Idempotency-Key` dài 8–128 ký tự. Request có thể gửi `cartItemIds` để checkout các dòng giỏ đã chọn; bỏ qua trường này tiếp tục checkout toàn bộ giỏ để tương thích client cũ. Backend khóa Cart, xác nhận mọi ID vẫn thuộc giỏ của user, sau đó khóa Inventory theo `product_id` tăng dần; đọc lại trạng thái/giá backend, snapshot giá và địa chỉ, tăng `reserved_quantity`, tạo Order/OrderItem/Payment rồi chỉ xóa các dòng đã mua trong cùng transaction. Cùng key và cùng request (bao gồm tập `cartItemIds`) trả lại đơn cũ với header `Idempotent-Replayed: true`; cùng key nhưng đổi nội dung trả `409 IDEMPOTENCY_KEY_REUSED`.
 
 Customer chỉ đọc/hủy đơn của mình; truy cập ID của người khác trả `404`. Customer chỉ hủy `PENDING`. Admin chuyển đúng chuỗi `PENDING → CONFIRMED → SHIPPING → DELIVERED`, hoặc hủy từ `PENDING/CONFIRMED`. Khi sang `SHIPPING`, hệ thống giảm cả on-hand và reserved; khi hủy chỉ giảm reserved. Lần đầu sang `DELIVERED` ghi `deliveredAt` và chuyển COD Payment sang `PAID`; gọi lại cùng trạng thái không ghi thời gian hay trừ kho lần hai. `CANCELLED` luôn có `deliveredAt = null`, nên không đủ điều kiện cho Review/Setup.
 
