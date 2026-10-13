@@ -403,12 +403,33 @@ export function PCBuilderPage() {
 
                   {item ? (
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4.5 pt-3 border-t border-slate-100">
-                      <div
-                        className="w-16 h-16 rounded-xl grid place-items-center text-white font-gaming text-xl font-bold shrink-0"
-                        style={{ background: item.accent }}
-                      >
-                        {item.name.slice(0, 1)}
-                      </div>
+                      {item.image ? (
+                        <div className="w-16 h-16 rounded-xl bg-slate-50 border border-slate-200 shrink-0 p-1.5 flex items-center justify-center overflow-hidden">
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-full h-full object-contain"
+                            loading="lazy"
+                            onError={(e) => {
+                              const target = e.currentTarget;
+                              target.style.display = "none";
+                              const parent = target.parentElement;
+                              if (parent) {
+                                parent.style.background = item.accent;
+                                parent.textContent = item.name.slice(0, 1);
+                                parent.className = "w-16 h-16 rounded-xl grid place-items-center text-white font-gaming text-xl font-bold shrink-0";
+                              }
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          className="w-16 h-16 rounded-xl grid place-items-center text-white font-gaming text-xl font-bold shrink-0"
+                          style={{ background: item.accent }}
+                        >
+                          {item.name.slice(0, 1)}
+                        </div>
+                      )}
 
                       <div className="flex-1 min-w-0">
                         <span className="font-specs text-[11px] font-bold tracking-wider uppercase text-muted block mb-0.5">
@@ -633,12 +654,33 @@ export function PCBuilderPage() {
                 {modalProducts.length > 0 ? (
                   modalProducts.map((prod) => (
                     <div key={prod.id} className="flex flex-col sm:flex-row sm:items-center gap-4 p-3.5 px-4.5 border border-[#e0e0e0] hover:border-[#006ce1] hover:shadow-sm rounded-xl transition-all bg-white">
-                      <div
-                        className="w-12 h-12 rounded-xl grid place-items-center text-white font-gaming text-xl font-bold shrink-0"
-                        style={{ background: prod.accent }}
-                      >
-                        {prod.name.slice(0, 1)}
-                      </div>
+                      {prod.image ? (
+                        <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200 shrink-0 p-1 flex items-center justify-center overflow-hidden">
+                          <img
+                            src={prod.image}
+                            alt={prod.name}
+                            className="w-full h-full object-contain"
+                            loading="lazy"
+                            onError={(e) => {
+                              const target = e.currentTarget;
+                              target.style.display = "none";
+                              const parent = target.parentElement;
+                              if (parent) {
+                                parent.style.background = prod.accent;
+                                parent.textContent = prod.name.slice(0, 1);
+                                parent.className = "w-12 h-12 rounded-xl grid place-items-center text-white font-gaming text-xl font-bold shrink-0";
+                              }
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          className="w-12 h-12 rounded-xl grid place-items-center text-white font-gaming text-xl font-bold shrink-0"
+                          style={{ background: prod.accent }}
+                        >
+                          {prod.name.slice(0, 1)}
+                        </div>
+                      )}
 
                       <div className="flex-1 min-w-0">
                         <span className="font-specs text-[11px] font-bold tracking-wider uppercase text-muted block mb-0.5">
