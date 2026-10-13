@@ -26,7 +26,7 @@ class MediaMigrationIT {
                 statement.execute("INSERT INTO users(full_name,email,password_hash,role,status) VALUES ('A','a@demo.test','hash','CUSTOMER','ACTIVE')");
                 statement.execute("INSERT INTO media_assets(media_id,user_id,module,status,public_id,created_at,expires_at) "
                         + "VALUES ('55555555-5555-5555-5555-555555555555',1,'SETUP','UPLOADING','pcstore/temp/setup/old',now(),now()+interval '2 hours')");
-                assertEquals(5, Flyway.configure().dataSource(url, user, password).defaultSchema(schema)
+                assertEquals(6, Flyway.configure().dataSource(url, user, password).defaultSchema(schema)
                         .locations("classpath:db/migration").load().migrate().migrationsExecuted);
                 statement.execute("UPDATE media_assets SET status='DELETED',cleanup_attempts=1 WHERE media_id='55555555-5555-5555-5555-555555555555'");
                 try (var rows = statement.executeQuery("SELECT count(*) FROM media_assets WHERE public_id='pcstore/temp/setup/old' AND status='DELETED' AND cleanup_attempts=1")) {

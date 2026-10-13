@@ -519,6 +519,8 @@ UNIQUE(build_id, product_id); CHECK quantity > 0. Quantity là số đơn vị s
 
 #### RecommendationRequest → `recommendation_requests`
 
+**Phần đã triển khai ở V11:** xem [PC Recommendation](PC_RECOMMENDATION.md). Bản đầu mua mới, không owned products; POST tạo QUEUED trực tiếp, không DRAFT. Có các trường questionnaire đang dùng và created_at; chưa tạo các trường ghi chú mở rộng/targetRefreshHz chưa có UI. Một active request/user; một attempt/request. Attempt thêm criteria_json kiểm toán và failure_code; Result thêm matched_level, search_limited, visited_nodes. Các bảng/mục dưới mô tả mô hình mục tiêu rộng hơn, không đồng nghĩa tất cả đã có trong migration.
+
 | Thuộc tính Java | Cột | Kiểu PostgreSQL | Ràng buộc |
 | --- | --- | --- | --- |
 | `requestId` | `request_id` | `INTEGER` | PK, NN; GENERATED ALWAYS AS IDENTITY |

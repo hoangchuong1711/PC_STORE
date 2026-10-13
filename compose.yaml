@@ -23,6 +23,9 @@ services:
       MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-PC Store}
       MAIL_ENABLED: ${MAIL_ENABLED:-false}
+      AI_RECOMMENDATION_ENABLED: ${AI_RECOMMENDATION_ENABLED:-false}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
       DB_URL: jdbc:postgresql://db:5432/pc_store
       DB_USER: pc_store_app
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}

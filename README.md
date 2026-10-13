@@ -69,6 +69,8 @@ Các biến `NEON_DB_*`, `NEON_DEMO_*`, `NEON_VNPAY_ENABLED` từ Compose cũ kh
 
 ## Kiểm thử và tài liệu
 
+PC Recommendation ở `/recommendation`: xem [hướng dẫn Gemini API key, API và giới hạn](docs/PC_RECOMMENDATION.md). Mặc định tắt; chỉ cấu hình key ở backend. Chạy code nhánh mới bằng stack local, không chỉ frontend local với backend Railway chưa deploy.
+
 Chạy kiểm thử theo [docs/testing.md](docs/testing.md). Integration test dùng PostgreSQL test riêng, không dùng Neon chung. Trong Swagger, gọi `POST /api/auth/login` trước endpoint cần session.
 
 - [Mục lục và phạm vi](docs/README.md)

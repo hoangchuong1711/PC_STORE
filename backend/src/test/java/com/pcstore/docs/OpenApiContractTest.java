@@ -34,7 +34,9 @@ class OpenApiContractTest {
                 assertTrue(op.getSecurity().stream().anyMatch(s -> s.containsKey("sessionCookie")), path);
             }
         }));
-        assertEquals(Set.of("GET /api/setups/ranking", "GET /api/setup-likes/{id}", "PUT /api/setup-likes/{id}", "DELETE /api/setup-likes/{id}",
+        assertEquals(Set.of("POST /api/customer/recommendations", "GET /api/customer/recommendations/{requestId}",
+                "POST /api/customer/recommendations/{requestId}/cart", "POST /api/customer/recommendations/{requestId}/copy",
+                "GET /api/setups/ranking", "GET /api/setup-likes/{id}", "PUT /api/setup-likes/{id}", "DELETE /api/setup-likes/{id}",
                 "GET /api/admin/setups", "GET /api/admin/setups/{id}", "PUT /api/admin/setups/{id}/status",
                 "GET /api/setups", "GET /api/setups/{id}", "GET /api/customer/setups/eligibility",
                 "GET /api/reviews", "GET /api/reviews/summary", "POST /api/customer/reviews",

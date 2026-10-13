@@ -40,6 +40,8 @@ Giữ Servlet + JPA + DAO, PostgreSQL và Next.js theo kế hoạch hiện tại
 
 AI Recommendation, Promotion và Warranty nằm ngoài phạm vi triển khai này. Media dùng chung chỉ phục vụ ảnh setup và ảnh/video review theo yêu cầu của hai module; chưa làm hệ quản trị media độc lập.
 
+Bổ sung riêng theo yêu cầu người dùng: PC Recommendation trên nhánh `feat/pc-recommendation` từ `develop`, không gán mã T39 hoặc sửa các Work Item hiện có. Phạm vi và nghiệm thu theo [PC_RECOMMENDATION.md](PC_RECOMMENDATION.md); chưa tạo/cập nhật Work Item trên Plane.
+
 ## II. Cách chia giai đoạn và bàn giao
 
 Giai đoạn là cổng phụ thuộc, không phải lịch ngày. Các task cùng giai đoạn có ranh giới mã và người sở hữu riêng; frontend có thể dùng fixture trước, còn kết nối thật và nghiệm thu đặt ở giai đoạn tích hợp. Một owner duy nhất quản lý migration (T10) và dịch vụ media (T21) để tránh sửa trùng.

@@ -24,6 +24,8 @@
 
 ## Phạm vi và thứ tự
 
+PC Recommendation được bổ sung theo yêu cầu riêng trên nhánh `feat/pc-recommendation` từ `develop`, không nằm trong T01–T38. Xem [thiết kế, API, cấu hình và giới hạn](PC_RECOMMENDATION.md). Gemini thật cần key/model và nghiệm thu riêng.
+
 **CORE:** đăng ký/đăng nhập và phân quyền; catalog, tìm kiếm/lọc; giỏ hàng; checkout COD, đơn hàng và tồn kho; Admin quản lý sản phẩm và đơn. Luồng nghiệm thu là khách đăng nhập → chọn sản phẩm → đặt hàng → Admin xử lý → khách xem trạng thái. Dữ liệu và kiểm tra quyền/giá/kho ở backend.
 
 **FEATURE:** PC Builder và kiểm tra tương thích cơ bản; Review của sản phẩm thuộc đơn đã giao; Setup Community với ảnh cơ bản. Các mục này phụ thuộc dữ liệu và trạng thái đơn của CORE. Media phục vụ Review/Setup theo Work Item tương ứng.

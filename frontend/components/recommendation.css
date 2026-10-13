@@ -1,0 +1,45 @@
+.recommendation-page {padding-block:48px 72px; color:var(--color-ink,#181818)}
+.rec-intro {display:flex;justify-content:space-between;gap:32px;align-items:center;margin-bottom:36px}
+.rec-intro h1 {font-size:clamp(30px,4vw,46px);line-height:1.12;margin:8px 0 16px}
+.rec-intro p {max-width:690px;line-height:1.7}
+.rec-kicker {color:#006ce1;font-weight:600;font-size:14px}
+.rec-layout {display:grid;grid-template-columns:minmax(0,1.55fr) minmax(250px,1fr);gap:48px;align-items:start}
+.rec-form fieldset {border:0;border-bottom:1px solid #e0e0e0;padding:0 0 28px;margin:0 0 28px;min-width:0}
+.rec-form legend {font-size:23px;font-weight:650;margin-bottom:20px}
+.rec-form label {display:flex;flex-direction:column;gap:8px;font-weight:550;margin-bottom:18px}
+.rec-form input:not([type=checkbox]),.rec-form textarea,.rec-form select {width:100%;min-height:46px;padding:11px 14px;border:1px solid #b6bcc5;border-radius:4px;background:white;color:#181818;font:inherit;font-weight:400}
+.rec-form textarea {resize:vertical}
+.rec-form :is(input,textarea,select):focus-visible {outline:2px solid #006ce1;outline-offset:2px}
+.rec-choices {display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:24px 0}
+.rec-choices label {flex-direction:row;align-items:center;border:1px solid #e0e0e0;padding:12px;margin:0;font-size:14px;font-weight:400;cursor:pointer}
+.rec-choices label:has(input:checked) {border-color:#006ce1;background:#edf5fe}
+.rec-choices input {accent-color:#006ce1;width:17px;height:17px;flex-shrink:0}
+.rec-help,.rec-summary p,.rec-disclaimer {font-size:14px;color:#5c626b;line-height:1.65}
+.rec-pair {display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.rec-submit {margin-top:18px;width:100%}
+.rec-guide {padding:30px;background:#f4f5f7;border-top:4px solid #006ce1;position:sticky;top:110px}
+.rec-guide h2 {font-size:24px;margin-bottom:24px}
+.rec-guide ol {padding-left:24px}.rec-guide li {padding-left:6px;margin-bottom:24px}
+.rec-guide p {line-height:1.7;color:#5c626b;margin-top:8px;font-size:15px}
+.rec-guide a {display:block;color:#0051a8;text-decoration:underline;margin-top:24px}
+.rec-notice {padding:28px;background:#edf5fe;line-height:1.7;margin-bottom:24px}
+.rec-notice h2 {font-size:24px;margin-bottom:12px}.rec-notice .button {margin-top:16px}
+.rec-error {padding:16px 20px;background:#fff0ee;color:#a12718;border-left:3px solid #c13924;line-height:1.7;margin-bottom:20px}
+.rec-result-header {display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:28px}
+.rec-result-header h2 {font-size:32px;margin:8px 0}.rec-result-header p {max-width:680px;line-height:1.7}
+.rec-result-grid {display:grid;grid-template-columns:minmax(0,1.7fr) minmax(270px,1fr);gap:32px;align-items:start}
+.rec-part {display:grid;grid-template-columns:95px minmax(0,1fr) auto;gap:18px;padding:24px 0;border-bottom:1px solid #e0e0e0;align-items:start}
+.rec-part>span {font-size:13px;font-weight:650;color:#5c626b}.rec-part h3 {font-size:17px;margin-bottom:8px}
+.rec-part p,.rec-part details {font-size:13px;color:#5c626b;line-height:1.7}.rec-part strong {white-space:nowrap}
+.rec-part dl div,.rec-summary dl div {display:flex;justify-content:space-between;gap:16px;margin:10px 0}
+.rec-part dd {text-align:right;overflow-wrap:anywhere}
+.rec-summary {padding:26px;background:#f4f5f7}.rec-summary h3 {font-size:23px;margin-bottom:20px}
+.rec-summary dl {margin-bottom:24px;font-size:14px}.rec-summary dd {font-weight:650;text-align:right}
+.rec-summary .button {width:100%;margin-bottom:12px}.rec-summary button:disabled {opacity:.55;cursor:not-allowed}
+.rec-details {border-bottom:1px solid #e0e0e0;padding:22px 0;line-height:1.7}
+.rec-details summary,.rec-part summary {cursor:pointer;font-weight:600}
+.rec-table {overflow-x:auto}.rec-table table {width:100%;border-collapse:collapse;margin:15px 0;font-size:14px}
+.rec-table th,.rec-table td {text-align:left;padding:10px;border-bottom:1px solid #e0e0e0}
+.rec-disclaimer {margin-top:24px;max-width:900px}
+@media(max-width:800px) {.rec-layout,.rec-result-grid {grid-template-columns:1fr;gap:28px}.rec-guide {position:static}.rec-intro,.rec-result-header {align-items:flex-start;flex-direction:column}.rec-intro {gap:20px}.recommendation-page {padding-top:28px}.rec-part {grid-template-columns:75px minmax(0,1fr);gap:12px}.rec-part>strong {grid-column:2}.rec-guide {padding:24px}}
+@media(max-width:420px) {.rec-choices,.rec-pair {grid-template-columns:1fr}.rec-summary {padding:20px}.rec-intro h1 {font-size:32px}}

@@ -72,6 +72,7 @@ export function Header() {
               Tự ráp PC <span className="nav-hot-pill">Hot</span>
             </Link>
             <Link href="/community">Góc máy</Link>
+            <Link href="/recommendation">Gợi ý PC</Link>
             <Link href="/#categories">Danh mục</Link>
             <Link href="/#services">Dịch vụ</Link>
           </nav>
@@ -186,6 +187,7 @@ export function Header() {
             <Link href="/builder" onClick={() => setOpen(false)}>
               Tự ráp PC (Builder)
             </Link>
+            <Link href="/recommendation" onClick={() => setOpen(false)}>Gợi ý PC theo nhu cầu</Link>
             <Link href="/community" onClick={() => setOpen(false)}>
               Góc máy cộng đồng
             </Link>
