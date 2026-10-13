@@ -9,8 +9,6 @@ import {
   Trash2,
   CreditCard,
   QrCode,
-  Tag,
-  Copy,
   Check,
   ShieldCheck,
   ArrowRight,
@@ -24,7 +22,7 @@ import { useAuth } from "./auth-provider";
 import { orderApi, OrderApiError } from "../lib/order-api";
 import { addressApi } from "../lib/address-api";
 import { useToast } from "./toast";
-import { formatPrice, products } from "../lib/products";
+import { formatPrice } from "../lib/products";
 
 type CheckoutAddress = {
   id: string;
@@ -48,7 +46,6 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
   const [error, setError] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"COD" | "VNPAY">("COD");
   const [paymentUrl, setPaymentUrl] = useState<string>("");
-  const [copied, setCopied] = useState(false);
 
   // Address selection
   const [addresses, setAddresses] = useState<CheckoutAddress[]>([]);
@@ -133,31 +130,21 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
     };
   }, [user]);
 
-  // Promo code
-  const [promoInput, setPromoInput] = useState("");
-  const [appliedDiscount, setAppliedDiscount] = useState<{
-    code: string;
-    amount: number;
-  } | null>(null);
-
   const submitting = useRef(false);
 
   const lines = items.map((item) => {
-    const foundProduct = products.find((product) => product.id === item.id || product.id === `p${item.id}`);
-    const product = foundProduct ?? {
+    const product = item.product ?? {
       id: item.id,
       slug: item.id,
       name: item.name,
       price: item.price ?? item.unitPrice,
-      stock: item.stock ?? 999,
-      brand: item.product?.brand ?? "PC Store",
-      category: item.product?.category ?? "Linh kiện",
+      stock: item.stock ?? 0,
+      brand: "",
+      category: "",
       description: "",
       specs: {},
-      accent: item.product?.accent ?? "#00539b",
+      accent: "#00539b",
       featured: false,
-      rating: 5,
-      reviewCount: 0,
       warranty: "Chính hãng",
       images: ["Góc nhìn chính"],
     };
@@ -166,32 +153,6 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
 
   const selectedLines = lines.filter((line) => selectedIds.includes(line.id));
   const { subtotal, cartItemIds } = summarizeSelection(items, selectedIds);
-
-  const discountAmount = appliedDiscount ? appliedDiscount.amount : 0;
-  const finalTotal = Math.max(0, subtotal - discountAmount);
-
-  const handleApplyPromo = () => {
-    const code = promoInput.trim().toUpperCase();
-    if (!code) return;
-    if (code === "PCSTORE50K") {
-      setAppliedDiscount({ code: "PCSTORE50K", amount: 50000 });
-      toast("Đã áp dụng mã giảm giá 50.000₫!", "success");
-      setPromoInput("");
-    } else if (code === "VIPBUILD") {
-      setAppliedDiscount({ code: "VIPBUILD", amount: 200000 });
-      toast("Đã áp dụng mã VIP giảm 200.000₫!", "success");
-      setPromoInput("");
-    } else {
-      toast("Mã ưu đãi không hợp lệ hoặc đã hết hạn!", "error");
-    }
-  };
-
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    toast("Đã sao chép vào bộ nhớ tạm!", "info");
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -367,7 +328,7 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
                   <div className="flex justify-between items-center pb-2 border-b border-slate-200">
                     <span className="text-muted">Số tiền thanh toán:</span>
                     <strong className="text-base text-red-600 font-specs font-bold">
-                      {formatPrice(orderTotalAmount || finalTotal)}
+                      {formatPrice(orderTotalAmount || subtotal)}
                     </strong>
                   </div>
                   <div className="flex justify-between items-center">
@@ -403,7 +364,7 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
                   Phương thức: <strong>Thanh toán tiền mặt khi nhận hàng (COD)</strong>.
                 </p>
                 <small className="text-emerald-700 text-xs">
-                  Nhân viên giao nhận sẽ liên hệ số điện thoại trước khi giao. Vui lòng chuẩn bị sẵn số tiền {formatPrice(orderTotalAmount || finalTotal)}.
+                  Nhân viên giao nhận sẽ liên hệ số điện thoại trước khi giao. Vui lòng chuẩn bị sẵn số tiền {formatPrice(orderTotalAmount || subtotal)}.
                 </small>
               </div>
             )}
@@ -778,62 +739,18 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
                 </div>
               )}
 
-              {/* Promo Code Box */}
-              <div className="mb-4.5 pb-4 border-b border-[#e0e0e0]">
-                <label htmlFor="promo" className="flex items-center gap-1.5 text-xs font-bold uppercase text-muted mb-2">
-                  <Tag size={15} /> Mã giảm giá / Ưu đãi
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    id="promo"
-                    type="text"
-                    value={promoInput}
-                    onChange={(e) => setPromoInput(e.target.value)}
-                    placeholder="Nhập PCSTORE50K hoặc VIPBUILD"
-                    className="flex-1 p-2 px-3 border border-[#e0e0e0] rounded-xl text-xs md:text-sm uppercase outline-none focus:border-[#006ce1]"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleApplyPromo}
-                    className="px-3.5 py-2 bg-ink hover:bg-slate-800 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer border-none"
-                  >
-                    Áp dụng
-                  </button>
-                </div>
-                {appliedDiscount && (
-                  <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 text-emerald-800 p-2 px-3 rounded-lg text-xs mt-2">
-                    <span>
-                      Mã <b>{appliedDiscount.code}</b>: Giảm {formatPrice(appliedDiscount.amount)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setAppliedDiscount(null)}
-                      className="bg-transparent border-none text-emerald-800 text-base font-bold cursor-pointer"
-                    >
-                      ×
-                    </button>
-                  </div>
-                )}
-              </div>
-
               <dl className="text-xs md:text-sm space-y-3 mb-5">
                 <div className="flex justify-between">
                   <dt className="text-muted">Tạm tính hàng ({selectedLines.length} món đã chọn)</dt>
                   <dd aria-live="polite" className="font-semibold text-ink">{formatPrice(subtotal)}</dd>
                 </div>
-                {appliedDiscount && (
-                  <div className="flex justify-between text-red-600 font-semibold">
-                    <dt>Khuyến mãi voucher</dt>
-                    <dd>-{formatPrice(appliedDiscount.amount)}</dd>
-                  </div>
-                )}
                 <div className="flex justify-between">
                   <dt className="text-muted">Phí vận chuyển</dt>
                   <dd className="text-emerald-600 font-bold">Miễn phí</dd>
                 </div>
                 <div className="flex justify-between pt-3 border-t border-[#e0e0e0] font-specs text-xl font-bold text-ink">
                   <dt>Tổng cộng</dt>
-                  <dd>{formatPrice(finalTotal)}</dd>
+                  <dd>{formatPrice(subtotal)}</dd>
                 </div>
               </dl>
 

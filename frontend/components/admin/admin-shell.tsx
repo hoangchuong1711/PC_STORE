@@ -26,7 +26,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { initialAdminNotifications, type AdminNotification } from "../../lib/admin";
+import type { AdminNotification } from "../../lib/admin";
 import { useAuth } from "../auth-provider";
 
 const navigation = [
@@ -47,7 +47,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [notifications, setNotifications] = useState<AdminNotification[]>(initialAdminNotifications);
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
 
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -266,10 +266,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#80c59c] ring-4 ring-[#80c59c]/20" />
             <div>
               <strong className="block text-xs font-semibold text-[#edf2f6]">
-                {pathname === "/admin/categories" || pathname === "/admin/reviews" ? "Dữ liệu từ máy chủ" : "Chế độ xem mẫu"}
+                Dữ liệu từ máy chủ
               </strong>
               <span className="mt-0.5 block text-[11px] text-[#98a3ae]">
-                {pathname === "/admin/categories" || pathname === "/admin/reviews" ? "Dữ liệu được đồng bộ từ database máy chủ" : "Dữ liệu lưu tạm phiên làm việc"}
+                Dữ liệu được đồng bộ từ database máy chủ
               </span>
             </div>
           </div>
@@ -351,6 +351,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                     )}
                   </div>
                   <div className="max-h-80 overflow-y-auto flex flex-col gap-1.5">
+                    {notifications.length === 0 && <p className="p-3 text-xs text-admin-muted">Chưa có thông báo.</p>}
                     {notifications.map((notif) => (
                       <Link
                         key={notif.id}

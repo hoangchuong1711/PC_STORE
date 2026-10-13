@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { filterOrders, getOrderProgress, orders } from "./orders.ts";
+import { filterOrders, getOrderProgress } from "./orders.ts";
+
+const orders = [
+  { id: "1", status: "DELIVERED" },
+  { id: "2", status: "PENDING" },
+  { id: "3", status: "DELIVERED" },
+];
 
 test("filters the order history by status", () => {
   assert.equal(filterOrders(orders, "ALL").length, orders.length);

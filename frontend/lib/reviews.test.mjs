@@ -9,16 +9,16 @@ import {
 } from "./reviews.ts";
 
 test("calculates review summary and distribution correctly", () => {
-  const summary = getReviewSummary("rog-strix-g16-2025");
-  assert.equal(summary.totalReviews >= 3, true);
-  assert.equal(summary.averageRating >= 4 && summary.averageRating <= 5, true);
+  const summary = getReviewSummary([{ rating: 5 }, { rating: 4 }, { rating: 5 }]);
+  assert.equal(summary.totalReviews, 3);
+  assert.equal(summary.averageRating, 4.7);
   assert.equal(summary.distribution.length, 5);
 });
 
 test("returns default summary when no reviews exist", () => {
   const summary = getReviewSummary("non-existent-product");
   assert.equal(summary.totalReviews, 0);
-  assert.equal(summary.averageRating, 5.0);
+  assert.equal(summary.averageRating, 0);
 });
 
 test("adds review and updates verified buyer flag", () => {
@@ -36,8 +36,13 @@ test("adds review and updates verified buyer flag", () => {
 });
 
 test("toggles like count properly", () => {
-  const reviews = getProductReviews("rog-strix-g16-2025");
-  const first = reviews[0];
+  const first = addReview({
+    productSlug: "test-product",
+    orderId: "test-order",
+    userName: "Tester",
+    rating: 4,
+    content: "Test review",
+  });
   const originalLikes = first.likesCount;
   const originallyLiked = Boolean(first.isLiked);
 

@@ -5,8 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Heart,
-  MessageSquare,
-  Eye,
   Share2,
   Camera,
   Sparkles,
@@ -27,16 +25,9 @@ import {
 import {
   communityApi,
   CommunityApiError,
-  type SetupPost,
 } from "../lib/community-api";
 import {
   CommunityPost,
-  SetupStyle,
-  styleCategories,
-  getCommunityPosts,
-  getFeaturedPost,
-  toggleLikePost,
-  addCommentToPost,
   formatTimeAgo,
   setupDtoToCommunityPost,
 } from "../lib/community";
@@ -53,13 +44,13 @@ import { useToast } from "./toast";
 import { Header, Footer } from "./storefront";
 
 export function CommunityFeed() {
-  const [selectedStyle, setSelectedStyle] = useState<SetupStyle>("all");
-  const [sortBy, setSortBy] = useState<"newest" | "likes" | "views">("newest");
+  const [sortBy, setSortBy] = useState<"newest" | "likes">("newest");
   const [searchQuery, setSearchQuery] = useState("");
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [postsVersion, setPostsVersion] = useState(0);
   const [livePosts, setLivePosts] = useState<CommunityPost[]>([]);
   const [isLoadingLive, setIsLoadingLive] = useState(false);
+  const [feedError, setFeedError] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -68,8 +59,8 @@ export function CommunityFeed() {
       setIsLoadingLive(true);
       try {
         const [rankingItems, feedItems] = await Promise.all([
-          communityApi.ranking(0, 50).catch(() => []),
-          communityApi.feed(0, 50).catch(() => []),
+          communityApi.ranking(0, 50),
+          communityApi.feed(0, 50),
         ]);
 
         if (cancelled) return;
@@ -103,8 +94,9 @@ export function CommunityFeed() {
         });
 
         setLivePosts(combined);
+        setFeedError("");
       } catch (err) {
-        console.warn("Failed to load community setups from API:", err);
+        if (!cancelled) setFeedError(err instanceof Error ? err.message : "Không thể tải bài đăng.");
       } finally {
         if (!cancelled) setIsLoadingLive(false);
       }
@@ -117,9 +109,7 @@ export function CommunityFeed() {
   }, [postsVersion]);
 
   const posts = useMemo(() => {
-    const mockPosts = getCommunityPosts(selectedStyle, sortBy, searchQuery, postsVersion);
     const filteredLive = livePosts.filter((post) => {
-      if (selectedStyle !== "all" && post.style !== selectedStyle) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const matchesTitle = post.title.toLowerCase().includes(q);
@@ -132,14 +122,13 @@ export function CommunityFeed() {
 
     const sortedLive = [...filteredLive].sort((a, b) => {
       if (sortBy === "likes") return b.likesCount - a.likesCount;
-      if (sortBy === "views") return b.viewsCount - a.viewsCount;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
-    return [...sortedLive, ...mockPosts];
-  }, [selectedStyle, sortBy, searchQuery, postsVersion, livePosts]);
+    return sortedLive;
+  }, [sortBy, searchQuery, livePosts]);
 
-  const featured = useMemo(() => livePosts[0] || getFeaturedPost(), [livePosts]);
+  const featured = livePosts[0];
 
   const handleToggleLike = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
@@ -172,11 +161,6 @@ export function CommunityFeed() {
       return;
     }
 
-    const updated = toggleLikePost(id);
-    setPostsVersion((v) => v + 1);
-    if (updated?.isLiked) {
-      toast("Đã thêm vào danh sách góc máy yêu thích!", "success");
-    }
   };
 
   return (
@@ -205,7 +189,7 @@ export function CommunityFeed() {
 
         {/* Featured Spotlight Setup */}
         {featured && (
-          <section className="bg-white border border-[#e0e0e0] rounded-3xl overflow-hidden mb-12 shadow-sm" aria-label="Góc máy nổi bật">
+          <section className="bg-white border border-[#e0e0e0] rounded-3xl overflow-hidden mb-12 shadow-sm" aria-label="Bài đăng mới nhất">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
               <div className="relative min-h-[320px] max-h-[460px] overflow-hidden bg-slate-900">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -213,7 +197,7 @@ export function CommunityFeed() {
               </div>
               <div className="p-8 md:p-10 flex flex-col justify-center">
                 <div className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full mb-3 w-max">
-                  <Sparkles size={14} /> Góc máy ấn tượng của tháng
+                  <Sparkles size={14} /> Bài đăng mới nhất
                 </div>
                 <h2 className="font-heading text-2xl md:text-3xl font-extrabold text-ink mb-3 tracking-tight">
                   {featured.title}
@@ -221,12 +205,7 @@ export function CommunityFeed() {
                 <p className="text-sm md:text-base text-muted leading-relaxed mb-6">{featured.description}</p>
 
                 <div className="flex items-center gap-3 mb-6">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={featured.author.avatar}
-                    alt={featured.author.name}
-                    className="w-11 h-11 rounded-full object-cover border border-[#e0e0e0]"
-                  />
+                  <span className="w-11 h-11 rounded-full grid place-items-center bg-slate-100 border border-[#e0e0e0] font-bold" aria-hidden="true">{featured.author.name.charAt(0)}</span>
                   <div>
                     <strong className="block text-sm text-ink">{featured.author.name}</strong>
                     <span className="text-xs text-muted">{featured.author.role}</span>
@@ -264,25 +243,6 @@ export function CommunityFeed() {
 
         {/* Category Tabs & Search Toolbar */}
         <section className="mb-8">
-          <div className="flex gap-2 overflow-x-auto pb-2 border-b border-[#e0e0e0] mb-6" role="tablist" aria-label="Lọc theo phong cách">
-            {styleCategories.map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                className={`px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer border-none ${
-                  selectedStyle === cat.id
-                    ? "bg-ink text-white"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                }`}
-                onClick={() => setSelectedStyle(cat.id)}
-                role="tab"
-                aria-selected={selectedStyle === cat.id}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
-
           <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
             <div className="flex-1 flex items-center gap-2.5 bg-white border border-[#e0e0e0] rounded-xl px-3.5 py-2">
               <Search size={16} className="text-muted shrink-0" />
@@ -300,19 +260,20 @@ export function CommunityFeed() {
               <SlidersHorizontal size={14} className="shrink-0" />
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as "newest" | "likes" | "views")}
+                onChange={(e) => setSortBy(e.target.value as "newest" | "likes")}
                 aria-label="Sắp xếp danh sách góc máy"
                 className="p-2 px-3 border border-[#e0e0e0] rounded-xl bg-white text-xs md:text-sm text-ink outline-none"
               >
                 <option value="newest">Mới đăng gần đây</option>
                 <option value="likes">Được yêu thích nhất</option>
-                <option value="views">Lượt xem nhiều nhất</option>
               </select>
             </div>
           </div>
         </section>
 
         {/* Setups Grid */}
+        {isLoadingLive && <p role="status" className="mb-5 text-muted">Đang tải bài đăng...</p>}
+        {feedError && <p role="alert" className="mb-5 text-rose-700">{feedError}</p>}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {posts.length > 0 ? (
             posts.map((post) => (
@@ -325,10 +286,6 @@ export function CommunityFeed() {
                     className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                     loading="lazy"
                   />
-                  <span className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-sm text-white text-[11px] font-bold px-2.5 py-1 rounded-md">
-                    {styleCategories.find((s) => s.id === post.style)?.label.split(" (")[0] ||
-                      post.style}
-                  </span>
                   <button
                     type="button"
                     className={`absolute top-3 right-3 w-9 h-9 rounded-full bg-slate-900/60 backdrop-blur-sm text-white grid place-items-center hover:bg-slate-900 transition-colors border-none cursor-pointer ${
@@ -352,12 +309,7 @@ export function CommunityFeed() {
                   </h3>
 
                   <div className="flex items-center gap-2.5 mb-3 text-xs">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={post.author.avatar}
-                      alt={post.author.name}
-                      className="w-6 h-6 rounded-full object-cover"
-                    />
+                    <span className="w-6 h-6 rounded-full grid place-items-center bg-slate-100 font-bold" aria-hidden="true">{post.author.name.charAt(0)}</span>
                     <div className="text-muted truncate">
                       <strong className="text-ink">{post.author.name}</strong> · {post.author.role}
                     </div>
@@ -382,12 +334,6 @@ export function CommunityFeed() {
                       <span className="inline-flex items-center gap-1" title="Lượt thích">
                         <Heart size={13} /> {post.likesCount}
                       </span>
-                      <span className="inline-flex items-center gap-1" title="Bình luận">
-                        <MessageSquare size={13} /> {post.comments.length}
-                      </span>
-                      <span className="inline-flex items-center gap-1" title="Lượt xem">
-                        <Eye size={13} /> {post.viewsCount}
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -396,12 +342,11 @@ export function CommunityFeed() {
           ) : (
             <div className="col-span-full text-center py-16 px-6 bg-white border border-[#e0e0e0] rounded-2xl">
               <h3 className="text-lg font-bold text-ink mb-2">Không tìm thấy góc máy nào</h3>
-              <p className="text-sm text-muted mb-4">Thử tìm với từ khóa khác hoặc chọn phong cách khác.</p>
+              <p className="text-sm text-muted mb-4">Thử tìm với từ khóa khác.</p>
               <button
                 type="button"
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-ink border border-[#e0e0e0] hover:border-slate-400 bg-white transition-colors cursor-pointer"
                 onClick={() => {
-                  setSelectedStyle("all");
                   setSearchQuery("");
                 }}
               >
@@ -429,8 +374,6 @@ export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) 
     () => prepareCommunityComponents(initialPost.components),
   );
   const [selectedImgIdx, setSelectedImgIdx] = useState(0);
-  const [commentText, setCommentText] = useState("");
-  const [commentAuthor, setCommentAuthor] = useState("");
   const [addingProductId, setAddingProductId] = useState<number | null>(null);
   const [isAddingAll, setIsAddingAll] = useState(false);
   const { add } = useCart();
@@ -475,13 +418,6 @@ export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) 
       return;
     }
 
-    const updated = toggleLikePost(post.id);
-    if (updated) {
-      setPost({ ...updated });
-      if (updated.isLiked) {
-        toast("Đã thả tim bài viết!", "success");
-      }
-    }
   };
 
   const handleCopyLink = () => {
@@ -525,25 +461,6 @@ export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) 
     }
   };
 
-  const handleCommentSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!commentText.trim()) return;
-
-    const newComment = addCommentToPost(post.id, {
-      author: commentAuthor.trim() || "Thành viên PC Store",
-      content: commentText.trim(),
-    });
-
-    if (newComment) {
-      setPost((prev) => ({
-        ...prev,
-        comments: [...prev.comments, newComment],
-      }));
-      setCommentText("");
-      toast("Đã đăng bình luận của bạn thành công!", "success");
-    }
-  };
-
   return (
     <>
       <Header />
@@ -563,17 +480,11 @@ export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) 
           </h1>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-4 border-y border-[#e0e0e0]">
             <div className="flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={post.author.avatar}
-                alt={post.author.name}
-                className="w-11 h-11 rounded-full object-cover border border-[#e0e0e0]"
-              />
+              <span className="w-11 h-11 rounded-full grid place-items-center bg-slate-100 border border-[#e0e0e0] font-bold" aria-hidden="true">{post.author.name.charAt(0)}</span>
               <div className="text-xs md:text-sm">
                 <strong className="block text-ink">{post.author.name}</strong>
                 <span className="text-muted">
-                  {post.author.role} · Đăng {formatTimeAgo(post.createdAt)} ·{" "}
-                  {post.viewsCount} lượt xem
+                  {post.author.role} · Đăng {formatTimeAgo(post.createdAt)}
                 </span>
               </div>
             </div>
@@ -640,95 +551,12 @@ export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) 
               )}
             </div>
 
-            {/* Desk Specifications */}
-            <section className="bg-white border border-[#e0e0e0] rounded-2xl p-6 md:p-7">
-              <h2 className="font-heading text-lg font-bold text-ink m-0 mb-4">Thông số không gian bàn làm việc</h2>
-              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 m-0">
-                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-                  <dt className="text-xs font-bold uppercase text-muted mb-1">Bàn làm việc</dt>
-                  <dd className="m-0 text-sm font-semibold text-ink">{post.deskSpecs.desk}</dd>
-                </div>
-                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-                  <dt className="text-xs font-bold uppercase text-muted mb-1">Ghế ngồi</dt>
-                  <dd className="m-0 text-sm font-semibold text-ink">{post.deskSpecs.chair}</dd>
-                </div>
-                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-                  <dt className="text-xs font-bold uppercase text-muted mb-1">Chiếu sáng & Đèn</dt>
-                  <dd className="m-0 text-sm font-semibold text-ink">{post.deskSpecs.lighting}</dd>
-                </div>
-                {post.deskSpecs.audio && (
-                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-                    <dt className="text-xs font-bold uppercase text-muted mb-1">Âm thanh & Tai nghe</dt>
-                    <dd className="m-0 text-sm font-semibold text-ink">{post.deskSpecs.audio}</dd>
-                  </div>
-                )}
-              </dl>
-            </section>
-
             {/* Author Story */}
             <section className="bg-white border border-[#e0e0e0] rounded-2xl p-6 md:p-7">
               <h2 className="font-heading text-lg font-bold text-ink m-0 mb-3">Câu chuyện & Kinh nghiệm bố trí</h2>
               <p className="text-sm md:text-base leading-relaxed text-slate-700 m-0">{post.description}</p>
             </section>
 
-            {/* Comments & Discussion */}
-            <section className="bg-white border border-[#e0e0e0] rounded-2xl p-6 md:p-7">
-              <h2 className="font-heading text-lg font-bold text-ink m-0 mb-4">Thảo luận ({post.comments.length})</h2>
-
-              <form onSubmit={handleCommentSubmit} className="flex flex-col gap-3 mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <input
-                  type="text"
-                  value={commentAuthor}
-                  onChange={(e) => setCommentAuthor(e.target.value)}
-                  placeholder="Tên của bạn (hoặc để trống)..."
-                  aria-label="Tên người bình luận"
-                  className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none bg-white focus:border-[#006ce1]"
-                />
-                <textarea
-                  rows={3}
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="Hỏi về cách đi dây, trải nghiệm linh kiện hoặc chia sẻ cảm nghĩ của bạn..."
-                  required
-                  aria-label="Nội dung bình luận"
-                  className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none bg-white focus:border-[#006ce1] resize-y"
-                />
-                <div className="flex justify-end">
-                  <button type="submit" className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm cursor-pointer border-none">
-                    Gửi bình luận
-                  </button>
-                </div>
-              </form>
-
-              <div className="flex flex-col gap-4">
-                {post.comments.length > 0 ? (
-                  post.comments.map((comment) => (
-                    <article key={comment.id} className="flex items-start gap-3.5 p-4 border border-slate-100 rounded-xl bg-slate-50/50">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={
-                          comment.avatar ||
-                          "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80"
-                        }
-                        alt={comment.author}
-                        className="w-10 h-10 rounded-full object-cover shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-center text-xs mb-1">
-                          <strong className="text-ink font-bold">{comment.author}</strong>
-                          <span className="text-muted">{formatTimeAgo(comment.createdAt)}</span>
-                        </div>
-                        <p className="m-0 text-xs md:text-sm text-slate-700 leading-relaxed">{comment.content}</p>
-                      </div>
-                    </article>
-                  ))
-                ) : (
-                  <p className="text-center py-6 text-sm text-muted m-0">
-                    Chưa có bình luận nào. Hãy là người đầu tiên đặt câu hỏi cho chủ nhân góc máy!
-                  </p>
-                )}
-              </div>
-            </section>
           </div>
 
           {/* Right Column: Sticky Tagged Components */}
@@ -822,10 +650,6 @@ export function CreateSetupModal({
 }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
-  const [authorName, setAuthorName] = useState("");
-  const [authorRole, setAuthorRole] = useState("Thành viên PC Store");
-  const [style, setStyle] = useState<SetupStyle>("minimalist");
-  const [selectedPresetPhoto, setSelectedPresetPhoto] = useState(0);
   const [uploadedImages, setUploadedImages] = useState<
     Array<{ mediaId: string; previewUrl: string; name: string }>
   >([]);
@@ -834,9 +658,6 @@ export function CreateSetupModal({
   const [uploadMessage, setUploadMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [description, setDescription] = useState("");
-  const [deskModel, setDeskModel] = useState("Bàn nâng hạ tự động 1m6 x 80cm");
-  const [chairModel, setChairModel] = useState("Ghế công thái học lưới thoáng khí");
-  const [lightingModel, setLightingModel] = useState("Đèn treo màn hình chống cận");
 
   const [eligibility, setEligibility] = useState<{
     checked: boolean;
@@ -850,13 +671,6 @@ export function CreateSetupModal({
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
 
   const { toast } = useToast();
-
-  const presetPhotos = [
-    "https://images.unsplash.com/photo-1593305841991-05c297ba4575?w=1400&auto=format&fit=crop&q=80",
-    "https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?w=1400&auto=format&fit=crop&q=80",
-    "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1400&auto=format&fit=crop&q=80",
-    "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1400&auto=format&fit=crop&q=80",
-  ];
 
   useEffect(() => {
     if (!isOpen) return;
@@ -930,7 +744,7 @@ export function CreateSetupModal({
         if (err instanceof MediaApiError) {
           if (err.status === 502 || err.code === "MEDIA_STORAGE_UNAVAILABLE") {
             toast(
-              "Máy chủ lưu trữ Cloudinary chưa sẵn sàng. Bạn vẫn có thể dùng ảnh mẫu có sẵn.",
+              "Máy chủ lưu trữ ảnh chưa sẵn sàng. Vui lòng thử tải ảnh lên sau.",
               "error"
             );
           } else {
@@ -1074,84 +888,6 @@ export function CreateSetupModal({
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="authorName" className="text-xs font-bold text-ink">Tên của bạn *</label>
-              <input
-                id="authorName"
-                type="text"
-                value={authorName}
-                onChange={(e) => setAuthorName(e.target.value)}
-                placeholder="VD: Minh Hoàng"
-                required
-                className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="authorRole" className="text-xs font-bold text-ink">Nghề nghiệp / Sở thích</label>
-              <input
-                id="authorRole"
-                type="text"
-                value={authorRole}
-                onChange={(e) => setAuthorRole(e.target.value)}
-                placeholder="VD: Software Engineer & Gamer"
-                className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="setupStyle" className="text-xs font-bold text-ink">Phong cách không gian *</label>
-            <select
-              id="setupStyle"
-              value={style}
-              onChange={(e) => setStyle(e.target.value as SetupStyle)}
-              className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none bg-white focus:border-[#006ce1]"
-            >
-              <option value="minimalist">Tối giản (Minimalist)</option>
-              <option value="rgb-gaming">RGB & Battlestation</option>
-              <option value="workstation">Trạm làm việc (Workstation)</option>
-              <option value="ergonomic">Công thái học (Ergonomic)</option>
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="deskModel" className="text-xs font-bold text-ink">Mẫu bàn làm việc</label>
-              <input
-                id="deskModel"
-                type="text"
-                value={deskModel}
-                onChange={(e) => setDeskModel(e.target.value)}
-                placeholder="VD: Bàn nâng hạ tự động 1m6 x 80cm"
-                className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="chairModel" className="text-xs font-bold text-ink">Ghế ngồi / Công thái học</label>
-              <input
-                id="chairModel"
-                type="text"
-                value={chairModel}
-                onChange={(e) => setChairModel(e.target.value)}
-                placeholder="VD: Ghế lưới công thái học"
-                className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="lightingModel" className="text-xs font-bold text-ink">Chiếu sáng / Đèn trang trí</label>
-            <input
-              id="lightingModel"
-              type="text"
-              value={lightingModel}
-              onChange={(e) => setLightingModel(e.target.value)}
-              placeholder="VD: Đèn treo màn hình chống cận"
-              className="p-2.5 px-3.5 border border-[#e0e0e0] rounded-xl text-sm outline-none focus:border-[#006ce1]"
-            />
-          </div>
-
           {/* Real Media Upload Section */}
           <div className="flex flex-col gap-2.5">
             <div className="flex justify-between items-center">
@@ -1226,31 +962,6 @@ export function CreateSetupModal({
               </p>
             )}
 
-            {/* Preset Photos Fallback when no custom images */}
-            {uploadedImages.length === 0 && (
-              <div className="mt-2 pt-2 border-t border-slate-100">
-                <span className="text-[11px] font-semibold text-muted block mb-2">
-                  Hoặc chọn ảnh mẫu có sẵn:
-                </span>
-                <div className="grid grid-cols-4 gap-2.5">
-                  {presetPhotos.map((url, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      className={`aspect-video rounded-xl overflow-hidden border-2 p-0 bg-transparent cursor-pointer transition-all ${
-                        selectedPresetPhoto === idx
-                          ? "border-[#006ce1] ring-2 ring-[#006ce1]/30"
-                          : "border-transparent opacity-75 hover:opacity-100"
-                      }`}
-                      onClick={() => setSelectedPresetPhoto(idx)}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={url} alt={`Ảnh mẫu ${idx + 1}`} className="w-full h-full object-cover" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="flex flex-col gap-2">
