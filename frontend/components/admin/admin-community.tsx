@@ -18,16 +18,13 @@ import { useMemo, useState, useEffect, type FormEvent } from "react";
 import {
   adminCommunityStatuses,
   communityStatusLabels,
-  communityStyleLabels,
   filterAdminCommunityPosts,
-  initialAdminCommunityPosts,
   setupModeratedItemToAdminPost,
   type AdminCommunityFilters,
   type AdminCommunityPost,
   type AdminCommunityStatus,
 } from "../../lib/admin-community";
 import { communityApi, CommunityApiError } from "../../lib/community-api";
-import type { SetupStyle } from "../../lib/community";
 import { formatAdminDate } from "../../lib/admin";
 
 const itemsPerPage = 6;
@@ -41,13 +38,9 @@ function formatCompactNumber(value: number) {
   return new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 }).format(value);
 }
 
-function communityStyleLabel(style: SetupStyle) {
-  return style === "all" ? "Tất cả phong cách" : communityStyleLabels[style];
-}
-
 export function AdminCommunity() {
-  const [items, setItems] = useState<AdminCommunityPost[]>(initialAdminCommunityPosts);
-  const [filters, setFilters] = useState<AdminCommunityFilters>({ query: "", status: "ALL", style: "ALL" });
+  const [items, setItems] = useState<AdminCommunityPost[]>([]);
+  const [filters, setFilters] = useState<AdminCommunityFilters>({ query: "", status: "ALL" });
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedPost, setSelectedPost] = useState<AdminCommunityPost | null>(null);
   const [activePhoto, setActivePhoto] = useState<string>("");
@@ -66,11 +59,7 @@ export function AdminCommunity() {
         if (cancelled) return;
         const liveConverted = apiItems.map(setupModeratedItemToAdminPost);
 
-        const mockFiltered = initialAdminCommunityPosts.filter((m) =>
-          filters.status === "ALL" ? true : m.status === filters.status
-        );
-
-        setItems([...liveConverted, ...mockFiltered]);
+        setItems(liveConverted);
       } catch (err) {
         console.warn("Could not load setups from admin API:", err);
       }
@@ -94,7 +83,7 @@ export function AdminCommunity() {
   }
 
   function resetFilters() {
-    setFilters({ query: "", status: "ALL", style: "ALL" });
+    setFilters({ query: "", status: "ALL" });
     setCurrentPage(1);
   }
 
@@ -231,19 +220,6 @@ export function AdminCommunity() {
               </option>
             ))}
           </select>
-          <select
-            aria-label="Lọc phong cách setup"
-            value={filters.style}
-            onChange={(event) => updateFilter("style", event.target.value as AdminCommunityFilters["style"])}
-            className="h-9 px-3 rounded-lg border border-admin-line bg-white text-xs text-admin-ink focus:outline-hidden focus:border-admin-blue cursor-pointer"
-          >
-            <option value="ALL">Tất cả phong cách</option>
-            {Object.entries(communityStyleLabels).map(([style, label]) => (
-              <option key={style} value={style}>
-                {label}
-              </option>
-            ))}
-          </select>
           <button
             type="button"
             className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-admin-line bg-white text-xs font-semibold text-admin-muted hover:bg-admin-bg hover:text-admin-ink transition-colors cursor-pointer"
@@ -260,7 +236,6 @@ export function AdminCommunity() {
               <tr>
                 <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">Bài setup</th>
                 <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">Tác giả</th>
-                <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">Phong cách</th>
                 <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">Tương tác</th>
                 <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">Trạng thái</th>
                 <th className="py-3 px-4 border-b border-admin-line text-[10px] font-bold uppercase tracking-wider text-admin-soft whitespace-nowrap bg-admin-bg/30">Cập nhật</th>
@@ -286,14 +261,8 @@ export function AdminCommunity() {
                     <small className="block text-[10px] text-admin-soft mt-0.5">{post.author.handle}</small>
                   </td>
                   <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle">
-                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-admin-accent-soft text-admin-accent-dark">
-                      {communityStyleLabel(post.style)}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle">
                     <div className="flex items-center gap-2.5 text-[11px] font-semibold text-admin-muted font-mono">
                       <span>♡ {formatCompactNumber(post.likesCount)}</span>
-                      <span>◉ {formatCompactNumber(post.viewsCount)}</span>
                     </div>
                   </td>
                   <td className="py-3.5 px-4 border-b border-[#edf0f2] align-middle">
@@ -410,9 +379,6 @@ export function AdminCommunity() {
               )}
 
               <div className="flex flex-col gap-1.5">
-                <span className="inline-block self-start px-2 py-0.5 rounded text-[10px] font-semibold bg-admin-blue-soft text-admin-blue">
-                  {communityStyleLabel(selectedPost.style)}
-                </span>
                 <h3 className="text-sm font-bold text-admin-ink">{selectedPost.title}</h3>
                 <p className="text-xs text-admin-muted leading-relaxed">{selectedPost.description}</p>
               </div>
@@ -424,7 +390,7 @@ export function AdminCommunity() {
                 <span className="text-[11px] font-normal text-admin-soft">{formatAdminDate(selectedPost.createdAt)}</span>
               </div>
               <div className="flex items-center gap-3">
-                <Image src={selectedPost.author.avatar} alt="" width={38} height={38} className="rounded-full border border-admin-line" unoptimized />
+                <span className="w-[38px] h-[38px] rounded-full grid place-items-center bg-admin-bg border border-admin-line font-bold" aria-hidden="true">{selectedPost.author.name.charAt(0)}</span>
                 <div>
                   <strong className="block text-xs font-bold text-admin-ink">{selectedPost.author.name}</strong>
                   <span className="block text-[11px] text-admin-soft">{selectedPost.author.handle} · {selectedPost.author.role}</span>

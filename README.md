@@ -61,7 +61,9 @@ Nếu `npm run dev` đang chiếm cổng 3000, dừng nó trước khi chạy Co
 
 Email chào mừng và OTP dùng Brevo HTTPS API: `MAIL_ENABLED`, `BREVO_API_KEY`, `MAIL_FROM_EMAIL`, `MAIL_FROM_NAME`. Cấu hình này nằm ở backend. Xem [hướng dẫn email tài khoản](docs/auth-email-recovery.md). Các dịch vụ thật như Brevo/Cloudinary có thể được gọi từ backend local nếu bật và cung cấp key thật.
 
-Mặc định seed tắt. Nếu cần dữ liệu demo local, đặt `DEMO_SEED_ENABLED=true` và/hoặc `DEMO_ACCOUNTS_ENABLED=true` trong `.env` rồi chạy lại Compose. Seed có thể thay đổi dữ liệu đã có và việc tắt cờ không xóa dữ liệu được seed.
+Mặc định seed tắt. Để nạp dữ liệu demo local, đặt cả `DEMO_SEED_ENABLED=true` và `DEMO_ACCOUNTS_ENABLED=true` trong `.env`, đồng thời đặt `DEMO_ADMIN_PASSWORD` và `DEMO_CUSTOMER_PASSWORD` cho tài khoản mẫu, rồi chạy lại Compose. Backend nạp catalog, thông số Builder, 6 tài khoản demo, 6 đơn hàng, 9 dòng hàng, 6 thanh toán và 5 đánh giá từ `backend/src/main/resources/db/seed/`. Seed giao dịch chạy lại không tạo bản ghi trùng. Chỉ bật hai cờ này với database local dành riêng cho demo; đừng bật khi backend trỏ tới Neon dùng chung. Tắt cờ không xóa dữ liệu đã nạp.
+
+Tài khoản mẫu là `admin@gmail.com`, `user@gmail.com` và bốn địa chỉ `demo.*@pcstore.test`; mật khẩu lấy từ hai biến môi trường trên, không ghi trong mã nguồn. Seed hiện chưa tạo bài Community hoặc ảnh Review vì media cần file upload hợp lệ; catalog demo vẫn dùng URL ảnh khai báo trong seed hiện có.
 
 Với VNPay Sandbox local, đặt `VNPAY_ENABLED=true`, `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` và `VNPAY_RETURN_URL=http://localhost:3000/orders/payment-return` trong `.env`. IPN server-to-server không gọi được localhost; để thử IPN cần HTTPS công khai chuyển tiếp tới backend local hoặc môi trường test riêng. Xem [thiết kế VNPay](docs/T20B_VNPAY.md).
 

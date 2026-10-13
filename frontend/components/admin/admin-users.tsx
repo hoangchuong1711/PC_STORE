@@ -19,7 +19,6 @@ import {
 import {
   type AdminUser,
   type AdminUserFilters,
-  initialAdminUsers,
   filterAdminUsers,
 } from "@/lib/admin-users";
 import { adminUsersApi } from "@/lib/admin-users-api";
@@ -49,8 +48,7 @@ export function AdminUsers() {
       const data = await adminUsersApi.list();
       setUsers(data);
     } catch (err) {
-      console.warn("Could not load users from backend API, falling back to mock:", err);
-      setUsers(initialAdminUsers);
+      setUsers([]);
       setError(err instanceof Error ? err.message : "Không thể tải danh sách người dùng từ máy chủ.");
     } finally {
       setLoading(false);

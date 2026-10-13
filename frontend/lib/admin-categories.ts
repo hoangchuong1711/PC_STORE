@@ -17,56 +17,6 @@ export type AdminBrand = {
   website?: string;
 };
 
-export const initialAdminCategories: AdminCategory[] = [
-  {
-    id: "cat-1",
-    name: "Laptop",
-    slug: "laptop",
-    description: "Laptop gaming hiệu năng cao, đồ họa và văn phòng cao cấp.",
-    productCount: 14,
-    status: "ACTIVE",
-    iconName: "Laptop",
-  },
-  {
-    id: "cat-2",
-    name: "PC Gaming",
-    slug: "pc-gaming",
-    description: "Bộ máy tính để bàn dựng sẵn, tối ưu tản nhiệt và đồng bộ cấu hình.",
-    productCount: 8,
-    status: "ACTIVE",
-    iconName: "Monitor",
-  },
-  {
-    id: "cat-3",
-    name: "Linh kiện",
-    slug: "linh-kien",
-    description: "CPU, Mainboard, RAM, GPU, Nguồn, Tản nhiệt và Vỏ case chính hãng.",
-    productCount: 42,
-    status: "ACTIVE",
-    iconName: "Cpu",
-  },
-  {
-    id: "cat-4",
-    name: "Phụ kiện",
-    slug: "phu-kien",
-    description: "Màn hình, bàn phím cơ, chuột gaming và tai nghe cao cấp.",
-    productCount: 26,
-    status: "ACTIVE",
-    iconName: "Headphones",
-  },
-];
-
-export const initialAdminBrands: AdminBrand[] = [
-  { id: "b-1", name: "ASUS", origin: "Đài Loan", productCount: 18, status: "ACTIVE", website: "https://rog.asus.com" },
-  { id: "b-2", name: "PC Store", origin: "Việt Nam", productCount: 8, status: "ACTIVE" },
-  { id: "b-3", name: "GIGABYTE", origin: "Đài Loan", productCount: 12, status: "ACTIVE", website: "https://gigabyte.com" },
-  { id: "b-4", name: "Kingston", origin: "Mỹ", productCount: 15, status: "ACTIVE", website: "https://kingston.com" },
-  { id: "b-5", name: "Samsung", origin: "Hàn Quốc", productCount: 9, status: "ACTIVE", website: "https://samsung.com" },
-  { id: "b-6", name: "Keychron", origin: "Pháp / Hong Kong", productCount: 11, status: "ACTIVE", website: "https://keychron.com" },
-  { id: "b-7", name: "LG", origin: "Hàn Quốc", productCount: 7, status: "ACTIVE", website: "https://lg.com" },
-  { id: "b-8", name: "Corsair", origin: "Mỹ", productCount: 14, status: "ACTIVE", website: "https://corsair.com" },
-];
-
 export function toSlug(text: string): string {
   return text
     .toLowerCase()

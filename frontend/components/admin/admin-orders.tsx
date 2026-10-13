@@ -26,7 +26,6 @@ import {
   formatAdminDate,
   formatAdminPrice,
   getNextOrderStatuses,
-  initialAdminOrders,
   orderDateFilterLabels,
   orderStatusLabels,
   paymentMethodLabels,

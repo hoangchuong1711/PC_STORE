@@ -36,7 +36,6 @@ import {
   paymentMethodLabels,
   paymentStatusLabels,
   toOrderModel,
-  getOrder,
   type Order,
   type OrderFilter,
   type OrderStatus,

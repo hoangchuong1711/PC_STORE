@@ -82,6 +82,48 @@ function catalogProduct(item: BuilderCatalogProduct): BuilderProduct | null {
   };
 }
 
+function BuilderProductThumbnail({
+  name,
+  image,
+  accent,
+  size = "md",
+}: {
+  name: string;
+  image?: string;
+  accent: string;
+  size?: "sm" | "md";
+}) {
+  const [hasError, setHasError] = useState(false);
+  useEffect(() => {
+    setHasError(false);
+  }, [image]);
+  const sizeClass = size === "md" ? "w-16 h-16" : "w-12 h-12";
+  const textClass = size === "md" ? "text-xl" : "text-base";
+
+  if (image && !hasError) {
+    return (
+      <div className={`${sizeClass} rounded-xl bg-slate-50 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center p-1 relative`}>
+        <img
+          src={image}
+          alt={name}
+          className="w-full h-full object-contain"
+          loading="lazy"
+          onError={() => setHasError(true)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`${sizeClass} rounded-xl grid place-items-center text-white font-gaming ${textClass} font-bold shrink-0`}
+      style={{ background: accent }}
+    >
+      {name.slice(0, 1)}
+    </div>
+  );
+}
+
 export function PCBuilderPage() {
   const router = useRouter();
   const { user } = useAuth();
@@ -403,12 +445,12 @@ export function PCBuilderPage() {
 
                   {item ? (
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4.5 pt-3 border-t border-slate-100">
-                      <div
-                        className="w-16 h-16 rounded-xl grid place-items-center text-white font-gaming text-xl font-bold shrink-0"
-                        style={{ background: item.accent }}
-                      >
-                        {item.name.slice(0, 1)}
-                      </div>
+                      <BuilderProductThumbnail
+                        name={item.name}
+                        image={item.image}
+                        accent={item.accent}
+                        size="md"
+                      />
 
                       <div className="flex-1 min-w-0">
                         <span className="font-specs text-[11px] font-bold tracking-wider uppercase text-muted block mb-0.5">
@@ -633,12 +675,12 @@ export function PCBuilderPage() {
                 {modalProducts.length > 0 ? (
                   modalProducts.map((prod) => (
                     <div key={prod.id} className="flex flex-col sm:flex-row sm:items-center gap-4 p-3.5 px-4.5 border border-[#e0e0e0] hover:border-[#006ce1] hover:shadow-sm rounded-xl transition-all bg-white">
-                      <div
-                        className="w-12 h-12 rounded-xl grid place-items-center text-white font-gaming text-xl font-bold shrink-0"
-                        style={{ background: prod.accent }}
-                      >
-                        {prod.name.slice(0, 1)}
-                      </div>
+                      <BuilderProductThumbnail
+                        name={prod.name}
+                        image={prod.image}
+                        accent={prod.accent}
+                        size="sm"
+                      />
 
                       <div className="flex-1 min-w-0">
                         <span className="font-specs text-[11px] font-bold tracking-wider uppercase text-muted block mb-0.5">

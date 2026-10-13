@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, X, ArrowRight, Sparkles, Loader2 } from "lucide-react";
+import { Search, X, ArrowRight, Loader2 } from "lucide-react";
 import { catalogApi, type CatalogProduct } from "../lib/catalog-api";
 import { formatPrice } from "../lib/products";
 
@@ -70,15 +70,6 @@ export function QuickSearch({
 
   if (!isOpen) return null;
 
-  const popularKeywords = [
-    "RTX 4070",
-    "Ryzen 5",
-    "Ryzen 7",
-    "Kingston",
-    "ASUS",
-    "Samsung",
-  ];
-
   return (
     <div className="search-modal-overlay" onClick={handleClose}>
       <div
@@ -116,20 +107,7 @@ export function QuickSearch({
         <div className="search-modal-body">
           {!query.trim() ? (
             <div className="search-modal-suggestions">
-              <span className="search-modal-section-title">
-                <Sparkles size={15} /> Từ khóa tìm kiếm phổ biến
-              </span>
-              <div className="search-keywords-list">
-                {popularKeywords.map((kw) => (
-                  <button
-                    key={kw}
-                    className="search-keyword-chip"
-                    onClick={() => setQuery(kw)}
-                  >
-                    {kw}
-                  </button>
-                ))}
-              </div>
+              <span className="search-modal-section-title">Nhập tên sản phẩm để tìm trong catalog.</span>
             </div>
           ) : results.length > 0 ? (
             <div className="search-results-list">

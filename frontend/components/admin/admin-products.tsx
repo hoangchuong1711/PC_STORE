@@ -21,8 +21,6 @@ import {
 import { ProductSpecEditor } from "./product-spec-editor";
 import { collectProductSpec, isProductComponentType } from "../../lib/product-spec-fields";
 import {
-  adminBrands,
-  adminCategories,
   adminProductStatuses,
   filterAdminProducts,
   formatAdminPrice,
@@ -229,8 +227,8 @@ export function AdminProducts() {
     }
   }, [editingProduct]);
 
-  const availableCategories = categoriesList.length > 0 ? categoriesList.map((c) => c.name) : adminCategories;
-  const availableBrands = brandsList.length > 0 ? brandsList.map((b) => b.name) : adminBrands;
+  const availableCategories = categoriesList.map((c) => c.name);
+  const availableBrands = brandsList.map((b) => b.name);
   const categoryComponentType = editingProduct
     ? categoriesList.find((category) => category.name === editingProduct.category)?.componentType
     : null;

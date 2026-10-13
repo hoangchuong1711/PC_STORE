@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { X, Trash2, ShoppingBag, ArrowRight, AlertCircle } from "lucide-react";
 import { useCart } from "./cart-provider";
 import { summarizeSelection } from "../lib/cart";
-import { formatPrice, products } from "../lib/products";
+import { formatPrice } from "../lib/products";
 
 export function CartDrawer() {
   const { items, selectedIds, toggleSelected, selectAll, isOpen, closeCart, update, remove, error, loading } = useCart();
@@ -33,17 +33,16 @@ export function CartDrawer() {
   if (!isOpen) return null;
 
   const lines = items.map((item) => {
-    const fallback = products.find((p) => p.id === item.id || p.id === `p${item.productId}`);
     const product = item.product ?? {
       id: item.id,
       productId: item.productId ?? 0,
       name: item.name,
       price: item.price,
-      stock: item.stock ?? fallback?.stock ?? 99,
-      brand: fallback?.brand ?? "PC Store",
-      category: fallback?.category ?? "Linh kiện",
-      accent: fallback?.accent ?? "#00539b",
-      slug: fallback?.slug ?? item.id,
+      stock: item.stock ?? 0,
+      brand: "",
+      category: "",
+      accent: "#00539b",
+      slug: item.id,
     };
     return { ...item, product };
   });

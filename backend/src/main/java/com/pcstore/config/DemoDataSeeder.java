@@ -21,10 +21,7 @@ final class DemoDataSeeder {
         "/db/seed/community_catalog.sql"
         );
     private static final String ACCOUNT_SEED = "/db/seed/t36_demo_accounts.sql";
-
-    // mật khẩu mặc định cho tài khoản demo. 
-    private static final String ADMIN_PASSWORD = "admin123";
-    private static final String CUSTOMER_PASSWORD = "user123";
+    private static final String TRANSACTION_SEED = "/db/seed/demo_transactions.sql";
 
     private DemoDataSeeder() {
     }
@@ -34,14 +31,25 @@ final class DemoDataSeeder {
     }
 
     static void seed(String url, String user, String password, boolean accountsEnabled) {
+        seed(url, user, password, accountsEnabled,
+                System.getenv("DEMO_ADMIN_PASSWORD"), System.getenv("DEMO_CUSTOMER_PASSWORD"));
+    }
+
+    static void seed(String url, String user, String password, boolean accountsEnabled,
+                     String adminPassword, String customerPassword) {
         try (Connection connection = DriverManager.getConnection(url, user, password)) {
             connection.setAutoCommit(false);
             try {
                 for (String resource : SQL_SEEDS) execute(connection, resource);
                 if (accountsEnabled) {
-                    setLocalHash(connection, "pcstore.demo_admin_hash", PasswordUtil.hash(ADMIN_PASSWORD));
-                    setLocalHash(connection, "pcstore.demo_customer_hash", PasswordUtil.hash(CUSTOMER_PASSWORD));
+                    if (adminPassword == null || adminPassword.isBlank()
+                            || customerPassword == null || customerPassword.isBlank()) {
+                        throw new IllegalStateException("Thiếu DEMO_ADMIN_PASSWORD hoặc DEMO_CUSTOMER_PASSWORD");
+                    }
+                    setLocalHash(connection, "pcstore.demo_admin_hash", PasswordUtil.hash(adminPassword));
+                    setLocalHash(connection, "pcstore.demo_customer_hash", PasswordUtil.hash(customerPassword));
                     execute(connection, ACCOUNT_SEED);
+                    execute(connection, TRANSACTION_SEED);
                 }
                 connection.commit();
             } catch (SQLException | RuntimeException exception) {

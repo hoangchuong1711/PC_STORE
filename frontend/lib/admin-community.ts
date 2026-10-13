@@ -1,4 +1,4 @@
-import { initialCommunityPosts, setupDtoToCommunityPost, type CommunityPost, type SetupStyle } from "./community";
+import { setupDtoToCommunityPost, type CommunityPost } from "./community";
 import type { SetupModeratedItem } from "./community-api";
 
 export const adminCommunityStatuses = ["PUBLISHED", "HIDDEN"] as const;
@@ -14,14 +14,6 @@ export type AdminCommunityPost = CommunityPost & {
 export type AdminCommunityFilters = {
   query: string;
   status: "ALL" | AdminCommunityStatus;
-  style: "ALL" | Exclude<SetupStyle, "all">;
-};
-
-export const communityStyleLabels: Record<Exclude<SetupStyle, "all">, string> = {
-  minimalist: "Tối giản",
-  "rgb-gaming": "RGB & Battlestation",
-  workstation: "Workstation",
-  ergonomic: "Công thái học",
 };
 
 export const communityStatusLabels: Record<AdminCommunityStatus, string> = {
@@ -29,17 +21,7 @@ export const communityStatusLabels: Record<AdminCommunityStatus, string> = {
   HIDDEN: "Đã ẩn",
 };
 
-export const initialAdminCommunityPosts: AdminCommunityPost[] = initialCommunityPosts.map(
-  (post, index) => ({
-    ...post,
-    status: index === 3 ? "HIDDEN" : "PUBLISHED",
-    moderationReason: index === 3 ? "Bài đang chờ chỉnh sửa ảnh đại diện." : undefined,
-    moderatedBy: index === 3 ? "Minh Anh" : undefined,
-    moderatedAt: index === 3 ? "2026-10-01T10:15:00+07:00" : undefined,
-  }),
-);
-
-export function filterAdminCommunityPosts<T extends Pick<AdminCommunityPost, "title" | "author" | "style" | "status">>(
+export function filterAdminCommunityPosts<T extends Pick<AdminCommunityPost, "title" | "author" | "status">>(
   items: readonly T[],
   filters: AdminCommunityFilters,
 ) {
@@ -51,8 +33,7 @@ export function filterAdminCommunityPosts<T extends Pick<AdminCommunityPost, "ti
       post.author.name.toLowerCase().includes(query) ||
       post.author.handle.toLowerCase().includes(query);
     const matchesStatus = filters.status === "ALL" || post.status === filters.status;
-    const matchesStyle = filters.style === "ALL" || post.style === filters.style;
-    return matchesQuery && matchesStatus && matchesStyle;
+    return matchesQuery && matchesStatus;
   });
 }
 
