@@ -8,6 +8,7 @@ import { useAuth } from "./auth-provider";
 import { useToast } from "./toast";
 import { QuickSearch } from "./quick-search";
 import { ProductReviewsSection } from "./reviews";
+import { ProductGalleryZoom } from "./product-gallery-zoom";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import {
   categories,
@@ -1324,30 +1325,14 @@ export function ProductDetail({
         </nav>
 
         <div className="detail-grid">
-          {/* Image Gallery */}
+          {/* Image Gallery with Interactive Reticle Zoom & Fullscreen Lightbox */}
           <div className="detail-gallery">
-            <div className="detail-main-visual">
-              <ProductVisual product={product} large imageIndex={selectedImageIdx} />
-              <div className="detail-gallery-caption">
-                Góc ảnh: <strong>{isProductImageSource(images[selectedImageIdx]) ? `Ảnh ${selectedImageIdx + 1}` : images[selectedImageIdx]}</strong>
-              </div>
-            </div>
-            <div className="detail-thumbnails" role="group" aria-label="Danh sách ảnh">
-              {images.map((imgLabel, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  className={`thumbnail-btn ${selectedImageIdx === idx ? "active" : ""}`}
-                  onClick={() => setSelectedImageIdx(idx)}
-                >
-                  <span
-                    className="thumbnail-swatch"
-                    style={{ background: product.accent }}
-                  />
-                  <small>{isProductImageSource(imgLabel) ? `Ảnh ${idx + 1}` : imgLabel}</small>
-                </button>
-              ))}
-            </div>
+            <ProductGalleryZoom
+              product={product}
+              images={images}
+              selectedImageIdx={selectedImageIdx}
+              onSelectImageIdx={setSelectedImageIdx}
+            />
           </div>
 
           {/* Details & Actions */}
