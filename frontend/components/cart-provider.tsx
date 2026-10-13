@@ -10,7 +10,11 @@ import {
 } from "react";
 import { useAuth } from "./auth-provider";
 import { cartApi, type CartResponse, type CartItemResponse } from "../lib/cart-api";
-import { addItem as localAddItem, changeQuantity as localChangeQuantity } from "../lib/cart";
+import {
+  addItem as localAddItem,
+  changeQuantity as localChangeQuantity,
+  parseServerProductId,
+} from "../lib/cart";
 import { products } from "../lib/products";
 
 export type UnifiedCartItem = {
@@ -25,7 +29,7 @@ export type UnifiedCartItem = {
   stock?: number;
   product?: {
     id: string;
-    productId: number;
+    productId?: number;
     name: string;
     price: number;
     stock: number;
@@ -146,15 +150,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const add = useCallback(
     async (id: string | number, quantity: number) => {
       setError(null);
-      let numericId: number | null = null;
-      if (typeof id === "number" && Number.isInteger(id) && id > 0) {
-        numericId = id;
-      } else if (typeof id === "string") {
-        const parsed = parseInt(id.replace(/^p-?/i, ""), 10);
-        if (Number.isInteger(parsed) && parsed > 0) {
-          numericId = parsed;
-        }
-      }
+      const numericId = parseServerProductId(id);
 
       if (user && numericId !== null) {
         try {
@@ -170,6 +166,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
         } finally {
           setLoading(false);
         }
+      } else if (user) {
+        const invalidProductError = new Error(
+          "Sản phẩm này không tồn tại trong catalog hiện tại và không thể thêm vào giỏ hàng.",
+        );
+        setError(invalidProductError.message);
+        throw invalidProductError;
       } else {
         // Fallback for guest or mock product
         const idStr = String(id);
@@ -190,7 +192,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 stock: p.stock,
                 product: {
                   id: p.id,
-                  productId: 1,
                   name: p.name,
                   price: p.price,
                   stock: p.stock,
@@ -258,7 +259,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 stock: p.stock,
                 product: {
                   id: p.id,
-                  productId: 1,
                   name: p.name,
                   price: p.price,
                   stock: p.stock,

@@ -8,59 +8,51 @@ export type SetupStyle = "all" | "minimalist" | "rgb-gaming" | "workstation" | "
 
 export const knownProductMap: Record<
   string,
-  { id: string; name: string; category: string; price: number; specsSummary: string }
+  { name: string; category: string; price: number; specsSummary: string }
 > = {
   "pc-creator-pro-x": {
-    id: "p3",
     name: "PC Creator Pro X",
     category: "PC Gaming",
     price: 52990000,
     specsSummary: "Core i9-14900K · RTX 4080 Super",
   },
   "rog-strix-g16-2025": {
-    id: "p1",
     name: "ROG Strix G16 2025",
     category: "Laptop",
     price: 38990000,
     specsSummary: "Intel Core Ultra 9 · RTX 5070",
   },
   "tuf-gaming-a15": {
-    id: "p2",
     name: "TUF Gaming A15",
     category: "Laptop",
     price: 24990000,
     specsSummary: "Ryzen 7 8845HS · RTX 4060",
   },
   "rtx-4070-super-dual": {
-    id: "p4",
     name: "RTX 4070 Super Dual 12GB",
     category: "Linh kiện",
     price: 16990000,
     specsSummary: "12GB GDDR6X · Windforce",
   },
   "kingston-fury-32gb": {
-    id: "p5",
     name: "Kingston Fury 32GB DDR5-6000",
     category: "Linh kiện",
     price: 2190000,
     specsSummary: "DDR5-6000 · CL36",
   },
   "ssd-nvme-990-pro": {
-    id: "p6",
     name: "Samsung 990 Pro NVMe 2TB",
     category: "Linh kiện",
     price: 4390000,
     specsSummary: "7450 MB/s · PCIe 4.0",
   },
   "ultrawide-monitor-34": {
-    id: "p7",
     name: "LG UltraWide 34 inch 165Hz",
     category: "Màn hình",
     price: 9490000,
     specsSummary: "3440x1440 · 165Hz",
   },
   "keychron-q1-pro": {
-    id: "p8",
     name: "Keychron Q1 Pro Custom QMK",
     category: "Phụ kiện",
     price: 4390000,
@@ -69,7 +61,8 @@ export const knownProductMap: Record<
 };
 
 export type PostComponent = {
-  productId?: string;
+  /** Numeric id from the backend catalog. Never derive this from a mock `pX` id. */
+  productId?: number;
   slug?: string;
   name: string;
   category: string;
@@ -463,7 +456,6 @@ export function createCommunityPost(input: {
       const prod = knownProductMap[slug];
       if (prod) {
         return {
-          productId: prod.id,
           slug,
           name: prod.name,
           category: prod.category,
@@ -565,10 +557,10 @@ export function setupDtoToCommunityPost(
           (k) => k.name.toLowerCase() === p.name.toLowerCase()
         );
       return {
-        productId: String(p.productId),
+        productId: p.productId,
+        slug: String(p.productId),
         name: p.name,
         category: known?.category || "Linh kiện",
-        price: known?.price,
         specsSummary: known?.specsSummary,
       };
     }),

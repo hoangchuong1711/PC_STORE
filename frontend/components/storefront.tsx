@@ -24,6 +24,7 @@ import {
   type CatalogCategoryOption,
   type CatalogBrandOption,
 } from "../lib/catalog-api";
+import { parseServerProductId } from "../lib/cart";
 import {
   Search,
   ShoppingCart,
@@ -362,13 +363,20 @@ export function ProductCard({ product }: { product: ProductInput }) {
   const { add } = useCart();
   const { toast } = useToast();
   const item = toProductCardModel(product);
+  const productId = "productId" in product
+    ? product.productId
+    : parseServerProductId(item.id);
+  const canAddToServerCart = productId !== null && item.stock > 0;
 
   const handleQuickAdd = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (productId === null) {
+      toast("Sản phẩm giới thiệu này chưa có trong catalog và không thể mua.", "info");
+      return;
+    }
     if (item.stock > 0) {
-      const numId = "productId" in product ? product.productId : parseInt(item.id.replace(/^p-?/i, ""), 10) || 1;
-      await add(numId, 1);
+      await add(productId, 1);
       toast(`Đã thêm "${item.name}" vào giỏ hàng!`, "success");
     }
   };
@@ -412,15 +420,17 @@ export function ProductCard({ product }: { product: ProductInput }) {
           </div>
 
           <div className="product-card-footer">
-            <span className={item.stock === 0 ? "stock out" : "stock"}>
-              {item.stock === 0
+            <span className={!canAddToServerCart ? "stock out" : "stock"}>
+              {productId === null
+                ? "Chưa có trong catalog"
+                : item.stock === 0
                 ? "Tạm hết hàng"
                 : `Còn ${item.stock} sản phẩm`}
             </span>
             <button
               type="button"
               className="quick-add-btn"
-              disabled={item.stock === 0}
+              disabled={!canAddToServerCart}
               onClick={handleQuickAdd}
               aria-label={`Thêm nhanh ${item.name}`}
             >
@@ -1156,38 +1166,41 @@ export function ProductDetail({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (initialProduct) {
-      setProduct(initialProduct);
-      return;
-    }
     if (!slug) return;
 
     let isMounted = true;
     async function fetchProduct() {
       setLoading(true);
       setError(null);
+      const fallback = initialProduct ?? getProduct(slug!);
       try {
-        const numId = /^\d+$/.test(slug!) ? Number(slug) : null;
+        const numId = parseServerProductId(slug!);
         if (numId !== null) {
           const serverProd = await catalogApi.getById(numId);
           if (isMounted) {
             setProduct(toProductCardModel(serverProd));
           }
-        } else {
-          const fallback = getProduct(slug!);
-          if (fallback) {
-            if (isMounted) setProduct(fallback);
-          } else {
-            if (isMounted) setError("Không tìm thấy thông tin sản phẩm yêu cầu.");
+        } else if (fallback) {
+          // Legacy showcase URLs do not contain a backend id. Resolve by an
+          // exact catalog name only; never turn a mock `pX` id into product X.
+          const serverProd = await catalogApi.findExactByName(fallback.name);
+          if (isMounted) {
+            setProduct(serverProd ? toProductCardModel(serverProd) : fallback);
           }
+        } else if (isMounted) {
+          setError("Không tìm thấy thông tin sản phẩm yêu cầu.");
         }
       } catch (err) {
         if (isMounted) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Không thể kết nối đến máy chủ để tải thông tin sản phẩm.",
-          );
+          if (fallback) {
+            setProduct(fallback);
+          } else {
+            setError(
+              err instanceof Error
+                ? err.message
+                : "Không thể kết nối đến máy chủ để tải thông tin sản phẩm.",
+            );
+          }
         }
       } finally {
         if (isMounted) setLoading(false);
@@ -1266,15 +1279,13 @@ export function ProductDetail({
   const images = product.images?.length
     ? product.images
     : ["Góc nhìn chính", "Góc nghiêng", "Bao bì sản phẩm"];
+  const serverProductId = parseServerProductId(product.id);
 
   const handleAddToCart = async () => {
-    if (!product || product.stock === 0 || isSubmitting) return;
+    if (!product || product.stock === 0 || isSubmitting || serverProductId === null) return;
     setIsSubmitting(true);
     try {
-      const numId = /^\d+$/.test(product.id)
-        ? Number(product.id)
-        : parseInt(product.id.replace(/^p-?/i, ""), 10) || 1;
-      await add(numId, quantity);
+      await add(serverProductId, quantity);
       toast(`Đã thêm ${quantity}x "${product.name}" vào giỏ hàng!`, "success");
     } catch (err) {
       toast(
@@ -1287,13 +1298,10 @@ export function ProductDetail({
   };
 
   const handleBuyNow = async () => {
-    if (!product || product.stock === 0 || isSubmitting) return;
+    if (!product || product.stock === 0 || isSubmitting || serverProductId === null) return;
     setIsSubmitting(true);
     try {
-      const numId = /^\d+$/.test(product.id)
-        ? Number(product.id)
-        : parseInt(product.id.replace(/^p-?/i, ""), 10) || 1;
-      await add(numId, quantity);
+      await add(serverProductId, quantity);
       router.push("/checkout");
     } catch (err) {
       toast(
@@ -1367,11 +1375,13 @@ export function ProductDetail({
 
             <div
               className={
-                product.stock === 0 ? "detail-stock out" : "detail-stock"
+                product.stock === 0 || serverProductId === null ? "detail-stock out" : "detail-stock"
               }
             >
               <span className="pulse-indicator" />
-              {product.stock === 0
+              {serverProductId === null
+                ? "Sản phẩm giới thiệu chưa có trong catalog hiện tại"
+                : product.stock === 0
                 ? "Sản phẩm tạm thời hết hàng tại showroom"
                 : `Sẵn hàng trong kho · Có thể giao hỏa tốc (${product.stock} chiếc)`}
             </div>
@@ -1389,7 +1399,7 @@ export function ProductDetail({
                 <span>{quantity}</span>
                 <button
                   type="button"
-                  disabled={quantity >= product.stock}
+                  disabled={serverProductId === null || quantity >= product.stock}
                   onClick={() =>
                     setQuantity(Math.min(product.stock, quantity + 1))
                   }
@@ -1404,7 +1414,7 @@ export function ProductDetail({
               <button
                 type="button"
                 className="button button-outline detail-add-btn"
-                disabled={product.stock === 0}
+                disabled={product.stock === 0 || serverProductId === null || isSubmitting}
                 onClick={handleAddToCart}
               >
                 <ShoppingCart size={17} /> Thêm vào giỏ hàng
@@ -1412,7 +1422,7 @@ export function ProductDetail({
               <button
                 type="button"
                 className="button button-primary detail-buy-now-btn"
-                disabled={product.stock === 0}
+                disabled={product.stock === 0 || serverProductId === null || isSubmitting}
                 onClick={handleBuyNow}
               >
                 Mua ngay <span>↗</span>
@@ -1478,11 +1488,13 @@ export function ProductDetail({
         </section>
 
         {/* Product Reviews & Real Customer Feedback */}
-        <ProductReviewsSection
-          productSlug={product.slug}
-          productName={product.name}
-          productId={/^\d+$/.test(product.id) ? Number(product.id) : parseInt(product.id.replace(/^p-?/i, ""), 10) || 1}
-        />
+        {serverProductId !== null && (
+          <ProductReviewsSection
+            productSlug={product.slug}
+            productName={product.name}
+            productId={serverProductId}
+          />
+        )}
 
         {/* Related Products */}
         {relatedProducts.length > 0 && (

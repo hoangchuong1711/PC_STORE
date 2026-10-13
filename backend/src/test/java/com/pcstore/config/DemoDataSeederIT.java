@@ -145,31 +145,39 @@ class DemoDataSeederIT {
                 DemoDataSeeder.seed(schemaUrl, user, password, false);
 
                 try (var connection = DriverManager.getConnection(schemaUrl, user, password)) {
-                    assertEquals(2, count(connection, "SELECT count(*) FROM brands WHERE name LIKE 'T05-DEMO %'"));
-                    assertEquals(2, count(connection, "SELECT count(*) FROM categories WHERE name LIKE 'T05-DEMO %'"));
-                    assertEquals(3, count(connection, "SELECT count(*) FROM products WHERE name LIKE 'T05-DEMO %'"));
+                    assertEquals(0, count(connection, "SELECT count(*) FROM brands WHERE name LIKE 'T05-DEMO %'"));
+                    assertEquals(0, count(connection, "SELECT count(*) FROM categories WHERE name LIKE 'T05-DEMO %'"));
+                    assertEquals(0, count(connection, "SELECT count(*) FROM products WHERE name LIKE 'T05-DEMO %'"));
                     assertEquals(0, count(connection, "SELECT count(*) FROM users"));
-                    assertEquals(2, count(connection, "SELECT count(*) FROM products p JOIN categories c ON c.category_id=p.category_id JOIN brands b ON b.brand_id=p.brand_id JOIN inventory i ON i.product_id=p.product_id WHERE p.name LIKE 'T05-DEMO %' AND p.status='ACTIVE' AND c.status='ACTIVE' AND b.status='ACTIVE' AND i.quantity_on_hand-i.reserved_quantity>0"));
+                    assertEquals(8, count(connection, "SELECT count(*) FROM products p JOIN inventory i ON i.product_id=p.product_id WHERE p.name IN ('PC Creator Pro X','ROG Strix G16 2025','TUF Gaming A15','Kingston Fury 32GB DDR5-6000','Samsung 990 Pro NVMe 2TB','Ultrawide Monitor 34','Keychron Q1 Pro Custom QMK','RTX 4070 Super Dual 12GB') AND p.status='ACTIVE' AND i.quantity_on_hand-i.reserved_quantity>0"));
+                    assertEquals(8, count(connection, "SELECT count(*) FROM products p JOIN product_images image ON image.product_id=p.product_id WHERE p.name IN ('PC Creator Pro X','ROG Strix G16 2025','TUF Gaming A15','Kingston Fury 32GB DDR5-6000','Samsung 990 Pro NVMe 2TB','Ultrawide Monitor 34','Keychron Q1 Pro Custom QMK','RTX 4070 Super Dual 12GB') AND image.is_primary=true AND image.sort_order=0 AND image.image_url LIKE 'https://encrypted-tbn0.gstatic.com/images?%'"));
+                    assertEquals(3, count(connection, "SELECT quantity_on_hand FROM inventory i JOIN products p ON p.product_id=i.product_id WHERE p.name='PC Creator Pro X'"));
 
                     try (var statement = connection.createStatement()) {
-                        statement.executeUpdate("UPDATE inventory SET quantity_on_hand=7 WHERE product_id=(SELECT product_id FROM products WHERE name='T05-DEMO Ryzen 5 7600')");
+                        statement.executeUpdate("UPDATE inventory SET quantity_on_hand=7 WHERE product_id=(SELECT product_id FROM products WHERE name='PC Creator Pro X')");
+                        statement.executeUpdate("UPDATE product_images SET image_url='https://admin.example.test/custom-pc.jpg' WHERE product_id=(SELECT product_id FROM products WHERE name='PC Creator Pro X')");
+                        statement.executeUpdate("UPDATE product_images SET image_url='/products/community/rog-strix-g16-2025.jpg' WHERE product_id=(SELECT product_id FROM products WHERE name='ROG Strix G16 2025')");
+                        statement.executeUpdate("UPDATE product_images SET image_url='/admin/products/laptop.svg' WHERE product_id=(SELECT product_id FROM products WHERE name='TUF Gaming A15')");
                     }
                 }
 
                 try (var factory = PersistenceManager.createEntityManagerFactory(schemaUrl, user, password);
                      var entityManager = factory.createEntityManager()) {
-                    assertEquals(2, new BrandDao(entityManager).findActive().size());
-                    assertEquals(2, new CategoryDao(entityManager).findActive().size());
+                    assertTrue(new BrandDao(entityManager).findActive().size() >= 5);
+                    assertTrue(new CategoryDao(entityManager).findActive().size() >= 4);
                     var catalog = new ProductCatalogService(entityManager);
                     var page = catalog.search(new ProductSearchQuery(null, null, null, null, null, 0, 20));
-                    assertEquals(2, page.totalItems());
-                    assertEquals(2, page.items().size());
+                    assertTrue(page.totalItems() >= 8);
+                    assertFalse(page.items().isEmpty());
                     assertEquals(page.items().getFirst().productId(), catalog.find(page.items().getFirst().productId()).productId());
                 }
 
                 DemoDataSeeder.seed(schemaUrl, user, password, false);
                 try (var connection = DriverManager.getConnection(schemaUrl, user, password)) {
-                    assertEquals(7, count(connection, "SELECT quantity_on_hand FROM inventory i JOIN products p ON p.product_id=i.product_id WHERE p.name='T05-DEMO Ryzen 5 7600'"));
+                    assertEquals(7, count(connection, "SELECT quantity_on_hand FROM inventory i JOIN products p ON p.product_id=i.product_id WHERE p.name='PC Creator Pro X'"));
+                    assertEquals(1, count(connection, "SELECT count(*) FROM product_images image JOIN products p ON p.product_id=image.product_id WHERE p.name='PC Creator Pro X' AND image.image_url='https://admin.example.test/custom-pc.jpg'"));
+                    assertEquals(1, count(connection, "SELECT count(*) FROM product_images image JOIN products p ON p.product_id=image.product_id WHERE p.name='ROG Strix G16 2025' AND image.image_url LIKE 'https://encrypted-tbn0.gstatic.com/images?%'"));
+                    assertEquals(1, count(connection, "SELECT count(*) FROM product_images image JOIN products p ON p.product_id=image.product_id WHERE p.name='TUF Gaming A15' AND image.image_url LIKE 'https://encrypted-tbn0.gstatic.com/images?%'"));
                 }
             } finally {
                 try (var statement = admin.createStatement()) {

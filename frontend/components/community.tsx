@@ -37,11 +37,17 @@ import {
   getFeaturedPost,
   toggleLikePost,
   addCommentToPost,
-  createCommunityPost,
   formatTimeAgo,
   setupDtoToCommunityPost,
 } from "../lib/community";
-import { products, formatPrice } from "../lib/products";
+import { catalogApi } from "../lib/catalog-api";
+import {
+  addAvailableCommunityComponents,
+  prepareCommunityComponents,
+  resolveCommunityComponents,
+  type CatalogPostComponent,
+} from "../lib/community-catalog";
+import { formatPrice } from "../lib/products";
 import { useCart } from "./cart-provider";
 import { useToast } from "./toast";
 import { Header, Footer } from "./storefront";
@@ -419,11 +425,28 @@ export function CommunityFeed() {
 
 export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) {
   const [post, setPost] = useState<CommunityPost>(initialPost);
+  const [catalogComponents, setCatalogComponents] = useState<CatalogPostComponent[]>(
+    () => prepareCommunityComponents(initialPost.components),
+  );
   const [selectedImgIdx, setSelectedImgIdx] = useState(0);
   const [commentText, setCommentText] = useState("");
   const [commentAuthor, setCommentAuthor] = useState("");
+  const [addingProductId, setAddingProductId] = useState<number | null>(null);
+  const [isAddingAll, setIsAddingAll] = useState(false);
   const { add } = useCart();
   const { toast } = useToast();
+
+  useEffect(() => {
+    let active = true;
+    void resolveCommunityComponents(initialPost.components, catalogApi).then(
+      (components) => {
+        if (active) setCatalogComponents(components);
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [initialPost.components]);
 
   const handleToggleLike = async () => {
     const numericId = parseInt(post.id, 10);
@@ -468,32 +491,37 @@ export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) 
     }
   };
 
-  const handleAddToCart = (slug?: string, name?: string) => {
-    if (!slug) return;
-    const prod = products.find((p) => p.slug === slug);
-    if (prod) {
-      add(prod.id, 1);
-      toast(`Đã thêm "${name || prod.name}" vào giỏ hàng!`, "success");
-    } else {
-      toast(`Sản phẩm "${name}" hiện đã hết hàng trong kho.`, "info");
+  const handleAddToCart = async (component: CatalogPostComponent) => {
+    if (component.catalogState !== "available" || !component.productId) return;
+    setAddingProductId(component.productId);
+    try {
+      await add(component.productId, 1);
+      toast(`Đã thêm "${component.name}" vào giỏ hàng!`, "success");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Không thể thêm sản phẩm vào giỏ hàng.", "error");
+    } finally {
+      setAddingProductId(null);
     }
   };
 
-  const handleAddAllComponents = () => {
-    let count = 0;
-    post.components.forEach((c) => {
-      if (c.slug) {
-        const prod = products.find((p) => p.slug === c.slug);
-        if (prod && prod.stock > 0) {
-          add(prod.id, 1);
-          count++;
-        }
+  const handleAddAllComponents = async () => {
+    setIsAddingAll(true);
+    try {
+      const result = await addAvailableCommunityComponents(catalogComponents, add);
+      if (result.added > 0 && result.failed === 0) {
+        toast(`Đã thêm ${result.added} linh kiện có trong catalog vào giỏ hàng!`, "success");
+      } else if (result.added > 0) {
+        toast(
+          `Đã thêm ${result.added} linh kiện; ${result.failed} linh kiện không thể thêm.`,
+          "info",
+        );
+      } else if (result.failed > 0) {
+        toast("Không thể thêm các linh kiện vào giỏ hàng lúc này.", "error");
+      } else {
+        toast("Không có linh kiện nào đang bán và còn hàng trong catalog.", "info");
       }
-    });
-    if (count > 0) {
-      toast(`Đã thêm ${count} linh kiện của góc máy vào giỏ hàng!`, "success");
-    } else {
-      toast("Các linh kiện trong góc máy này tạm thời hết hàng.", "info");
+    } finally {
+      setIsAddingAll(false);
     }
   };
 
@@ -709,18 +737,18 @@ export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) 
               <div className="flex justify-between items-center mb-4 pb-3 border-b border-[#e0e0e0]">
                 <h3 className="m-0 text-base font-bold text-ink">Linh kiện trong góc máy</h3>
                 <span className="text-xs font-semibold text-muted bg-slate-100 px-2.5 py-1 rounded-full">
-                  {post.components.length} sản phẩm
+                  {catalogComponents.length} sản phẩm
                 </span>
               </div>
 
               <div className="flex flex-col gap-3 mb-5 max-h-[460px] overflow-y-auto">
-                {post.components.map((comp, idx) => (
-                  <div key={idx} className="flex items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                {catalogComponents.map((comp) => (
+                  <div key={comp.productId ?? `${comp.name}-${comp.category}`} className="flex items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl">
                     <div className="min-w-0 flex-1">
                       <span className="text-[10px] font-bold uppercase text-muted block mb-0.5">{comp.category}</span>
-                      {comp.slug ? (
+                      {comp.productId ? (
                         <Link
-                          href={`/products/${comp.slug}`}
+                          href={`/products/${comp.productId}`}
                           className="text-xs md:text-sm font-bold text-ink hover:text-[#006ce1] block truncate"
                         >
                           {comp.name}
@@ -728,24 +756,35 @@ export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) 
                       ) : (
                         <strong className="text-xs md:text-sm font-bold text-ink block truncate">{comp.name}</strong>
                       )}
-                      {comp.specsSummary && (
+                      {comp.catalogState === "loading" ? (
+                        <p className="m-0 text-[11px] text-muted truncate">Đang kiểm tra catalog…</p>
+                      ) : comp.catalogState === "unavailable" ? (
+                        <p className="m-0 text-[11px] text-amber-700 truncate">Không có trong catalog hiện tại</p>
+                      ) : comp.catalogState === "out-of-stock" ? (
+                        <p className="m-0 text-[11px] text-rose-600 truncate">Tạm hết hàng</p>
+                      ) : comp.specsSummary ? (
                         <p className="m-0 text-[11px] text-muted truncate">{comp.specsSummary}</p>
-                      )}
+                      ) : null}
                     </div>
-                    {comp.price && (
+                    {comp.price !== undefined && (
                       <div className="text-xs md:text-sm font-specs font-bold text-ink shrink-0">
                         {formatPrice(comp.price)}
                       </div>
                     )}
-                    {comp.slug && (
+                    {comp.productId && (
                       <button
                         type="button"
                         className="w-8 h-8 rounded-lg bg-white hover:bg-[#006ce1] hover:text-white border border-slate-200 grid place-items-center text-slate-700 transition-colors cursor-pointer shrink-0"
-                        onClick={() => handleAddToCart(comp.slug, comp.name)}
+                        onClick={() => void handleAddToCart(comp)}
+                        disabled={
+                          comp.catalogState !== "available" ||
+                          addingProductId === comp.productId ||
+                          isAddingAll
+                        }
                         aria-label={`Thêm ${comp.name} vào giỏ`}
-                        title="Thêm vào giỏ hàng"
+                        title={comp.catalogState === "available" ? "Thêm vào giỏ hàng" : "Sản phẩm tạm hết hàng"}
                       >
-                        <ShoppingCart size={14} />
+                        {addingProductId === comp.productId ? <Loader2 size={14} className="animate-spin" /> : <ShoppingCart size={14} />}
                       </button>
                     )}
                   </div>
@@ -755,9 +794,13 @@ export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) 
               <button
                 type="button"
                 className="w-full inline-flex items-center justify-center gap-2 p-3 font-semibold text-sm rounded-xl text-white bg-[#006ce1] hover:bg-[#0051a8] transition-colors shadow-sm cursor-pointer border-none"
-                onClick={handleAddAllComponents}
+                onClick={() => void handleAddAllComponents()}
+                disabled={
+                  isAddingAll ||
+                  !catalogComponents.some((component) => component.catalogState === "available")
+                }
               >
-                <ShoppingCart size={16} /> Thêm cả bộ vào giỏ hàng
+                {isAddingAll ? <Loader2 size={16} className="animate-spin" /> : <ShoppingCart size={16} />} Thêm cả bộ vào giỏ hàng
               </button>
             </div>
           </aside>
@@ -1218,8 +1261,8 @@ export function CreateSetupModal({
               </span>
             </div>
             <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 bg-slate-50 border border-slate-200 rounded-xl">
-              {availableProducts.length > 0
-                ? availableProducts.map((p) => {
+              {availableProducts.length > 0 ? (
+                availableProducts.map((p) => {
                     const selected = selectedProductIds.includes(p.productId);
                     return (
                       <button
@@ -1236,24 +1279,11 @@ export function CreateSetupModal({
                       </button>
                     );
                   })
-                : products.map((p, idx) => {
-                    const dummyId = idx + 1;
-                    const selected = selectedProductIds.includes(dummyId);
-                    return (
-                      <button
-                        key={p.slug}
-                        type="button"
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer transition-colors border ${
-                          selected
-                            ? "bg-[#006ce1] text-white border-[#006ce1]"
-                            : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
-                        }`}
-                        onClick={() => toggleProductSelect(dummyId)}
-                      >
-                        {selected && <Check size={12} />} {p.name}
-                      </button>
-                    );
-                  })}
+              ) : (
+                <p className="m-1 text-xs text-amber-700">
+                  Không tải được catalog sản phẩm. Vui lòng thử lại sau; hệ thống sẽ không dùng ID sản phẩm mẫu.
+                </p>
+              )}
             </div>
           </div>
 
