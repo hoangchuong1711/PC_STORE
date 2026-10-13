@@ -19,16 +19,25 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-@WebServlet(name = "adminProductServlet", urlPatterns = "/api/admin/products/*")
+@WebServlet(name = "adminProductServlet", urlPatterns = {"/api/admin/products", "/api/admin/products/*"})
 public class AdminProductServlet extends HttpServlet {
     private static final Pattern PRODUCT_PATH = Pattern.compile("^/(\\d+)/?$");
     private static final Pattern INVENTORY_PATH = Pattern.compile("^/(\\d+)/inventory/?$");
 
     private AdminProductService products;
 
+    public AdminProductServlet() {
+    }
+
+    AdminProductServlet(AdminProductService products) {
+        this.products = products;
+    }
+
     @Override
     public void init() {
-        products = new AdminProductService();
+        if (products == null) {
+            products = new AdminProductService();
+        }
     }
 
     /** Servlet 6.0 chưa dispatch PATCH nên route method này trước khi gọi HttpServlet.service. */
@@ -46,6 +55,10 @@ public class AdminProductServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         try {
             String path = request.getPathInfo() == null ? "" : request.getPathInfo().trim();
+            if (isCollectionPath(path)) {
+                JsonUtil.write(response, HttpServletResponse.SC_OK, products.list());
+                return;
+            }
             Matcher productMatcher = PRODUCT_PATH.matcher(path);
             if (!productMatcher.matches()) {
                 writeNotFound(response);

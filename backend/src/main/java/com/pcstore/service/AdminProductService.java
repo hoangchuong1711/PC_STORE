@@ -2,8 +2,9 @@ package com.pcstore.service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Objects;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -152,6 +153,17 @@ public class AdminProductService {
         });
     }
 
+    public List<AdminProductResponse> list() {
+        return inTransaction(dao -> {
+            List<Product> allProducts = dao.findAllProducts();
+            Map<Integer, Inventory> inventoryMap = dao.findInventories(
+                    allProducts.stream().map(Product::getProductId).toList());
+            return allProducts.stream()
+                    .map(product -> toResponse(dao, product, inventoryMap.get(product.getProductId())))
+                    .toList();
+        });
+    }
+
     private Product findProduct(AdminProductDao dao, int productId) {
         Product product = dao.findProductById(productId);
         if (product == null) throw new ResourceNotFoundException("Không tìm thấy sản phẩm.");
@@ -233,11 +245,13 @@ public class AdminProductService {
     }
 
     private AdminProductResponse toResponse(AdminProductDao dao, Product product, Inventory inventory) {
+        int qoh = inventory != null ? inventory.getQuantityOnHand() : 0;
+        int reserved = inventory != null ? inventory.getReservedQuantity() : 0;
         return new AdminProductResponse(
                 product.getProductId(), product.getName(), product.getDescription(), product.getPrice(),
                 product.getStatus().name(), product.getCategory().getCategoryId(), product.getCategory().getName(),
-                product.getBrand().getBrandId(), product.getBrand().getName(), inventory.getQuantityOnHand(),
-                inventory.getReservedQuantity(), inventory.getQuantityOnHand() - inventory.getReservedQuantity(),
+                product.getBrand().getBrandId(), product.getBrand().getName(), qoh,
+                reserved, qoh - reserved,
                 dao.specs().find(product.getProductId(), product.getCategory().getComponentType()));
     }
 

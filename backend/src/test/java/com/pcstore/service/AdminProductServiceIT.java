@@ -2,6 +2,7 @@ package com.pcstore.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -127,6 +128,27 @@ class AdminProductServiceIT {
         assertEquals(4, updated.quantityOnHand());
         assertEquals(3, updated.reservedQuantity());
         assertEquals(1, updated.availableQuantity());
+    }
+
+    @Test
+    void listsAllAdminProductsWithInventoryAndCategory() {
+        var p1 = service.create(new CreateProductRequest(
+                "Product 1", "Desc 1", new BigDecimal("1000000"),
+                categoryId, brandId, ProductStatus.ACTIVE, 10));
+        var p2 = service.create(new CreateProductRequest(
+                "Product 2", "Desc 2", new BigDecimal("2000000"),
+                categoryId, brandId, ProductStatus.DRAFT, 5));
+
+        var list = service.list();
+        var ids = list.stream().map(com.pcstore.dto.AdminProductResponse::productId).toList();
+        assertTrue(ids.contains(p1.productId()));
+        assertTrue(ids.contains(p2.productId()));
+
+        var found1 = list.stream().filter(p -> p.productId().equals(p1.productId())).findFirst().orElseThrow();
+        assertEquals("Product 1", found1.name());
+        assertEquals(10, found1.availableQuantity());
+        assertEquals("CPU", found1.categoryName());
+        assertEquals("AMD", found1.brandName());
     }
 
     private com.pcstore.dto.ProductResponse findPublic(int productId) {

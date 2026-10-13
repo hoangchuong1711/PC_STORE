@@ -8,6 +8,10 @@ import com.pcstore.entity.Product;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 public class AdminProductDao {
     private final EntityManager em;
     private final ProductSpecDao specs;
@@ -65,5 +69,33 @@ public class AdminProductDao {
 
     public void persistInventory(Inventory inventory) {
         em.persist(inventory);
+    }
+
+    public List<Product> findAllProducts() {
+        return em.createQuery("""
+                        select distinct p
+                        from Product p
+                        join fetch p.category
+                        join fetch p.brand
+                        order by p.productId asc
+                        """, Product.class)
+                .getResultList();
+    }
+
+    public Map<Integer, Inventory> findInventories(List<Integer> productIds) {
+        if (productIds == null || productIds.isEmpty()) return Map.of();
+        return em.createQuery("""
+                        select i
+                        from Inventory i
+                        where i.product.productId in :productIds
+                        """, Inventory.class)
+                .setParameter("productIds", productIds)
+                .getResultList()
+                .stream()
+                .collect(Collectors.toMap(
+                        inv -> inv.getProduct().getProductId(),
+                        inv -> inv,
+                        (existing, replacement) -> existing
+                ));
     }
 }
