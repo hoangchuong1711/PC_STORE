@@ -10,12 +10,7 @@ import {
 } from "react";
 import { useAuth } from "./auth-provider";
 import { cartApi, type CartResponse, type CartItemResponse } from "../lib/cart-api";
-import {
-  addItem as localAddItem,
-  changeQuantity as localChangeQuantity,
-  parseServerProductId,
-} from "../lib/cart";
-import { products } from "../lib/products";
+import { parseServerProductId } from "../lib/cart";
 
 export type UnifiedCartItem = {
   cartItemId?: number;
@@ -65,7 +60,6 @@ const CartContext = createContext<CartContextValue | null>(null);
 function mapServerCart(serverCart: CartResponse): UnifiedCartItem[] {
   return serverCart.items.map((item: CartItemResponse) => {
     const id = String(item.productId);
-    const fallback = products.find((p) => p.id === id || p.id === `p${id}`);
     return {
       cartItemId: item.cartItemId,
       productId: item.productId,
@@ -75,17 +69,17 @@ function mapServerCart(serverCart: CartResponse): UnifiedCartItem[] {
       unitPrice: item.unitPrice,
       quantity: item.quantity,
       lineTotal: item.lineTotal,
-      stock: item.availableQuantity ?? fallback?.stock ?? 99,
+      stock: item.availableQuantity,
       product: {
         id,
         productId: item.productId,
         name: item.name,
         price: item.unitPrice,
-        stock: item.availableQuantity ?? fallback?.stock ?? 99,
-        brand: fallback?.brand ?? "PC Store",
-        category: fallback?.category ?? "Linh kiện",
-        accent: fallback?.accent ?? "#00539b",
-        slug: fallback?.slug ?? id,
+        stock: item.availableQuantity,
+        brand: "",
+        category: "",
+        accent: "#00539b",
+        slug: id,
       },
     };
   });
@@ -173,38 +167,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setError(invalidProductError.message);
         throw invalidProductError;
       } else {
-        // Fallback for guest or mock product
-        const idStr = String(id);
-        const product = products.find((item) => item.id === idStr);
-        if (product) {
-          setItems((current) => {
-            const localItems = current.map((i) => ({ id: i.id, quantity: i.quantity }));
-            const updated = localAddItem(localItems, idStr, quantity, product.stock);
-            return updated.map((u) => {
-              const p = products.find((x) => x.id === u.id) ?? product;
-              return {
-                id: u.id,
-                name: p.name,
-                price: p.price,
-                unitPrice: p.price,
-                quantity: u.quantity,
-                lineTotal: p.price * u.quantity,
-                stock: p.stock,
-                product: {
-                  id: p.id,
-                  name: p.name,
-                  price: p.price,
-                  stock: p.stock,
-                  brand: p.brand,
-                  category: p.category,
-                  accent: p.accent,
-                  slug: p.slug,
-                },
-              };
-            });
-          });
-          setIsOpen(true);
-        }
+        const loginError = new Error("Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng.");
+        setError(loginError.message);
+        throw loginError;
       }
     },
     [user],
@@ -240,37 +205,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         }
       } else {
-        // Fallback for guest
-        const idStr = String(id);
-        const product = products.find((item) => item.id === idStr);
-        if (product) {
-          setItems((current) => {
-            const localItems = current.map((i) => ({ id: i.id, quantity: i.quantity }));
-            const updated = localChangeQuantity(localItems, idStr, quantity, product.stock);
-            return updated.map((u) => {
-              const p = products.find((x) => x.id === u.id) ?? product;
-              return {
-                id: u.id,
-                name: p.name,
-                price: p.price,
-                unitPrice: p.price,
-                quantity: u.quantity,
-                lineTotal: p.price * u.quantity,
-                stock: p.stock,
-                product: {
-                  id: p.id,
-                  name: p.name,
-                  price: p.price,
-                  stock: p.stock,
-                  brand: p.brand,
-                  category: p.category,
-                  accent: p.accent,
-                  slug: p.slug,
-                },
-              };
-            });
-          });
-        }
+        const loginError = new Error("Vui lòng đăng nhập để cập nhật giỏ hàng.");
+        setError(loginError.message);
+        throw loginError;
       }
     },
     [user, items, refreshCart],

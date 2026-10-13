@@ -64,34 +64,7 @@ test("never turns a legacy mock id into a backend product id", async () => {
   assert.equal(missing.productId, undefined);
 });
 
-test("maps legacy community variants to their canonical catalog name", async () => {
-  const lookedUp = [];
-  const [component] = await resolveCommunityComponents(
-    [{
-      slug: "ultrawide-monitor-34",
-      name: "LG UltraWide 34 inch 165Hz",
-      category: "Màn hình",
-      price: 1,
-    }],
-    {
-      async getById() {
-        assert.fail("a legacy component must be resolved by canonical name");
-      },
-      async findExactByName(name) {
-        lookedUp.push(name);
-        return { ...catalogProduct, productId: 51, name: "Ultrawide Monitor 34" };
-      },
-    },
-  );
-
-  assert.deepEqual(lookedUp, ["Ultrawide Monitor 34"]);
-  assert.equal(component.productId, 51);
-  assert.equal(component.name, "Ultrawide Monitor 34");
-  assert.equal(component.price, catalogProduct.price);
-  assert.equal(component.catalogState, "available");
-});
-
-test("maps the remaining legacy keyboard and GPU slugs to stocked products", async () => {
+test("looks up a legacy setup by its own name without a hardcoded catalog map", async () => {
   const lookedUp = [];
   const resolved = await resolveCommunityComponents(
     [
@@ -114,7 +87,7 @@ test("maps the remaining legacy keyboard and GPU slugs to stocked products", asy
     },
   );
 
-  assert.deepEqual(lookedUp, ["Keychron Q1 Pro Custom QMK", "RTX 4070 Super Dual 12GB"]);
+  assert.deepEqual(lookedUp, ["Keychron Q1 Pro Custom", "RTX 4070 Super Dual"]);
   assert.deepEqual(resolved.map((item) => item.catalogState), ["available", "available"]);
   assert.deepEqual(resolved.map((item) => item.availableQuantity), [5, 5]);
 });

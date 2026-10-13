@@ -11,12 +11,8 @@ import { ProductReviewsSection } from "./reviews";
 import { ProductGalleryZoom } from "./product-gallery-zoom";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import {
-  categories,
-  brands,
   formatPrice,
   Product,
-  products,
-  getProduct,
 } from "../lib/products";
 import {
   catalogApi,
@@ -350,9 +346,6 @@ export function toProductCardModel(item: ProductInput): Product {
       accent: brandName === "AMD" ? "#ed1c24" : brandName === "NVIDIA" ? "#76b900" : "#00539b",
       badge: item.inStock ? undefined : "Hết hàng",
       featured: false,
-      rating: 4.8,
-      reviewCount: 12,
-      warranty: "36 tháng chính hãng",
       images: item.imageUrls.length ? item.imageUrls : ["Góc nhìn chính"],
     };
   }
@@ -565,8 +558,7 @@ export function HomePage() {
             </Link>
           </div>
           <div className="category-grid">
-            {categoriesList.length > 0
-              ? categoriesList.map((category, idx) => (
+            {categoriesList.map((category, idx) => (
                   <Link
                     className="category-tile category-violet"
                     href={`/products?categoryId=${category.categoryId}`}
@@ -576,19 +568,6 @@ export function HomePage() {
                     <span className="category-icon">▣</span>
                     <strong>{category.name}</strong>
                     <small>{category.componentType ?? "Linh kiện"}</small>
-                    <span className="tile-arrow">↗</span>
-                  </Link>
-                ))
-              : categories.map((category, idx) => (
-                  <Link
-                    className={`category-tile category-${category.tone}`}
-                    href={`/products?category=${encodeURIComponent(category.name)}`}
-                    key={category.name}
-                  >
-                    <span className="category-index">0{idx + 1}</span>
-                    <span className="category-icon">▣</span>
-                    <strong>{category.name}</strong>
-                    <small>{category.count}</small>
                     <span className="tile-arrow">↗</span>
                   </Link>
                 ))}
@@ -1148,59 +1127,36 @@ export function CatalogPage() {
   );
 }
 
-export function ProductDetail({
-  product: initialProduct,
-  slug,
-}: {
-  product?: Product | null;
-  slug?: string;
-}) {
+export function ProductDetail({ slug }: { slug: string }) {
   const router = useRouter();
   const { add } = useCart();
   const { toast } = useToast();
-  const [product, setProduct] = useState<Product | null>(initialProduct ?? null);
-  const [loading, setLoading] = useState<boolean>(!initialProduct && Boolean(slug));
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!slug) return;
-
     let isMounted = true;
     async function fetchProduct() {
       setLoading(true);
       setError(null);
-      const fallback = initialProduct ?? getProduct(slug!);
       try {
-        const numId = parseServerProductId(slug!);
+        const numId = parseServerProductId(slug);
         if (numId !== null) {
           const serverProd = await catalogApi.getById(numId);
           if (isMounted) {
             setProduct(toProductCardModel(serverProd));
-          }
-        } else if (fallback) {
-          // Legacy showcase URLs do not contain a backend id. Resolve by an
-          // exact catalog name only; never turn a mock `pX` id into product X.
-          const serverProd = await catalogApi.findExactByName(fallback.name);
-          if (isMounted) {
-            setProduct(serverProd ? toProductCardModel(serverProd) : fallback);
           }
         } else if (isMounted) {
           setError("Không tìm thấy thông tin sản phẩm yêu cầu.");
         }
       } catch (err) {
         if (isMounted) {
-          if (fallback) {
-            setProduct(fallback);
-          } else {
-            setError(
-              err instanceof Error
-                ? err.message
-                : "Không thể kết nối đến máy chủ để tải thông tin sản phẩm.",
-            );
-          }
+          setProduct(null);
+          setError(err instanceof Error ? err.message : "Không thể kết nối đến máy chủ để tải thông tin sản phẩm.");
         }
       } finally {
         if (isMounted) setLoading(false);
@@ -1212,7 +1168,7 @@ export function ProductDetail({
     return () => {
       isMounted = false;
     };
-  }, [initialProduct, slug]);
+  }, [slug]);
 
   if (loading) {
     return (
@@ -1311,10 +1267,6 @@ export function ProductDetail({
       setIsSubmitting(false);
     }
   };
-
-  const relatedProducts = products
-    .filter((p) => p.id !== product.id && p.category === product.category)
-    .slice(0, 3);
 
   return (
     <>
@@ -1429,37 +1381,6 @@ export function ProductDetail({
               </button>
             </div>
 
-            {/* Store Value Commitments */}
-            <div className="store-commitments-grid">
-              <div className="commitment-item">
-                <ShieldCheck size={20} className="commitment-icon" />
-                <div>
-                  <strong>Bảo hành chính hãng</strong>
-                  <p>{product.warranty ?? "24 - 36 tháng chính hãng"}</p>
-                </div>
-              </div>
-              <div className="commitment-item">
-                <Truck size={20} className="commitment-icon" />
-                <div>
-                  <strong>Miễn phí vận chuyển</strong>
-                  <p>Áp dụng cho mọi đơn COD và Chuyển khoản</p>
-                </div>
-              </div>
-              <div className="commitment-item">
-                <RotateCcw size={20} className="commitment-icon" />
-                <div>
-                  <strong>Đổi mới 30 ngày</strong>
-                  <p>Lỗi nhà sản xuất 1 đổi 1 ngay lập tức</p>
-                </div>
-              </div>
-              <div className="commitment-item">
-                <Headphones size={20} className="commitment-icon" />
-                <div>
-                  <strong>Hỗ trợ kỹ thuật 24/7</strong>
-                  <p>Đội ngũ chuyên gia PC Store hỗ trợ ráp máy</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -1480,10 +1401,6 @@ export function ProductDetail({
               <span className="spec-key">Thương hiệu</span>
               <strong className="spec-val">{product.brand}</strong>
             </div>
-            <div className="spec-item">
-              <span className="spec-key">Chính sách bảo hành</span>
-              <strong className="spec-val">{product.warranty ?? "Chính hãng"}</strong>
-            </div>
           </div>
         </section>
 
@@ -1496,25 +1413,6 @@ export function ProductDetail({
           />
         )}
 
-        {/* Related Products */}
-        {relatedProducts.length > 0 && (
-          <section className="related-section">
-            <div className="section-heading">
-              <div>
-                <span className="eyebrow">Gợi ý kèm theo</span>
-                <h2>Sản phẩm cùng danh mục</h2>
-              </div>
-              <Link className="text-link" href="/products">
-                Xem thêm ↗
-              </Link>
-            </div>
-            <div className="product-grid">
-              {relatedProducts.map((rel) => (
-                <ProductCard product={rel} key={rel.id} />
-              ))}
-            </div>
-          </section>
-        )}
       </main>
       <Footer />
     </>

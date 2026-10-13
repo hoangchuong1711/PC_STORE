@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import {
   ArrowUpRight,
   BarChart3,
@@ -16,15 +15,16 @@ import {
   Users,
 } from "lucide-react";
 import {
-  dashboardRevenueTrend,
   formatAdminDate,
   formatAdminPrice,
-  initialAdminOrders,
-  initialAdminProducts,
   orderStatusLabels,
   productStatusLabels,
-  type DashboardChartPoint,
 } from "../../lib/admin";
+import { adminProductApi, type AdminProductItem } from "../../lib/admin-product-api";
+import { adminOrderApi } from "../../lib/admin-order-api";
+import type { OrderResponse } from "../../lib/order-api";
+import { buildDashboardData, type DashboardPoint } from "../../lib/dashboard";
+import { useAuth } from "../auth-provider";
 
 const numberFormat = new Intl.NumberFormat("vi-VN");
 
@@ -41,28 +41,41 @@ const statusTone: Record<string, string> = {
 };
 
 export function AdminDashboard() {
-  const [activeChartPoint, setActiveChartPoint] = useState<DashboardChartPoint | null>(
-    dashboardRevenueTrend[dashboardRevenueTrend.length - 1],
-  );
+  const { user } = useAuth();
+  const [products, setProducts] = useState<AdminProductItem[]>([]);
+  const [orders, setOrders] = useState<OrderResponse[]>([]);
+  const [loadError, setLoadError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [activeChartPoint, setActiveChartPoint] = useState<DashboardPoint | null>(null);
 
-  const activeProducts = initialAdminProducts.filter((product) => product.status !== "DISCONTINUED");
-  const lowStockProducts = activeProducts
-    .filter((product) => product.stock <= 5)
-    .sort((a, b) => a.stock - b.stock)
-    .slice(0, 5);
-  const pendingOrders = initialAdminOrders.filter((order) => order.status === "PENDING").length;
-  const paidRevenue = initialAdminOrders
-    .filter((order) => order.status !== "CANCELLED")
-    .reduce((sum, order) => sum + order.total, 0);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([adminProductApi.list(), adminOrderApi.list()])
+      .then(([loadedProducts, loadedOrders]) => {
+        if (!cancelled) {
+          setProducts(loadedProducts);
+          setOrders(loadedOrders);
+          setLoadError("");
+        }
+      })
+      .catch((cause) => {
+        if (!cancelled) setLoadError(cause instanceof Error ? cause.message : "Không thể tải dữ liệu tổng quan.");
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
 
-  const maxRevenue = Math.max(...dashboardRevenueTrend.map((p) => p.revenue), 60_000_000);
+  const { activeProducts, lowStockProducts, pendingOrders, paidRevenue, recentOrders, trend } =
+    buildDashboardData(products, orders);
+  const selectedChartPoint = activeChartPoint ?? trend[trend.length - 1];
+  const maxRevenue = Math.max(...trend.map((p) => p.revenue), 1);
   const chartHeight = 160;
   const chartWidth = 520;
   const paddingX = 40;
   const paddingY = 24;
 
-  const points = dashboardRevenueTrend.map((point, index) => {
-    const x = paddingX + (index * (chartWidth - 2 * paddingX)) / (dashboardRevenueTrend.length - 1);
+  const points = trend.map((point, index) => {
+    const x = paddingX + (index * (chartWidth - 2 * paddingX)) / (trend.length - 1);
     const y = chartHeight - paddingY - (point.revenue / maxRevenue) * (chartHeight - 2 * paddingY);
     return { ...point, x, y };
   });
@@ -76,7 +89,7 @@ export function AdminDashboard() {
     {
       label: "Sản phẩm đang quản lý",
       value: numberFormat.format(activeProducts.length),
-      note: "2 cập nhật tuần này",
+      note: "Sản phẩm đang bán",
       icon: Package,
       tone: "bg-admin-blue-soft text-admin-blue",
     },
@@ -88,9 +101,9 @@ export function AdminDashboard() {
       tone: "bg-admin-amber-soft text-admin-amber",
     },
     {
-      label: "Doanh thu kỳ này",
+      label: "Doanh thu đã thanh toán",
       value: formatAdminPrice(paidRevenue),
-      note: "Từ các đơn chưa hủy",
+      note: "Từ các đơn đã thanh toán",
       icon: ShoppingBag,
       tone: "bg-admin-green-soft text-admin-green",
     },
@@ -105,10 +118,12 @@ export function AdminDashboard() {
 
   return (
     <div className="max-w-[1250px] mx-auto font-sans">
+      {loading && <p role="status" className="mb-4 text-admin-muted">Đang tải dữ liệu tổng quan...</p>}
+      {loadError && <p role="alert" className="mb-4 text-admin-red">{loadError}</p>}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-7">
         <div>
-          <span className="block text-[10px] font-bold text-admin-soft tracking-wider uppercase">Thứ ba, 06 tháng 10, 2026</span>
-          <h1 className="text-2xl sm:text-3xl lg:text-[34px] font-extrabold text-admin-ink tracking-tight mt-1 mb-1.5 leading-tight">Chào buổi sáng, Minh Anh</h1>
+          <span className="block text-[10px] font-bold text-admin-soft tracking-wider uppercase">{new Intl.DateTimeFormat("vi-VN", { dateStyle: "full" }).format(new Date())}</span>
+          <h1 className="text-2xl sm:text-3xl lg:text-[34px] font-extrabold text-admin-ink tracking-tight mt-1 mb-1.5 leading-tight">Xin chào, {user?.fullName ?? "quản trị viên"}</h1>
           <p className="text-sm text-admin-muted max-w-[570px] m-0">Dưới đây là bức tranh vận hành tổng thể về đơn hàng, kho và doanh thu hôm nay.</p>
         </div>
         <div className="flex items-center gap-2.5 shrink-0">
@@ -148,11 +163,11 @@ export function AdminDashboard() {
             <span className="block text-[10px] font-bold text-admin-soft tracking-wider uppercase">Phân tích dòng tiền</span>
             <h2 className="text-base font-bold text-admin-ink tracking-tight mt-1 mb-0">Doanh thu & Số lượng đơn 7 ngày qua</h2>
           </div>
-          {activeChartPoint && (
+          {selectedChartPoint && (
             <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-admin-bg border border-admin-line text-xs font-semibold text-admin-ink">
-              <strong>{activeChartPoint.fullDate}:</strong>{" "}
-              <span className="text-admin-blue font-bold">{formatAdminPrice(activeChartPoint.revenue)}</span> ·{" "}
-              <small className="text-admin-muted">{activeChartPoint.orders} đơn</small>
+              <strong>{selectedChartPoint.fullDate}:</strong>{" "}
+              <span className="text-admin-blue font-bold">{formatAdminPrice(selectedChartPoint.revenue)}</span> ·{" "}
+              <small className="text-admin-muted">{selectedChartPoint.orders} đơn</small>
             </div>
           )}
         </div>
@@ -200,7 +215,7 @@ export function AdminDashboard() {
 
             {/* Điểm tròn tương tác */}
             {points.map((p) => {
-              const isHovered = activeChartPoint?.label === p.label;
+              const isHovered = selectedChartPoint?.label === p.label;
               return (
                 <g key={p.label} className="cursor-pointer" onMouseEnter={() => setActiveChartPoint(p)}>
                   <circle
@@ -256,24 +271,25 @@ export function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {initialAdminOrders.slice(0, 4).map((order) => (
-                  <tr key={order.id} className="hover:bg-admin-bg/50 transition-colors">
+                {recentOrders.slice(0, 4).map((order) => (
+                  <tr key={order.orderId} className="hover:bg-admin-bg/50 transition-colors">
                     <td className="py-3.5 px-3.5 border-b border-[#edf0f2] align-middle">
-                      <strong className="block text-xs font-bold text-admin-ink">{order.code}</strong>
-                      <span className="block text-[10px] text-admin-soft mt-0.5">{formatAdminDate(order.createdAt)}</span>
+                      <strong className="block text-xs font-bold text-admin-ink">#{order.orderId}</strong>
+                      <span className="block text-[10px] text-admin-soft mt-0.5">{formatAdminDate(order.orderDate)}</span>
                     </td>
                     <td className="py-3.5 px-3.5 border-b border-[#edf0f2] align-middle">
-                      <strong className="block text-xs font-bold text-admin-ink">{order.customerName}</strong>
-                      <span className="block text-[10px] text-admin-soft mt-0.5">{order.itemCount} sản phẩm</span>
+                      <strong className="block text-xs font-bold text-admin-ink">{order.shippingName}</strong>
+                      <span className="block text-[10px] text-admin-soft mt-0.5">{order.items.reduce((sum, item) => sum + item.quantity, 0)} sản phẩm</span>
                     </td>
                     <td className="py-3.5 px-3.5 border-b border-[#edf0f2] align-middle">
                       <span className={`inline-flex items-center min-h-[22px] px-2 rounded text-[10px] font-bold whitespace-nowrap ${statusTone[order.status]}`}>
-                        {orderStatusLabels[order.status]}
+                        {orderStatusLabels[order.status as keyof typeof orderStatusLabels] ?? order.status}
                       </span>
                     </td>
-                    <td className="py-3.5 px-3.5 border-b border-[#edf0f2] align-middle text-right font-bold text-admin-ink whitespace-nowrap">{formatAdminPrice(order.total)}</td>
+                    <td className="py-3.5 px-3.5 border-b border-[#edf0f2] align-middle text-right font-bold text-admin-ink whitespace-nowrap">{formatAdminPrice(order.totalAmount)}</td>
                   </tr>
                 ))}
+                {recentOrders.length === 0 && <tr><td colSpan={4} className="py-5 text-center text-admin-muted">Chưa có đơn hàng.</td></tr>}
               </tbody>
             </table>
           </div>
@@ -291,19 +307,20 @@ export function AdminDashboard() {
           </div>
           <div className="flex flex-col divide-y divide-[#edf0f2] flex-1 my-2">
             {lowStockProducts.map((product) => (
-              <Link href="/admin/products" className="flex items-center gap-3 py-2.5 hover:bg-admin-bg/50 px-1 rounded-lg transition-colors" key={product.id}>
-                <span className="w-8 h-8 rounded-lg overflow-hidden shrink-0 flex items-center justify-center p-0.5 border border-admin-line" style={{ backgroundColor: product.imageColor }}>
-                  <Image src={product.imageUrl} alt="" width={34} height={34} unoptimized />
+              <Link href="/admin/products" className="flex items-center gap-3 py-2.5 hover:bg-admin-bg/50 px-1 rounded-lg transition-colors" key={product.productId}>
+                <span className="w-8 h-8 rounded-lg overflow-hidden shrink-0 flex items-center justify-center p-0.5 border border-admin-line">
+                  <Package size={20} />
                 </span>
                 <span className="min-w-0 flex-1">
                   <strong className="block text-xs font-semibold text-admin-ink truncate">{product.name}</strong>
                   <small className="block text-[10px] text-admin-soft">{productStatusLabels[product.status]}</small>
                 </span>
-                <span className={`text-xs font-bold px-2 py-0.5 rounded ${product.stock === 0 ? "bg-admin-red-soft text-admin-red" : "bg-slate-100 text-admin-muted"}`}>
-                  {product.stock === 0 ? "Hết" : `${product.stock} sp`}
+                <span className={`text-xs font-bold px-2 py-0.5 rounded ${product.availableQuantity === 0 ? "bg-admin-red-soft text-admin-red" : "bg-slate-100 text-admin-muted"}`}>
+                  {product.availableQuantity === 0 ? "Hết" : `${product.availableQuantity} sp`}
                 </span>
               </Link>
             ))}
+            {lowStockProducts.length === 0 && <p className="py-5 text-center text-admin-muted">Không có sản phẩm sắp hết.</p>}
           </div>
           <Link href="/admin/products" className="inline-flex items-center gap-1 text-xs font-bold text-admin-blue hover:text-admin-accent-dark mt-auto pt-3 border-t border-admin-line">
             Quản lý tồn kho <ArrowUpRight size={15} />

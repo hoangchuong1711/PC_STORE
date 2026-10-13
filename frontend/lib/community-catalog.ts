@@ -17,17 +17,6 @@ type CommunityCatalogApi = {
   findExactByName(name: string): Promise<CatalogProduct | null>;
 };
 
-const legacyCatalogNameBySlug: Readonly<Record<string, string>> = {
-  "pc-creator-pro-x": "PC Creator Pro X",
-  "rog-strix-g16-2025": "ROG Strix G16 2025",
-  "tuf-gaming-a15": "TUF Gaming A15",
-  "kingston-fury-32gb": "Kingston Fury 32GB DDR5-6000",
-  "ssd-nvme-990-pro": "Samsung 990 Pro NVMe 2TB",
-  "ultrawide-monitor-34": "Ultrawide Monitor 34",
-  "keychron-q1-pro": "Keychron Q1 Pro Custom QMK",
-  "rtx-4070-super-dual": "RTX 4070 Super Dual 12GB",
-};
-
 export function prepareCommunityComponents(
   components: readonly PostComponent[],
 ): CatalogPostComponent[] {
@@ -69,9 +58,7 @@ export async function resolveCommunityComponents(
       try {
         const product = component.productId
           ? await catalog.getById(component.productId)
-          : await catalog.findExactByName(
-              (component.slug && legacyCatalogNameBySlug[component.slug]) || component.name,
-            );
+          : await catalog.findExactByName(component.name);
         if (product) return fromCatalogProduct(component, product);
       } catch {
         // A setup may outlive a catalog item or the catalog may be temporarily

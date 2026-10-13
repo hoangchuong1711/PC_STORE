@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DemoDataSeederIT {
     @Test
-    void renamesEarlierDemoAccountsWithoutChangingTheirIds() throws Exception {
+    void preservesEarlierAccountsAndAddsDemoAccounts() throws Exception {
         String url = Objects.requireNonNull(System.getenv("TEST_DB_URL"), "Set TEST_DB_URL to a disposable PostgreSQL database");
         String user = Objects.requireNonNull(System.getenv("TEST_DB_USER"), "Set TEST_DB_USER");
         String password = Objects.requireNonNull(System.getenv("TEST_DB_PASSWORD"), "Set TEST_DB_PASSWORD");
@@ -41,20 +41,19 @@ class DemoDataSeederIT {
                             + "('Old Admin','admin.demo@pcstore.test','old-hash','ADMIN'),"
                             + "('Old Customer','customer.demo@pcstore.test','old-hash','CUSTOMER')");
                 }
-                DemoDataSeeder.seed(schemaUrl, user, password, true);
+                DemoDataSeeder.seed(schemaUrl, user, password, true, "admin123", "user123");
                 try (var connection = DriverManager.getConnection(schemaUrl, user, password)) {
-                    assertEquals(2, count(connection, "SELECT count(*) FROM users"));
+                    assertEquals(8, count(connection, "SELECT count(*) FROM users"));
                     try (var statement = connection.createStatement();
                          var rows = statement.executeQuery("SELECT user_id, email, password_hash FROM users ORDER BY user_id")) {
                         assertTrue(rows.next());
                         assertEquals(1, rows.getInt("user_id"));
-                        assertEquals("admin@gmail.com", rows.getString("email"));
-                        assertTrue(PasswordUtil.verify("admin123", rows.getString("password_hash")));
+                        assertEquals("admin.demo@pcstore.test", rows.getString("email"));
+                        assertEquals("old-hash", rows.getString("password_hash"));
                         assertTrue(rows.next());
                         assertEquals(2, rows.getInt("user_id"));
-                        assertEquals("user@gmail.com", rows.getString("email"));
-                        assertTrue(PasswordUtil.verify("user123", rows.getString("password_hash")));
-                        assertFalse(rows.next());
+                        assertEquals("customer.demo@pcstore.test", rows.getString("email"));
+                        assertEquals("old-hash", rows.getString("password_hash"));
                     }
                 }
             } finally {
@@ -81,10 +80,10 @@ class DemoDataSeederIT {
                 Flyway.configure().dataSource(schemaUrl, user, password)
                         .locations("classpath:db/migration").load().migrate();
 
-                DemoDataSeeder.seed(schemaUrl, user, password, true);
+                DemoDataSeeder.seed(schemaUrl, user, password, true, "admin123", "user123");
                 try (var connection = DriverManager.getConnection(schemaUrl, user, password);
                      var statement = connection.createStatement();
-                     var rows = statement.executeQuery("SELECT email, password_hash, role, status FROM users ORDER BY email")) {
+                     var rows = statement.executeQuery("SELECT email, password_hash, role, status FROM users WHERE email IN ('admin@gmail.com','user@gmail.com') ORDER BY email")) {
                     assertTrue(rows.next());
                     assertEquals("admin@gmail.com", rows.getString("email"));
                     assertTrue(PasswordUtil.verify("admin123", rows.getString("password_hash")));
@@ -102,9 +101,9 @@ class DemoDataSeederIT {
                      var statement = connection.createStatement()) {
                     statement.executeUpdate("UPDATE users SET password_hash='manual-change' WHERE email='admin@gmail.com'");
                 }
-                DemoDataSeeder.seed(schemaUrl, user, password, true);
+                DemoDataSeeder.seed(schemaUrl, user, password, true, "admin123", "user123");
                 try (var connection = DriverManager.getConnection(schemaUrl, user, password)) {
-                    assertEquals(2, count(connection, "SELECT count(*) FROM users"));
+                    assertEquals(6, count(connection, "SELECT count(*) FROM users"));
                     try (var statement = connection.createStatement();
                          var row = statement.executeQuery("SELECT password_hash FROM users WHERE email='admin@gmail.com'")) {
                         assertTrue(row.next());
@@ -116,7 +115,7 @@ class DemoDataSeederIT {
                     statement.executeUpdate("UPDATE users SET role='CUSTOMER' WHERE email='admin@gmail.com'");
                 }
                 assertThrows(IllegalStateException.class,
-                        () -> DemoDataSeeder.seed(schemaUrl, user, password, true));
+                        () -> DemoDataSeeder.seed(schemaUrl, user, password, true, "admin123", "user123"));
             } finally {
                 try (var statement = admin.createStatement()) {
                     statement.execute("DROP SCHEMA " + schema + " CASCADE");
@@ -141,8 +140,8 @@ class DemoDataSeederIT {
                 Flyway.configure().dataSource(schemaUrl, user, password)
                         .locations("classpath:db/migration").load().migrate();
 
-                DemoDataSeeder.seed(schemaUrl, user, password, false);
-                DemoDataSeeder.seed(schemaUrl, user, password, false);
+                DemoDataSeeder.seed(schemaUrl, user, password, false, null, null);
+                DemoDataSeeder.seed(schemaUrl, user, password, false, null, null);
 
                 try (var connection = DriverManager.getConnection(schemaUrl, user, password)) {
                     assertEquals(0, count(connection, "SELECT count(*) FROM brands WHERE name LIKE 'T05-DEMO %'"));
@@ -172,7 +171,7 @@ class DemoDataSeederIT {
                     assertEquals(page.items().getFirst().productId(), catalog.find(page.items().getFirst().productId()).productId());
                 }
 
-                DemoDataSeeder.seed(schemaUrl, user, password, false);
+                DemoDataSeeder.seed(schemaUrl, user, password, false, null, null);
                 try (var connection = DriverManager.getConnection(schemaUrl, user, password)) {
                     assertEquals(7, count(connection, "SELECT quantity_on_hand FROM inventory i JOIN products p ON p.product_id=i.product_id WHERE p.name='PC Creator Pro X'"));
                     assertEquals(1, count(connection, "SELECT count(*) FROM product_images image JOIN products p ON p.product_id=image.product_id WHERE p.name='PC Creator Pro X' AND image.image_url='https://admin.example.test/custom-pc.jpg'"));
