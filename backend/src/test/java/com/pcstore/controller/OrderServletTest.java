@@ -2,7 +2,9 @@ package com.pcstore.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pcstore.dto.CheckoutRequest;
 import com.pcstore.dto.VNPayUrlResponse;
+import com.pcstore.exception.AppException;
 import com.pcstore.service.OrderService;
 import com.pcstore.service.VNPayPaymentService;
 import com.pcstore.util.SessionUtil;
@@ -19,6 +21,7 @@ import java.io.StringWriter;
 import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -68,6 +71,25 @@ class OrderServletTest {
         assertEquals("VNPAY", response.body().path("paymentMethod").asText());
         assertEquals("PCS_15_1_123456789", response.body().path("referenceCode").asText());
         assertEquals("https://sandbox.vnpayment.vn/test-url", response.body().path("paymentUrl").asText());
+    }
+
+    @Test
+    void checkoutRequest_acceptsSelectedCartItemIds() throws Exception {
+        OrderService capturingService = new OrderService(null) {
+            @Override
+            public CheckoutOutcome checkout(int userId, String idempotencyKey, CheckoutRequest request) {
+                assertEquals(List.of(11, 12), request.cartItemIds());
+                throw new AppException(409, "REQUEST_CAPTURED", "Request parsed successfully.");
+            }
+        };
+        OrderServlet servlet = new OrderServlet(capturingService, null);
+
+        Response response = executeWithServlet(servlet, "POST", "", true, """
+                {"shippingName":"Test Buyer","shippingPhone":"0901234567","shippingAddressText":"123 Test Street","paymentMethod":"COD","cartItemIds":[11,12]}
+                """);
+
+        assertEquals(409, response.status());
+        assertEquals("REQUEST_CAPTURED", response.body().path("code").asText());
     }
 
     private Response executeRequest(String method, String path, boolean loggedIn, String body) throws Exception {

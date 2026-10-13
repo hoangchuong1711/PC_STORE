@@ -1171,7 +1171,7 @@ paths:
       "tags":
         - "Orders"
       "operationId": "checkoutOrder"
-      "summary": "Checkout COD; replay cùng key/nội dung trả lại đơn"
+      "summary": "Checkout các dòng giỏ đã chọn; replay cùng key/nội dung trả lại đơn"
       "security":
         -
           "sessionCookie": []
@@ -1214,7 +1214,7 @@ paths:
           "application/json":
             "schema":
               "$ref": "#/components/schemas/CheckoutRequest"
-      "description": "Implementation nhận COD hoặc VNPAY. Cùng key khác nội dung trả 409 IDEMPOTENCY_KEY_REUSED."
+      "description": "Implementation nhận COD hoặc VNPAY. cartItemIds chọn các dòng cần mua; bỏ qua để mua toàn bộ giỏ. Cùng key khác nội dung trả 409 IDEMPOTENCY_KEY_REUSED."
       "parameters":
         -
           "in": "header"
@@ -2584,6 +2584,14 @@ components:
           "enum":
             - "COD"
             - "VNPAY"
+        "cartItemIds":
+          "type": "array"
+          "description": "Các dòng giỏ hàng cần thanh toán. Bỏ qua trường này để checkout toàn bộ giỏ (tương thích client cũ)."
+          "minItems": 1
+          "uniqueItems": true
+          "items":
+            "type": "integer"
+            "minimum": 1
       "additionalProperties": false
     OrderStatusUpdateRequest:
       "type": "object"

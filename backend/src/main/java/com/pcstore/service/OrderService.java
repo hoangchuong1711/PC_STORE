@@ -36,9 +36,11 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 public class OrderService {
@@ -94,8 +96,9 @@ public class OrderService {
                     return new CheckoutOutcome(response, true);
                 }
 
-                List<CartItem> cartItems = orders.findCartItems(cart.getCartId());
-                if (cartItems.isEmpty()) throw conflict("CART_EMPTY", "Giỏ hàng đang trống.");
+                List<CartItem> allCartItems = orders.findCartItems(cart.getCartId());
+                if (allCartItems.isEmpty()) throw conflict("CART_EMPTY", "Giỏ hàng đang trống.");
+                List<CartItem> cartItems = selectedCartItems(allCartItems, checkout.cartItemIds());
 
                 validateProducts(cartItems);
                 List<Integer> productIds = cartItems.stream()
@@ -407,8 +410,41 @@ public class OrderService {
         if (request.paymentMethod() != PaymentMethod.COD && request.paymentMethod() != PaymentMethod.VNPAY) {
             throw new ValidationException("Phương thức thanh toán không hợp lệ.");
         }
-        String hash = sha256(name + "\0" + phone + "\0" + address + "\0" + request.paymentMethod().name());
-        return new ValidCheckout(key, hash, name, phone, address, request.paymentMethod());
+        List<Integer> cartItemIds = validateCartItemIds(request.cartItemIds());
+        String hashInput = name + "\0" + phone + "\0" + address + "\0" + request.paymentMethod().name();
+        if (cartItemIds != null) {
+            hashInput += "\0" + cartItemIds.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
+        }
+        String hash = sha256(hashInput);
+        return new ValidCheckout(key, hash, name, phone, address, request.paymentMethod(), cartItemIds);
+    }
+
+    private static List<Integer> validateCartItemIds(List<Integer> rawIds) {
+        if (rawIds == null) return null;
+        if (rawIds.isEmpty()) throw new ValidationException("Cần chọn ít nhất một sản phẩm để thanh toán.");
+
+        Set<Integer> uniqueIds = new HashSet<>();
+        for (Integer id : rawIds) {
+            if (id == null || id <= 0) {
+                throw new ValidationException("Mã dòng giỏ hàng phải là số nguyên dương.");
+            }
+            if (!uniqueIds.add(id)) {
+                throw new ValidationException("Danh sách dòng giỏ hàng không được trùng lặp.");
+            }
+        }
+        return uniqueIds.stream().sorted().toList();
+    }
+
+    private static List<CartItem> selectedCartItems(List<CartItem> allItems, List<Integer> requestedIds) {
+        if (requestedIds == null) return allItems;
+        Set<Integer> requested = Set.copyOf(requestedIds);
+        List<CartItem> selected = allItems.stream()
+                .filter(item -> requested.contains(item.getCartItemId()))
+                .toList();
+        if (selected.size() != requested.size()) {
+            throw conflict("CART_CHANGED", "Giỏ hàng đã thay đổi. Vui lòng tải lại và chọn sản phẩm lần nữa.");
+        }
+        return selected;
     }
 
     private static String requiredText(String value, Integer maxLength, String field) {
@@ -501,7 +537,8 @@ public class OrderService {
             String shippingName,
             String shippingPhone,
             String shippingAddressText,
-            PaymentMethod paymentMethod) {
+            PaymentMethod paymentMethod,
+            List<Integer> cartItemIds) {
     }
 
     @FunctionalInterface
