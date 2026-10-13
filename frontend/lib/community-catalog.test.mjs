@@ -91,6 +91,34 @@ test("maps legacy community variants to their canonical catalog name", async () 
   assert.equal(component.catalogState, "available");
 });
 
+test("maps the remaining legacy keyboard and GPU slugs to stocked products", async () => {
+  const lookedUp = [];
+  const resolved = await resolveCommunityComponents(
+    [
+      { slug: "keychron-q1-pro", name: "Keychron Q1 Pro Custom", category: "Phụ kiện" },
+      { slug: "rtx-4070-super-dual", name: "RTX 4070 Super Dual", category: "Linh kiện" },
+    ],
+    {
+      async getById() {
+        assert.fail("legacy components must use canonical catalog names");
+      },
+      async findExactByName(name) {
+        lookedUp.push(name);
+        return {
+          ...catalogProduct,
+          productId: name.startsWith("Keychron") ? 52 : 53,
+          name,
+          availableQuantity: 5,
+        };
+      },
+    },
+  );
+
+  assert.deepEqual(lookedUp, ["Keychron Q1 Pro Custom QMK", "RTX 4070 Super Dual 12GB"]);
+  assert.deepEqual(resolved.map((item) => item.catalogState), ["available", "available"]);
+  assert.deepEqual(resolved.map((item) => item.availableQuantity), [5, 5]);
+});
+
 test("adds a setup sequentially and skips unavailable catalog items", async () => {
   const calls = [];
   let active = 0;

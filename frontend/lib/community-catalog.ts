@@ -24,6 +24,8 @@ const legacyCatalogNameBySlug: Readonly<Record<string, string>> = {
   "kingston-fury-32gb": "Kingston Fury 32GB DDR5-6000",
   "ssd-nvme-990-pro": "Samsung 990 Pro NVMe 2TB",
   "ultrawide-monitor-34": "Ultrawide Monitor 34",
+  "keychron-q1-pro": "Keychron Q1 Pro Custom QMK",
+  "rtx-4070-super-dual": "RTX 4070 Super Dual 12GB",
 };
 
 export function prepareCommunityComponents(

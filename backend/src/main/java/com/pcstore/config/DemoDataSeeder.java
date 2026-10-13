@@ -15,7 +15,7 @@ final class DemoDataSeeder {
     
     // Danh sách các file SQL seed dữ liệu demo.
     private static final List<String> SQL_SEEDS = List.of(
-        "/db/seed/t05_catalog.sql",
+        "/db/seed/remove_t05_catalog.sql",
         "/db/seed/t09_catalog.sql",
         "/db/seed/t22_builder_specs.sql",
         "/db/seed/community_catalog.sql"
