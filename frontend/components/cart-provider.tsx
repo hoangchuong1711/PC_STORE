@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { useAuth } from "./auth-provider";
+import { useRouter } from "next/navigation";
 import { cartApi, type CartResponse, type CartItemResponse } from "../lib/cart-api";
 import { parseServerProductId } from "../lib/cart";
 
@@ -86,6 +87,7 @@ function mapServerCart(serverCart: CartResponse): UnifiedCartItem[] {
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const { user } = useAuth();
   const userId = user?.userId;
   const [items, setItems] = useState<UnifiedCartItem[]>([]);
@@ -169,10 +171,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
       } else {
         const loginError = new Error("Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng.");
         setError(loginError.message);
+        if (typeof window !== "undefined") {
+          const currentPath = window.location.pathname + window.location.search;
+          router.push(`/auth/login?redirect=${encodeURIComponent(currentPath)}`);
+        } else {
+          router.push("/auth/login");
+        }
         throw loginError;
       }
     },
-    [user],
+    [user, router],
   );
 
   const update = useCallback(
@@ -207,10 +215,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
       } else {
         const loginError = new Error("Vui lòng đăng nhập để cập nhật giỏ hàng.");
         setError(loginError.message);
+        if (typeof window !== "undefined") {
+          const currentPath = window.location.pathname + window.location.search;
+          router.push(`/auth/login?redirect=${encodeURIComponent(currentPath)}`);
+        } else {
+          router.push("/auth/login");
+        }
         throw loginError;
       }
     },
-    [user, items, refreshCart],
+    [user, items, refreshCart, router],
   );
 
   const remove = useCallback(

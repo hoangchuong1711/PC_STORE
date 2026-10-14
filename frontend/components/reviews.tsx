@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   Star,
   ThumbsUp,
@@ -56,6 +57,7 @@ export function ProductReviewsSection({
 }) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
 
   const [filterStar, setFilterStar] = useState<number | "ALL" | "WITH_MEDIA">("ALL");
   const [sortBy, setSortBy] = useState<"newest" | "helpful" | "rating">("newest");
@@ -122,7 +124,9 @@ export function ProductReviewsSection({
     }
 
     if (!user) {
-      toast("Vui lòng đăng nhập để đánh giá là hữu ích.", "error");
+      toast("Vui lòng đăng nhập để đánh giá là hữu ích.", "info");
+      const currentPath = typeof window !== "undefined" ? window.location.pathname + window.location.search : "";
+      router.push(currentPath ? `/auth/login?redirect=${encodeURIComponent(currentPath)}` : "/auth/login");
       return;
     }
 

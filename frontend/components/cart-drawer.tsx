@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { X, Trash2, ShoppingBag, ArrowRight, AlertCircle } from "lucide-react";
 import { useCart } from "./cart-provider";
+import { useAuth } from "./auth-provider";
 import { summarizeSelection } from "../lib/cart";
 import { formatPrice } from "../lib/products";
 
 export function CartDrawer() {
+  const { user } = useAuth();
   const { items, selectedIds, toggleSelected, selectAll, isOpen, closeCart, update, remove, error, loading } = useCart();
   const router = useRouter();
 
@@ -180,7 +182,14 @@ export function CartDrawer() {
                   type="button"
                   disabled={loading || selectedIds.length === 0}
                   className="button button-primary cart-drawer-checkout-btn disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={() => { closeCart(); router.push("/checkout"); }}
+                  onClick={() => {
+                    closeCart();
+                    if (!user) {
+                      router.push("/auth/login?redirect=/checkout");
+                    } else {
+                      router.push("/checkout");
+                    }
+                  }}
                 >
                   Thanh toán ngay <ArrowRight size={16} />
                 </button>

@@ -34,10 +34,16 @@ type CheckoutAddress = {
 };
 
 export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { items, update, clear, refreshCart, selectedIds, toggleSelected, selectAll, loading: cartLoading } = useCart();
   const router = useRouter();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (checkout && !authLoading && !user) {
+      router.replace("/auth/login?redirect=/checkout");
+    }
+  }, [checkout, authLoading, user, router]);
   const [busy, setBusy] = useState(false);
   const [order, setOrder] = useState("");
   const [createdOrderId, setCreatedOrderId] = useState<number | null>(null);
@@ -161,6 +167,7 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
     if (!user) {
       setError("Vui lòng đăng nhập tài khoản để tiến hành đặt hàng.");
       toast("Vui lòng đăng nhập để tiếp tục thanh toán!", "error");
+      router.push("/auth/login?redirect=/checkout");
       return;
     }
 
@@ -253,6 +260,7 @@ export function ShoppingPage({ checkout = false }: { checkout?: boolean }) {
           setError("Một số sản phẩm trong giỏ hàng đã hết hàng hoặc không đủ số lượng.");
         } else if (err.code === "UNAUTHORIZED") {
           setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục.");
+          router.push("/auth/login?redirect=/checkout");
         } else {
           setError(err.message || `Lỗi đặt hàng: ${err.code}`);
         }
