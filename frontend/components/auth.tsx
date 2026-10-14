@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, useEffect } from "react";
 import { Header, Footer } from "./storefront";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./auth-provider";
@@ -18,9 +18,19 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [redirectPath, setRedirectPath] = useState<string | null>(null);
 
   const { login } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search).get("redirect");
+      if (p && p.startsWith("/") && !p.startsWith("//")) {
+        setRedirectPath(p);
+      }
+    }
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -40,7 +50,13 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
       const email = String(form.get("email") ?? "").trim();
       if (isLogin) {
         const user = await login(email, password);
-        router.replace(authDestination(user));
+        const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+        const redirectParam = params?.get("redirect");
+        if (redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("//")) {
+          router.replace(redirectParam);
+        } else {
+          router.replace(authDestination(user));
+        }
       } else {
         await createAuthApi().register({
           fullName: String(form.get("name") ?? "").trim(),
@@ -79,7 +95,10 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                 role="status"
               >
                 Đã tạo tài khoản thành công!{" "}
-                <Link href="/auth/login" className="font-semibold underline">
+                <Link
+                  href={redirectPath ? `/auth/login?redirect=${encodeURIComponent(redirectPath)}` : "/auth/login"}
+                  className="font-semibold underline"
+                >
                   Đăng nhập ngay
                 </Link>
               </div>
@@ -226,7 +245,11 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
               <div className="text-center text-xs text-slate-700">
                 {isLogin ? "Bạn chưa có tài khoản PC Store? " : "Bạn đã có tài khoản PC Store? "}
                 <Link
-                  href={isLogin ? "/auth/register" : "/auth/login"}
+                  href={
+                    isLogin
+                      ? redirectPath ? `/auth/register?redirect=${encodeURIComponent(redirectPath)}` : "/auth/register"
+                      : redirectPath ? `/auth/login?redirect=${encodeURIComponent(redirectPath)}` : "/auth/login"
+                  }
                   className="text-[#006ce1] font-semibold hover:underline"
                 >
                   {isLogin ? "Đăng ký ngay" : "Đăng nhập ngay"}

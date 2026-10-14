@@ -44,6 +44,7 @@ import { useToast } from "./toast";
 import { Header, Footer } from "./storefront";
 
 export function CommunityFeed() {
+  const router = useRouter();
   const [sortBy, setSortBy] = useState<"newest" | "likes">("newest");
   const [searchQuery, setSearchQuery] = useState("");
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -154,6 +155,7 @@ export function CommunityFeed() {
       } catch (err) {
         if (err instanceof CommunityApiError && err.status === 401) {
           toast("Vui lòng đăng nhập tài khoản để thích bài viết.", "info");
+          router.push("/auth/login?redirect=/community");
         } else {
           toast(err instanceof Error ? err.message : "Không thể thích bài viết lúc này.", "error");
         }
@@ -369,6 +371,7 @@ export function CommunityFeed() {
 }
 
 export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) {
+  const router = useRouter();
   const [post, setPost] = useState<CommunityPost>(initialPost);
   const [catalogComponents, setCatalogComponents] = useState<CatalogPostComponent[]>(
     () => prepareCommunityComponents(initialPost.components),
@@ -411,6 +414,7 @@ export function CommunityDetail({ post: initialPost }: { post: CommunityPost }) 
       } catch (err) {
         if (err instanceof CommunityApiError && err.status === 401) {
           toast("Vui lòng đăng nhập tài khoản để thích bài viết.", "info");
+          router.push(`/auth/login?redirect=/community/${post.id}`);
         } else {
           toast(err instanceof Error ? err.message : "Không thể cập nhật lượt thích.", "error");
         }
@@ -813,6 +817,7 @@ export function CreateSetupModal({
       if (err instanceof CommunityApiError) {
         if (err.status === 401) {
           toast("Bạn cần đăng nhập tài khoản khách hàng để chia sẻ góc máy.", "error");
+          router.push("/auth/login?redirect=/community");
         } else if (err.code === "SETUP_PURCHASE_REQUIRED" || err.status === 403) {
           toast(
             "Chính sách PC Store: Bạn cần có ít nhất 1 đơn hàng đã giao thành công (DELIVERED) để đăng bài.",

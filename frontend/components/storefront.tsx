@@ -475,6 +475,8 @@ export function toProductCardModel(item: ProductInput): Product {
 }
 
 export function ProductCard({ product }: { product: ProductInput }) {
+  const router = useRouter();
+  const { user } = useAuth();
   const { add } = useCart();
   const { toast } = useToast();
   const item = toProductCardModel(product);
@@ -486,13 +488,26 @@ export function ProductCard({ product }: { product: ProductInput }) {
   const handleQuickAdd = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!user) {
+      toast("Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng.", "info");
+      const currentPath = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/";
+      router.push(`/auth/login?redirect=${encodeURIComponent(currentPath)}`);
+      return;
+    }
     if (productId === null) {
       toast("Sản phẩm giới thiệu này chưa có trong catalog và không thể mua.", "info");
       return;
     }
     if (item.stock > 0) {
-      await add(productId, 1);
-      toast(`Đã thêm "${item.name}" vào giỏ hàng!`, "success");
+      try {
+        await add(productId, 1);
+        toast(`Đã thêm "${item.name}" vào giỏ hàng!`, "success");
+      } catch (err) {
+        toast(
+          err instanceof Error ? err.message : "Không thể thêm vào giỏ hàng",
+          "error",
+        );
+      }
     }
   };
 
@@ -1382,6 +1397,7 @@ export function CatalogPage() {
 
 export function ProductDetail({ slug }: { slug: string }) {
   const router = useRouter();
+  const { user } = useAuth();
   const { add } = useCart();
   const { toast } = useToast();
   const [product, setProduct] = useState<Product | null>(null);
@@ -1492,6 +1508,11 @@ export function ProductDetail({ slug }: { slug: string }) {
 
   const handleAddToCart = async () => {
     if (!product || product.stock === 0 || isSubmitting || serverProductId === null) return;
+    if (!user) {
+      toast("Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng.", "info");
+      router.push(`/auth/login?redirect=${encodeURIComponent(`/products/${slug}`)}`);
+      return;
+    }
     setIsSubmitting(true);
     try {
       await add(serverProductId, quantity);
@@ -1508,6 +1529,11 @@ export function ProductDetail({ slug }: { slug: string }) {
 
   const handleBuyNow = async () => {
     if (!product || product.stock === 0 || isSubmitting || serverProductId === null) return;
+    if (!user) {
+      toast("Vui lòng đăng nhập để tiến hành mua hàng.", "info");
+      router.push(`/auth/login?redirect=${encodeURIComponent(`/products/${slug}`)}`);
+      return;
+    }
     setIsSubmitting(true);
     try {
       await add(serverProductId, quantity);
