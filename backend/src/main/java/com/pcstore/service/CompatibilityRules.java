@@ -138,7 +138,7 @@ public final class CompatibilityRules {
             Integer perKit = integer(kit, perKitField);
             if (perKit == null) {
                 unknown = true;
-                continue;
+                continue;   
             }
             total += (long) kit.quantity() * perKit;
             if (total > limit) return new RuleResult(id, Status.FAIL, label + ": đã vượt giới hạn " + limit);

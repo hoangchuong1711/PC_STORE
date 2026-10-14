@@ -33,6 +33,7 @@ public class BuildService {
 
     public List<BuildDto.Response> list(int userId) {
         return transaction(() -> {
+            //Xác thực xem user có hợp lệ không
             customer(userId, false);
             return builds.list(userId).stream().map(this::response).toList();
         });
@@ -87,7 +88,7 @@ public class BuildService {
     public CartResponse addToCart(int userId, int buildId) {
         return transaction(() -> {
             customer(userId, true);
-            PcBuild build = owned(userId, buildId, true);
+            PcBuild build = owned(userId, buildId, true);   
             editable(build);
             List<Selection> selections = selections(build);
             if (compatibility.evaluate(selections).status() != Status.PASS)

@@ -12,6 +12,9 @@ import jakarta.persistence.EntityManager;
 import java.util.List;
 
 /** Public Builder catalog and preview. Purchase still goes through BuildService. */
+
+/**gọi ProductDao để lấy các sản phẩm thuộc nhóm Builder, lấy tồn khả dụng, 
+ rồi gọi ProductSpecDao để lấy thông số của từng sản phẩm.*/
 public class BuilderCatalogService {
     private final ProductDao products;
     private final ProductSpecDao specs;
@@ -33,7 +36,7 @@ public class BuilderCatalogService {
                 product.getImages().stream().findFirst().map(ProductImage::getImageUrl).orElse(null),
                 specs.find(product.getProductId(), product.getCategory().getComponentType()))).toList();
     }
-
+    // kiem tra san pham hop le truoc khi chuyen sang CompatibilityService
     public CompatibilityDto.Report preview(List<CompatibilityDto.Selection> items) {
         for (CompatibilityDto.Selection item : items) {
             Product product = products.findPublic(item.productId());

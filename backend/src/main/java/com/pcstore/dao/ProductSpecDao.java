@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /** Only trusted schema definitions contribute SQL identifiers; values are always bound. */
+//ProductSpecDao dựa vào loại linh kiện để đọc bảng thông số tương ứng.
 public class ProductSpecDao {
     private final EntityManager em;
 

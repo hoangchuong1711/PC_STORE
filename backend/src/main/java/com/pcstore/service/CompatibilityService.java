@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Set;
 
 /** Entry point for T24 to evaluate selected catalog products. */
+// kiểm tra danh sách, ID, số lượng và sản phẩm trùng
 public class CompatibilityService {
     private final CompatibilityDao parts;
 
