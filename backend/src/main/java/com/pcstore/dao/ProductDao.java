@@ -16,7 +16,16 @@ public class ProductDao {
 
     //hàm search: tìm kiếm sản phẩm theo query parameters, trả về danh sách sản phẩm
     public List<Product> search(ProductSearchQuery query) {
-        TypedQuery<Product> q = em.createQuery(baseQuery(query, false) + " ORDER BY p.productId ASC", Product.class);
+        String orderClause = " ORDER BY p.productId ASC";
+        if (query.sort() != null) {
+            String s = query.sort().trim().toLowerCase();
+            if ("price-low".equals(s) || "price_asc".equals(s) || "asc".equals(s)) {
+                orderClause = " ORDER BY p.price ASC, p.productId ASC";
+            } else if ("price-high".equals(s) || "price_desc".equals(s) || "desc".equals(s)) {
+                orderClause = " ORDER BY p.price DESC, p.productId ASC";
+            }
+        }
+        TypedQuery<Product> q = em.createQuery(baseQuery(query, false) + orderClause, Product.class);
         bind(q, query);
         return q.setFirstResult(query.page() * query.size()).setMaxResults(query.size()).getResultList();
     }

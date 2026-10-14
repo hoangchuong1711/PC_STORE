@@ -9,7 +9,7 @@ import { useToast } from "./toast";
 import { QuickSearch } from "./quick-search";
 import { ProductReviewsSection } from "./reviews";
 import { ProductGalleryZoom } from "./product-gallery-zoom";
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import {
   formatPrice,
   Product,
@@ -36,6 +36,10 @@ import {
   X,
   Loader2,
   AlertCircle,
+  Filter,
+  ArrowUp,
+  ArrowDown,
+  Check,
 } from "lucide-react";
 
 export function Header() {
@@ -648,6 +652,8 @@ export function CatalogPage() {
   const [priceRange, setPriceRange] = useState("ALL");
   const [inStockOnly, setInStockOnly] = useState(false);
   const [sort, setSort] = useState("featured");
+  const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
@@ -659,6 +665,31 @@ export function CatalogPage() {
   const [totalPages, setTotalPages] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Close sort dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        sortDropdownRef.current &&
+        !sortDropdownRef.current.contains(event.target as Node)
+      ) {
+        setSortDropdownOpen(false);
+      }
+    }
+    if (sortDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+  }, [sortDropdownOpen]);
+
+  const handleSelectSort = (value: string) => {
+    const nextSort = sort === value ? "featured" : value;
+    setSort(nextSort);
+    setCurrentPage(1);
+    setSortDropdownOpen(false);
+  };
 
   // Load category and brand metadata from backend
   useEffect(() => {
@@ -701,7 +732,7 @@ export function CatalogPage() {
     }
   }, []);
 
-  // Fetch products from backend whenever filters or page change
+  // Fetch products from backend whenever filters, sort or page change
   const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
@@ -730,6 +761,7 @@ export function CatalogPage() {
         maxPrice,
         page: Math.max(0, currentPage - 1),
         size: itemsPerPage,
+        sort: sort !== "featured" ? sort : undefined,
       });
 
       let items = res.items;
@@ -755,11 +787,24 @@ export function CatalogPage() {
     priceRange,
     inStockOnly,
     currentPage,
+    sort,
   ]);
 
   useEffect(() => {
     void fetchProducts();
   }, [fetchProducts]);
+
+  // Client-side sort guarantee ensures instant and reliable re-ordering
+  const displayedProducts = useMemo(() => {
+    if (!serverProducts || serverProducts.length === 0) return [];
+    if (sort === "price-low") {
+      return [...serverProducts].sort((a, b) => a.price - b.price);
+    }
+    if (sort === "price-high") {
+      return [...serverProducts].sort((a, b) => b.price - a.price);
+    }
+    return serverProducts;
+  }, [serverProducts, sort]);
 
   const resetFilters = () => {
     setQuery("");
@@ -767,6 +812,7 @@ export function CatalogPage() {
     setSelectedBrandId("ALL");
     setPriceRange("ALL");
     setInStockOnly(false);
+    setSort("featured");
     setCurrentPage(1);
   };
 
@@ -775,7 +821,8 @@ export function CatalogPage() {
     selectedCategoryId !== "ALL" ||
     selectedBrandId !== "ALL" ||
     priceRange !== "ALL" ||
-    inStockOnly;
+    inStockOnly ||
+    sort !== "featured";
 
   const currentCategoryName =
     selectedCategoryId === "ALL"
@@ -982,16 +1029,70 @@ export function CatalogPage() {
               </label>
 
               <div className="toolbar-right-actions">
-                <select
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value)}
-                  aria-label="Sắp xếp sản phẩm"
-                  className="catalog-sort-select"
-                >
-                  <option value="featured">Ưu tiên nổi bật</option>
-                  <option value="price-low">Giá: Thấp đến cao</option>
-                  <option value="price-high">Giá: Cao đến thấp</option>
-                </select>
+                <div className="sort-dropdown-wrapper" ref={sortDropdownRef}>
+                  <button
+                    type="button"
+                    className={`catalog-sort-icon-btn ${sort !== "featured" ? "active" : ""} ${sortDropdownOpen ? "open" : ""}`}
+                    onClick={() => setSortDropdownOpen((prev) => !prev)}
+                    aria-label="Bộ lọc sắp xếp theo giá"
+                    title={
+                      sort === "price-low"
+                        ? "Đang chọn: Giá thấp đến cao (nhấn để đổi hoặc đóng)"
+                        : sort === "price-high"
+                        ? "Đang chọn: Giá cao đến thấp (nhấn để đổi hoặc đóng)"
+                        : "Lọc & sắp xếp theo giá"
+                    }
+                    aria-expanded={sortDropdownOpen}
+                  >
+                    <SlidersHorizontal size={17} />
+                    {sort !== "featured" && <span className="sort-active-badge" />}
+                  </button>
+
+                  {sortDropdownOpen && (
+                    <div className="sort-dropdown-menu" role="menu">
+                      <div className="sort-menu-header">Sắp xếp theo giá</div>
+                      <button
+                        type="button"
+                        className={`sort-menu-item ${sort === "price-low" ? "active" : ""}`}
+                        onClick={() => handleSelectSort("price-low")}
+                        role="menuitem"
+                      >
+                        <span className="sort-menu-item-left">
+                          <ArrowUp size={15} />
+                          <span>Giá: Thấp đến cao</span>
+                        </span>
+                        {sort === "price-low" && <Check size={14} />}
+                      </button>
+                      <button
+                        type="button"
+                        className={`sort-menu-item ${sort === "price-high" ? "active" : ""}`}
+                        onClick={() => handleSelectSort("price-high")}
+                        role="menuitem"
+                      >
+                        <span className="sort-menu-item-left">
+                          <ArrowDown size={15} />
+                          <span>Giá: Cao đến thấp</span>
+                        </span>
+                        {sort === "price-high" && <Check size={14} />}
+                      </button>
+
+                      <div className="sort-menu-divider" />
+
+                      <button
+                        type="button"
+                        className={`sort-menu-item ${sort === "featured" ? "active" : ""}`}
+                        onClick={() => handleSelectSort("featured")}
+                        role="menuitem"
+                      >
+                        <span className="sort-menu-item-left">
+                          <Star size={15} />
+                          <span>Ưu tiên nổi bật (Mặc định)</span>
+                        </span>
+                        {sort === "featured" && <Check size={14} />}
+                      </button>
+                    </div>
+                  )}
+                </div>
 
                 <div className="view-mode-toggle" role="group" aria-label="Chế độ xem">
                   <button
@@ -1042,6 +1143,12 @@ export function CatalogPage() {
                       <button onClick={() => setInStockOnly(false)}>×</button>
                     </span>
                   )}
+                  {sort !== "featured" && (
+                    <span className="active-tag">
+                      {sort === "price-low" ? "Giá: Thấp đến cao" : "Giá: Cao đến thấp"}
+                      <button onClick={() => setSort("featured")} aria-label="Bỏ sắp xếp giá">×</button>
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -1061,12 +1168,12 @@ export function CatalogPage() {
               <div className="product-grid" style={{ minHeight: "300px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <Loader2 size={36} className="animate-spin text-muted-foreground" />
               </div>
-            ) : serverProducts.length ? (
+            ) : displayedProducts.length ? (
               <>
                 <div
                   className={`product-grid ${viewMode === "list" ? "product-grid-list" : "product-grid-catalog"}`}
                 >
-                  {serverProducts.map((product) => (
+                  {displayedProducts.map((product) => (
                     <ProductCard product={product} key={product.productId} />
                   ))}
                 </div>

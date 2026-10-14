@@ -47,7 +47,8 @@ public class ProductServlet extends HttpServlet {
             var q = ProductSearchQuery.parse(req.getParameter("q"),
                     req.getParameter("categoryId"), req.getParameter("brandId"),
                     req.getParameter("minPrice"), req.getParameter("maxPrice"),
-                    req.getParameter("page"), req.getParameter("size"));
+                    req.getParameter("page"), req.getParameter("size"),
+                    req.getParameter("sort"));
 
             res.setStatus(200);
             

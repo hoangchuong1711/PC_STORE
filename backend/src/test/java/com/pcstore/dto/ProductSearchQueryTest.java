@@ -18,6 +18,10 @@ class ProductSearchQueryTest {
         assertEquals(new BigDecimal("9000000"), query.maxPrice());
         assertEquals(1, query.page());
         assertEquals(20, query.size());
+        assertNull(query.sort());
+
+        var queryWithSort = ProductSearchQuery.parse("rtx", "2", "3", "1000000", "9000000", "1", "20", "price-low");
+        assertEquals("price-low", queryWithSort.sort());
     }
 
     @Test

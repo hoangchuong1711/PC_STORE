@@ -3,7 +3,12 @@ package com.pcstore.dto;
 import java.math.BigDecimal;
 
 public record   ProductSearchQuery(String keyword, Integer categoryId, Integer brandId,
-                                BigDecimal minPrice, BigDecimal maxPrice, int page, int size) {
+                                BigDecimal minPrice, BigDecimal maxPrice, int page, int size, String sort) {
+
+    public ProductSearchQuery(String keyword, Integer categoryId, Integer brandId,
+                              BigDecimal minPrice, BigDecimal maxPrice, int page, int size) {
+        this(keyword, categoryId, brandId, minPrice, maxPrice, page, size, null);
+    }
         
     //hàm khởi tạo: kiểm tra các giá trị truyền vào có hợp lệ hay không
     public ProductSearchQuery {
@@ -17,10 +22,15 @@ public record   ProductSearchQuery(String keyword, Integer categoryId, Integer b
     //hàm parse: chuyển đổi query parameters từ String sang ProductSearchQuery
     public static ProductSearchQuery parse(String keyword, String categoryId, String brandId,
                                         String minPrice, String maxPrice, String page, String size) {
+        return parse(keyword, categoryId, brandId, minPrice, maxPrice, page, size, null);
+    }
+
+    public static ProductSearchQuery parse(String keyword, String categoryId, String brandId,
+                                        String minPrice, String maxPrice, String page, String size, String sort) {
         return new ProductSearchQuery(blankToNull(keyword), parseInt(categoryId, "categoryId"),
                 parseInt(brandId, "brandId"), parseDecimal(minPrice, "minPrice"),
                 parseDecimal(maxPrice, "maxPrice"), parseIntOrDefault(page, 0, "page"),
-                parseIntOrDefault(size, 20, "size"));
+                parseIntOrDefault(size, 20, "size"), blankToNull(sort));
     }
 
     private static String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }

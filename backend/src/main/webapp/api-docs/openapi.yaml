@@ -580,6 +580,13 @@ paths:
             minimum: 1
             maximum: 100
             default: 20
+        -
+          name: "sort"
+          in: "query"
+          description: "Thứ tự sắp xếp: price-low (giá tăng dần), price-high (giá giảm dần)"
+          schema:
+            type: "string"
+            enum: ["featured", "price-low", "price-high"]
       responses:
         "200":
           description: "Trang sản phẩm; items có thể rỗng"

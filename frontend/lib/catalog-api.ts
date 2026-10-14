@@ -48,6 +48,7 @@ export type CatalogQuery = {
   maxPrice?: number;
   page?: number;
   size?: number;
+  sort?: string;
 };
 
 export class CatalogApiError extends Error {
@@ -195,6 +196,7 @@ function queryString(query: CatalogQuery = {}): string {
   if (query.maxPrice !== undefined) params.set("maxPrice", String(query.maxPrice));
   if (query.page !== undefined) params.set("page", String(query.page));
   if (query.size !== undefined) params.set("size", String(query.size));
+  if (query.sort?.trim()) params.set("sort", query.sort.trim());
   const encoded = params.toString();
   return encoded ? `?${encoded}` : "";
 }
