@@ -418,6 +418,114 @@ h1 {
   font-family: var(--font-specs);
   font-size: 17px;
 }
+.home-banner {
+  position: relative;
+  height: clamp(500px, 38vw, 640px);
+  overflow: hidden;
+  background: #08111d;
+  color: #fff;
+}
+.home-banner-slide {
+  position: absolute;
+  inset: 0;
+}
+.home-banner-slide[hidden] { display: none; }
+.home-banner-slide::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(3, 9, 16, .54), transparent 70%);
+  pointer-events: none;
+}
+.home-banner-image {
+  object-fit: cover;
+  object-position: center;
+}
+.home-banner-content {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding-bottom: 42px;
+}
+.home-banner-content h1,
+.home-banner-content h2 {
+  max-width: 570px;
+  margin-bottom: 20px;
+  font-size: clamp(40px, 4.4vw, 66px);
+  line-height: 1.05;
+  letter-spacing: -.045em;
+}
+.home-banner-content p {
+  max-width: 450px;
+  margin-bottom: 28px;
+  color: #d7e0ea;
+  font-size: 17px;
+  line-height: 1.55;
+}
+.home-banner-controls {
+  position: absolute;
+  z-index: 2;
+  inset: auto 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.home-banner-pagination,
+.home-banner-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.home-banner-pagination button {
+  width: 32px;
+  height: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: #ffffff70;
+  cursor: pointer;
+}
+.home-banner-pagination button.active { background: #fff; }
+.home-banner-buttons button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #ffffff70;
+  border-radius: 50%;
+  color: #fff;
+  background: #0a142388;
+  cursor: pointer;
+}
+.home-banner-controls button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+@media (max-width: 700px) {
+  .home-banner { height: 600px; }
+  .home-banner-image { object-position: 64% center; }
+  .home-banner-slide::after {
+    background: linear-gradient(0deg, rgba(3, 9, 16, .92) 2%, rgba(3, 9, 16, .52) 46%, transparent 86%);
+  }
+  .home-banner-content {
+    justify-content: flex-end;
+    padding-bottom: 95px;
+  }
+  .home-banner-content h1,
+  .home-banner-content h2 {
+    max-width: 420px;
+    font-size: clamp(36px, 9vw, 50px);
+  }
+  .home-banner-content p {
+    max-width: 350px;
+    font-size: 15px;
+  }
+  .home-banner-controls { bottom: 24px; }
+}
 .section {
   padding: 104px 0;
 }
@@ -501,6 +609,218 @@ h1 {
   bottom: 22px;
   right: 22px;
   font-size: 22px;
+}
+.hardware-heading {
+  margin-bottom: 28px;
+}
+.hardware-section {
+  scroll-margin-top: 95px;
+}
+.hardware-heading h2 {
+  max-width: 650px;
+}
+.hardware-heading p {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 16px;
+}
+.hardware-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-areas:
+    "gpu gpu cpu ram"
+    "gpu gpu motherboard motherboard"
+    "storage psu cooler case";
+  grid-template-rows: 180px 180px 170px;
+  gap: 12px;
+}
+.hardware-card {
+  position: relative;
+  display: flex;
+  align-items: end;
+  overflow: hidden;
+  padding: 22px;
+  border: 1px solid #e4e8ed;
+  border-radius: 14px;
+  color: #17212b;
+  background: #f3f6f9;
+  isolation: isolate;
+}
+.hardware-card:focus-visible,
+.hardware-more a:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 3px;
+}
+.hardware-card--gpu { background: #dfe8f4; }
+.hardware-card--cpu { background: #e7edf5; }
+.hardware-card--ram { background: #edf0f5; }
+.hardware-card--motherboard { background: #e7eff1; }
+.hardware-card--storage,
+.hardware-card--psu,
+.hardware-card--cooler,
+.hardware-card--case { background: #f0f2f5; }
+.hardware-card-art {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  width: 110px;
+  height: 110px;
+  color: #63798f;
+  opacity: .95;
+  transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1), opacity .3s ease;
+  z-index: 1;
+}
+.hardware-card-art svg {
+  width: 80%;
+  height: 80%;
+  transform: rotate(-9deg);
+}
+.hardware-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.1));
+  transition: transform .35s cubic-bezier(0.16, 1, 0.3, 1), filter .35s ease;
+  user-select: none;
+  pointer-events: none;
+}
+.hardware-card:hover .hardware-card-img {
+  transform: scale(1.08) translateY(-4px);
+  filter: drop-shadow(0 16px 24px rgba(0, 0, 0, 0.16));
+}
+.hardware-card--gpu .hardware-card-art {
+  top: 50%;
+  right: 6%;
+  width: 54%;
+  height: 75%;
+  transform: translateY(-50%);
+  color: #375d83;
+  opacity: 1;
+}
+.hardware-card--gpu .hardware-card-img {
+  transform: rotate(-5deg);
+  filter: drop-shadow(0 16px 28px rgba(15, 30, 50, 0.18));
+}
+.hardware-card--gpu:hover .hardware-card-img {
+  transform: scale(1.06) rotate(-2deg) translateY(-6px);
+  filter: drop-shadow(0 22px 34px rgba(15, 30, 50, 0.24));
+}
+.hardware-card--motherboard .hardware-card-art {
+  top: 50%;
+  right: 6%;
+  width: 38%;
+  height: 86%;
+  transform: translateY(-50%);
+  opacity: 1;
+}
+.hardware-card--motherboard .hardware-card-img {
+  transform: rotate(-3deg);
+}
+.hardware-card--motherboard:hover .hardware-card-img {
+  transform: scale(1.06) translateY(-4px);
+}
+.hardware-card--cpu .hardware-card-art,
+.hardware-card--ram .hardware-card-art {
+  width: 105px;
+  height: 105px;
+  top: 14px;
+  right: 14px;
+}
+.hardware-card--storage .hardware-card-art,
+.hardware-card--psu .hardware-card-art,
+.hardware-card--cooler .hardware-card-art,
+.hardware-card--case .hardware-card-art {
+  width: 95px;
+  height: 95px;
+  top: 10px;
+  right: 12px;
+}
+.hardware-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: calc(100% - 18px);
+  position: relative;
+  z-index: 2;
+}
+.hardware-card-copy strong {
+  font-family: var(--font-heading);
+  font-size: clamp(19px, 2vw, 26px);
+  letter-spacing: -.035em;
+  line-height: 1.1;
+}
+.hardware-card-copy small {
+  font-size: 13px;
+  color: #52606d;
+}
+.hardware-card--gpu .hardware-card-copy strong {
+  font-size: clamp(32px, 3.4vw, 46px);
+}
+.hardware-card-arrow {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  font-size: 22px;
+  line-height: 1;
+  z-index: 2;
+  transition: transform .2s ease;
+}
+.hardware-card:hover .hardware-card-arrow {
+  transform: translate(2px, -2px);
+}
+.hardware-more {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+.hardware-more > span {
+  margin-right: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.hardware-more a {
+  padding: 8px 13px;
+  border: 1px solid #dce2e8;
+  border-radius: 100px;
+  font-size: 13px;
+  background: #fff;
+}
+.hardware-more a span { margin-left: 8px; }
+@media (max-width: 900px) {
+  .hardware-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "gpu gpu"
+      "cpu ram"
+      "motherboard motherboard"
+      "storage psu"
+      "cooler case";
+    grid-template-rows: 270px repeat(4, 170px);
+  }
+}
+@media (max-width: 560px) {
+  .hardware-grid {
+    grid-template-rows: 230px repeat(4, 150px);
+    gap: 9px;
+  }
+  .hardware-card { padding: 15px; }
+  .hardware-card-copy strong { font-size: 18px; }
+  .hardware-card-copy small { font-size: 11px; line-height: 1.25; }
+  .hardware-card--gpu .hardware-card-copy strong { font-size: 31px; }
+  .hardware-card--gpu .hardware-card-art { right: 3%; width: 48%; }
+  .hardware-card-arrow { right: 12px; bottom: 13px; font-size: 18px; }
+  .hardware-card-art { width: 75px; height: 75px; right: 4px; }
+  .hardware-card--storage .hardware-card-art,
+  .hardware-card--psu .hardware-card-art,
+  .hardware-card--cooler .hardware-card-art,
+  .hardware-card--case .hardware-card-art { width: 60px; height: 60px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hardware-card-art { transition: none; }
 }
 .product-grid {
   display: grid;
@@ -2010,54 +2330,104 @@ h1 {
   cursor: not-allowed;
 }
 
-/* Builder Teaser Banner on Homepage */
+/* Builder preview on the homepage */
+.builder-preview-section {
+  padding-top: 95px;
+  padding-bottom: 95px;
+}
 .builder-teaser-banner {
-  background: linear-gradient(135deg, var(--rog-dark) 0%, #1a1a2e 100%);
-  color: #fff;
-  border-radius: 16px;
-  padding: 44px;
+  color: var(--ink);
+  border-radius: 24px;
+  padding: 34px 0;
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 40px;
+  grid-template-columns: minmax(300px, .85fr) minmax(0, 1.45fr);
+  gap: clamp(32px, 5vw, 80px);
   align-items: center;
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
-  margin-top: 20px;
-  border: 1px solid var(--rog-border);
 }
 .builder-teaser-copy h2 {
-  font-family: var(--font-gaming);
-  font-size: 32px;
-  letter-spacing: 0.04em;
-  margin: 10px 0 14px;
+  max-width: 530px;
+  font-family: var(--font-heading);
+  font-size: clamp(38px, 4vw, 58px);
+  line-height: 1.08;
+  letter-spacing: -.045em;
+  margin: 0 0 23px;
 }
 .builder-teaser-copy p {
-  color: #cbd5e1;
-  font-size: 15px;
-  margin: 0 0 24px;
-  max-width: 520px;
+  color: #5d6670;
+  font-size: 17px;
+  line-height: 1.55;
+  margin: 0 0 32px;
+  max-width: 440px;
 }
-.builder-teaser-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+.builder-teaser-copy .button {
+  min-height: 52px;
+  padding: 13px 24px;
 }
-.stat-card {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
-  padding: 20px 16px;
-  text-align: center;
+.builder-preview {
+  padding: 24px;
+  min-height: 400px;
+  border: 1px solid #dce6ef;
+  border-radius: 22px;
+  background: #edf4fa;
 }
-.stat-card strong {
+.builder-preview-caption {
   display: block;
-  font-family: var(--font-specs);
-  font-size: 28px;
+  margin-bottom: 18px;
+  color: #52677c;
+  font-size: 13px;
   font-weight: 700;
-  color: var(--blue);
 }
-.stat-card span {
-  font-size: 12px;
-  color: #94a3b8;
+.builder-preview-parts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.builder-preview-part {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 240px;
+  padding: 17px;
+  border: 1px solid #e0e7ed;
+  border-radius: 14px;
+  background: #fff;
+}
+.builder-preview-part span {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-nav);
+  font-size: 15px;
+  font-weight: 700;
+}
+.builder-preview-part img {
+  display: block;
+  width: 100%;
+  height: 175px;
+  margin: auto 0 0;
+  object-fit: contain;
+}
+.builder-preview-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  gap: 16px;
+  margin-top: 14px;
+  padding: 17px 20px;
+  border: 1px solid #e0e7ed;
+  border-radius: 14px;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+.builder-preview-result span {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.builder-preview-result svg {
+  flex: none;
+  color: #16865a;
 }
 .hero-features-list {
   display: flex;
@@ -3078,6 +3448,22 @@ h1 {
   .store-commitments-grid {
     grid-template-columns: 1fr;
   }
+}
+@media (max-width: 700px) {
+  .builder-preview-section {
+    padding-top: 72px;
+    padding-bottom: 72px;
+  }
+  .builder-teaser-banner {
+    padding: 0;
+    gap: 34px;
+  }
+  .builder-teaser-copy h2 { font-size: clamp(36px, 9vw, 48px); }
+  .builder-preview { padding: 14px; min-height: 0; }
+  .builder-preview-parts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+  .builder-preview-part { height: 175px; padding: 12px; }
+  .builder-preview-part img { height: 125px; }
+  .builder-preview-result { flex-direction: column; align-items: flex-start; gap: 10px; }
 }
 
 /* ==========================================================================

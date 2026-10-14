@@ -9,7 +9,7 @@ import { useToast } from "./toast";
 import { QuickSearch } from "./quick-search";
 import { ProductReviewsSection } from "./reviews";
 import { ProductGalleryZoom } from "./product-gallery-zoom";
-import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef, type ComponentType } from "react";
 import {
   formatPrice,
   Product,
@@ -40,7 +40,125 @@ import {
   ArrowUp,
   ArrowDown,
   Check,
+  Cpu,
+  CircuitBoard,
+  MemoryStick,
+  HardDrive,
+  Fan,
+  PcCase,
+  Zap,
 } from "lucide-react";
+
+function GraphicsCardIllustration() {
+  return (
+    <svg viewBox="0 0 180 120" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="14" y="22" width="148" height="76" rx="11" />
+      <circle cx="62" cy="60" r="23" />
+      <circle cx="62" cy="60" r="7" />
+      <circle cx="119" cy="60" r="23" />
+      <circle cx="119" cy="60" r="7" />
+      <path d="M35 98v10h104V98M162 43h10v36h-10" />
+    </svg>
+  );
+}
+
+const hardwareCategories: ReadonlyArray<{
+  type: string;
+  title: string;
+  detail: string;
+  image: string;
+  icon: ComponentType<{ strokeWidth?: number }>;
+  area: string;
+}> = [
+  {
+    type: "GPU",
+    title: "Card đồ họa",
+    detail: "Cho từng khung hình sắc nét",
+    image: "https://cdn.hstatic.net/products/200000722513/gearvn-card-man-hinh-msi-geforce-rtx-5060-ventus-2x-oc-8gb-1_e9b39ab2208346618f66951c5bab8bf0.png",
+    icon: GraphicsCardIllustration,
+    area: "gpu",
+  },
+  {
+    type: "CPU",
+    title: "Bộ vi xử lý",
+    detail: "Trái tim của bộ máy",
+    image: "https://product.hstatic.net/200000722513/product/gearvn-amd-ryzen-7-7700-1_b5fe209e78084b978058d105a7c29ff3_3e536376e6fb40228a3455582b7c5756.png",
+    icon: Cpu,
+    area: "cpu",
+  },
+  {
+    type: "RAM",
+    title: "Bộ nhớ RAM",
+    detail: "Chuyển tác vụ mượt mà",
+    image: "https://cdn.hstatic.net/products/200000722513/earvn-ram-corsair-vengeance-lpx-16gb-3200mhz-ddr4-cmk16gx4m1e3200c16-1_c13698bde1ce4ba7946fdbbe32cf7fd4.png",
+    icon: MemoryStick,
+    area: "ram",
+  },
+  {
+    type: "MOTHERBOARD",
+    title: "Bo mạch chủ",
+    detail: "Kết nối mọi linh kiện",
+    image: "https://cdn.hstatic.net/products/200000722513/gearvn-bo-mach-chu-msi-b550m-pro-vdh-1_416082a228c34dd59315f8f75ee30c4b.png",
+    icon: CircuitBoard,
+    area: "motherboard",
+  },
+  {
+    type: "STORAGE",
+    title: "Ổ cứng",
+    detail: "Không gian cho mọi dữ liệu",
+    image: "https://cdn.hstatic.net/products/200000722513/gearvn-o-cung-ssd-samsung-990-pro-1tb-pcie-gen4-nvme-mz-v9p1t0bw-1_fbe51100e12d46e48c54086f36c81669.png",
+    icon: HardDrive,
+    area: "storage",
+  },
+  {
+    type: "PSU",
+    title: "Nguồn máy tính",
+    detail: "Năng lượng ổn định",
+    image: "https://product.hstatic.net/200000722513/product/1024_0920b4ad0bce4347aec42163de5ee9d6.png",
+    icon: Zap,
+    area: "psu",
+  },
+  {
+    type: "COOLER",
+    title: "Tản nhiệt",
+    detail: "Giữ hiệu năng bền bỉ",
+    image: "https://product.hstatic.net/200000722513/product/ak620zerodark04_e30359ec525d41a4bba1d388f1bb0a7a.png",
+    icon: Fan,
+    area: "cooler",
+  },
+  {
+    type: "CASE",
+    title: "Vỏ máy",
+    detail: "Định hình góc máy",
+    image: "https://product.hstatic.net/200000722513/product/3500x_blk_01_1f55ef1bec404d95be8d62810eb42ac0.png",
+    icon: PcCase,
+    area: "case",
+  },
+];
+
+const homeBanners = [
+  {
+    title: "Ráp PC theo cách của bạn.",
+    description: "Chọn từng linh kiện và kiểm tra tương thích trước khi thêm cả cấu hình vào giỏ.",
+    action: "Bắt đầu ráp PC",
+    href: "/builder",
+    image: "/banners/pc-builder.webp",
+  },
+  {
+    title: "Sức mạnh cho từng khung hình.",
+    description: "Khám phá card đồ họa và các linh kiện phù hợp với bộ máy bạn muốn xây dựng.",
+    action: "Xem linh kiện",
+    href: "/products",
+    image: "/banners/graphics-card.webp",
+  },
+  {
+    title: "Một góc máy mang dấu ấn riêng.",
+    description: "Xem cách cộng đồng phối hợp linh kiện, không gian và phong cách của họ.",
+    action: "Khám phá góc máy",
+    href: "/community",
+    image: "/banners/setup.webp",
+  },
+] as const;
 
 export function Header() {
   const { user, loading, error: sessionError, logout } = useAuth();
@@ -441,10 +559,19 @@ export function ProductCard({ product }: { product: ProductInput }) {
 }
 
 export function HomePage() {
+  const [activeBanner, setActiveBanner] = useState(0);
+  const [bannerPaused, setBannerPaused] = useState(false);
   const [featuredProducts, setFeaturedProducts] = useState<CatalogProduct[]>([]);
   const [categoriesList, setCategoriesList] = useState<CatalogCategoryOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const primaryCategories = hardwareCategories.flatMap((display) => {
+    const category = categoriesList.find((item) => item.componentType?.toUpperCase() === display.type);
+    return category ? [{ ...display, category }] : [];
+  });
+  const otherCategories = categoriesList.filter((category) =>
+    !hardwareCategories.some((display) => display.type === category.componentType?.toUpperCase())
+  );
 
   const loadData = useCallback(async () => {
     try {
@@ -467,115 +594,134 @@ export function HomePage() {
     void loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    if (bannerPaused) return;
+    const timer = window.setInterval(() => setActiveBanner((current) => (current + 1) % homeBanners.length), 6000);
+    return () => window.clearInterval(timer);
+  }, [bannerPaused]);
+
   return (
     <>
       <Header />
       <main>
-        <section className="hero">
-          <div className="container hero-grid">
-            <div className="hero-copy">
-              <span className="eyebrow">PC Store · Bản nâng cấp 2026</span>
-              <h1>
-                Build your <em>next</em> level.
-              </h1>
-              <p>
-                Những linh kiện đúng gu, hiệu năng đúng nhu cầu. Ráp cấu hình
-                trong mơ với bộ kiểm tra tương thích thông minh.
-              </p>
-              <div className="hero-actions">
-                <Link className="button button-primary" href="/products">
-                  Khám phá linh kiện <span>↗</span>
+        <section className="home-banner" aria-label="Giới thiệu PC Store">
+          {homeBanners.map((banner, index) => (
+            <div className="home-banner-slide" aria-hidden={activeBanner !== index} key={banner.image} hidden={activeBanner !== index}>
+              <Image src={banner.image} alt="" fill priority={index === 0} sizes="100vw" className="home-banner-image" />
+              <div className="container home-banner-content">
+                {index === 0 ? <h1>{banner.title}</h1> : <h2>{banner.title}</h2>}
+                <p>{banner.description}</p>
+                <Link className="button button-primary" href={banner.href} tabIndex={activeBanner === index ? undefined : -1}>
+                  {banner.action} <span aria-hidden="true">↗</span>
                 </Link>
-                <Link className="button button-outline" href="/builder">
-                  Tự ráp cấu hình PC <span>↗</span>
-                </Link>
-              </div>
-              <div className="hero-features-list">
-                <span>✓ Kiểm tra tương thích tự động</span>
-                <span>✓ Đặt cọc linh hoạt & COD</span>
-                <span>✓ Miễn phí giao toàn quốc</span>
               </div>
             </div>
-            <div className="hero-art">
-              <div className="hero-ring" />
-              <div className="hero-chip">
-                <span>PC</span>
-                <strong>∞</strong>
-              </div>
-              <div className="hero-spec">
-                <span>01</span>
-                <small>
-                  Curated
-                  <br />
-                  hardware
-                </small>
-              </div>
-              <div className="hero-floating">
-                DESIGNED FOR
-                <br />
-                <b>YOUR FLOW</b>
-              </div>
+          ))}
+          <div className="container home-banner-controls">
+            <div className="home-banner-pagination" role="group" aria-label="Chọn banner">
+              {homeBanners.map((banner, index) => (
+                <button
+                  type="button"
+                  className={activeBanner === index ? "active" : ""}
+                  aria-label={`Banner ${index + 1}: ${banner.title}`}
+                  aria-current={activeBanner === index ? "true" : undefined}
+                  onClick={() => setActiveBanner(index)}
+                  key={banner.image}
+                />
+              ))}
+            </div>
+            <div className="home-banner-buttons">
+              <button type="button" aria-label={bannerPaused ? "Tiếp tục tự chuyển banner" : "Tạm dừng tự chuyển banner"} onClick={() => setBannerPaused((paused) => !paused)}>
+                {bannerPaused ? "▶" : "Ⅱ"}
+              </button>
+              <button type="button" aria-label="Banner trước" onClick={() => setActiveBanner((current) => (current + homeBanners.length - 1) % homeBanners.length)}>←</button>
+              <button type="button" aria-label="Banner tiếp theo" onClick={() => setActiveBanner((current) => (current + 1) % homeBanners.length)}>→</button>
             </div>
           </div>
         </section>
 
-        {/* Builder Banner Callout */}
-        <section className="container section">
+        <section className="container section builder-preview-section" aria-labelledby="builder-preview-title">
           <div className="builder-teaser-banner">
             <div className="builder-teaser-copy">
-              <span className="eyebrow">PC Builder 2026</span>
-              <h2>Bạn chưa biết linh kiện nào hợp nhau?</h2>
+              <h2 id="builder-preview-title">Ráp PC dễ hơn khi biết món nào hợp nhau.</h2>
               <p>
-                Công cụ PC Builder tự động tính tổng công suất nguồn (Watt),
-                kiểm tra chân cắm Socket CPU - Mainboard và kích cỡ Vỏ case
-                hoàn toàn tự động!
+                Chọn linh kiện, xem cảnh báo tương thích, rồi hoàn tất cấu hình của bạn.
               </p>
               <Link href="/builder" className="button button-primary">
-                Bắt đầu ráp máy ngay <span>↗</span>
+                Mở PC Builder <span aria-hidden="true">↗</span>
               </Link>
             </div>
-            <div className="builder-teaser-stats">
-              <div className="stat-card">
-                <strong>8 Nhóm</strong>
-                <span>Linh kiện chuẩn</span>
+            <div className="builder-preview" aria-label="Ví dụ cấu hình PC">
+              <span className="builder-preview-caption">Cấu hình minh họa</span>
+              <div className="builder-preview-parts">
+                {["CPU", "MOTHERBOARD", "RAM", "GPU"].map((type) => {
+                  const part = hardwareCategories.find((category) => category.type === type);
+                  if (!part) return null;
+                  return (
+                    <div className="builder-preview-part" key={type}>
+                      <span>{part.title}</span>
+                      <Image src={part.image} alt="" width={170} height={150} unoptimized />
+                    </div>
+                  );
+                })}
               </div>
-              <div className="stat-card">
-                <strong>100%</strong>
-                <span>Quy tắc chuẩn đoán</span>
-              </div>
-              <div className="stat-card">
-                <strong>1 Click</strong>
-                <span>Thêm cả dàn vào giỏ</span>
+              <div className="builder-preview-result">
+                <span><Check size={17} aria-hidden="true" /> Socket khớp</span>
+                <span><Check size={17} aria-hidden="true" /> Chuẩn RAM khớp</span>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="container section" id="categories">
-          <div className="section-heading">
+        <section className="container section hardware-section" id="categories">
+          <div className="section-heading hardware-heading">
             <div>
-              <span className="eyebrow">Chọn điểm bắt đầu</span>
-              <h2>Phần cứng cho mọi nhịp làm việc.</h2>
+              <h2>Chọn mảnh ghép cho cấu hình của bạn.</h2>
+              <p>Tìm linh kiện theo đúng phần bạn muốn nâng cấp.</p>
             </div>
             <Link className="text-link" href="/products">
-              Xem tất cả sản phẩm ↗
+              Xem tất cả danh mục ↗
             </Link>
           </div>
-          <div className="category-grid">
-            {categoriesList.map((category, idx) => (
-                  <Link
-                    className="category-tile category-violet"
-                    href={`/products?categoryId=${category.categoryId}`}
-                    key={category.categoryId}
-                  >
-                    <span className="category-index">0{idx + 1}</span>
-                    <span className="category-icon">▣</span>
-                    <strong>{category.name}</strong>
-                    <small>{category.componentType ?? "Linh kiện"}</small>
-                    <span className="tile-arrow">↗</span>
-                  </Link>
-                ))}
+          <div className="hardware-grid">
+            {primaryCategories.map(({ category, title, detail, image, icon: Icon, area }) => (
+              <Link
+                className={`hardware-card hardware-card--${area}`}
+                href={`/products?categoryId=${category.categoryId}`}
+                key={category.categoryId}
+                style={{ gridArea: area }}
+                aria-label={`Xem ${title}`}
+              >
+                <span className="hardware-card-art" aria-hidden="true">
+                  {image ? (
+                    <img
+                      src={image}
+                      alt={title}
+                      className="hardware-card-img"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <Icon strokeWidth={1.35} />
+                  )}
+                </span>
+                <span className="hardware-card-copy">
+                  <strong>{title}</strong>
+                  <small>{detail}</small>
+                </span>
+                <span className="hardware-card-arrow" aria-hidden="true">↗</span>
+              </Link>
+            ))}
           </div>
+          {otherCategories.length > 0 && (
+            <div className="hardware-more">
+              <span>Khám phá thêm</span>
+              {otherCategories.map((category) => (
+                <Link href={`/products?categoryId=${category.categoryId}`} key={category.categoryId}>
+                  {category.name} <span aria-hidden="true">↗</span>
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="container section featured-section">
