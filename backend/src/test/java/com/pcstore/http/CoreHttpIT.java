@@ -6,7 +6,7 @@ import com.pcstore.config.PersistenceManager;
 import com.pcstore.controller.*;
 import com.pcstore.filter.*;
 import com.pcstore.util.PasswordUtil;
-import com.pcstore.service.EmailSender;
+import com.pcstore.service.BrevoEmailSender;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.servlet.Filter;
 import jakarta.servlet.annotation.WebFilter;
@@ -46,8 +46,8 @@ class CoreHttpIT {
     private URI base;
     private final List<HttpClient> clients = new ArrayList<>();
     private String recoveryOtp;
-    private final EmailSender mail = new EmailSender() {
-        public boolean enabled() { return true; }
+    private final BrevoEmailSender mail = new BrevoEmailSender("test-only-key", "sender@example.test",
+            "PC Store", URI.create("http://127.0.0.1:1")) {
         public void welcome(String email, String name) { }
         public void otp(String email, String code) { recoveryOtp = code; }
         public void passwordChanged(String email) { }
@@ -88,7 +88,7 @@ class CoreHttpIT {
         tomcat.getConnector().setProperty("address", "127.0.0.1");
         var context = tomcat.addContext("", temp.toString());
         context.setParentClassLoader(getClass().getClassLoader());
-        for (Filter filter : List.of(new CorsFilter(), new SessionVersionFilter(), new AuthenticationFilter(), new AdminAuthorizationFilter())) {
+        for (Filter filter : List.of(new CorsFilter(), new SessionVersionFilter(), new AuthenticationFilter())) {
             String name = filter.getClass().getSimpleName();
             var definition = new FilterDef(); definition.setFilterName(name); definition.setFilter(filter);
             context.addFilterDef(definition);
