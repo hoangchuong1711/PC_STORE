@@ -263,8 +263,8 @@ export function AccountDashboard() {
       toast("Vui lòng nhập mật khẩu hiện tại.", "error");
       return;
     }
-    if (newPassword.length < 6) {
-      toast("Mật khẩu mới phải có tối thiểu 6 ký tự.", "error");
+    if (newPassword.length < 8 || newPassword.length > 128) {
+      toast("Mật khẩu mới phải dài từ 8 đến 128 ký tự.", "error");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -829,7 +829,7 @@ export function AccountDashboard() {
                             setNewPassword(e.target.value);
                             setPasswordNotice(null);
                           }}
-                          placeholder="Tối thiểu 6 ký tự"
+                          placeholder="Từ 8 đến 128 ký tự"
                           className="h-10 px-3.5 border border-[#e2e8f0] rounded-xl text-sm outline-none focus:border-[#006ce1] focus:ring-1 focus:ring-[#006ce1] transition-colors"
                         />
                       </div>

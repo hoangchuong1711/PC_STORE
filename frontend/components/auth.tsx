@@ -5,7 +5,7 @@ import { FormEvent, useState, useEffect } from "react";
 import { Header, Footer } from "./storefront";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./auth-provider";
-import { authDestination, createAuthApi } from "../lib/auth-api";
+import { authDestination, authApi } from "../lib/auth-api";
 import { Eye, EyeOff, AlertCircle, Ban } from "lucide-react";
 import { PasswordRecoveryForm } from "./password-recovery";
 
@@ -14,13 +14,12 @@ type AuthMode = "login" | "register" | "forgot";
 export function AuthPage({ mode }: { mode: AuthMode }) {
   const isLogin = mode === "login";
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [redirectPath, setRedirectPath] = useState<string | null>(null);
 
-  const { login } = useAuth();
+  const { setUser } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -49,7 +48,8 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     try {
       const email = String(form.get("email") ?? "").trim();
       if (isLogin) {
-        const user = await login(email, password);
+        const user = await authApi.login(email, password);
+        setUser(user);
         const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
         const redirectParam = params?.get("redirect");
         if (redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("//")) {
@@ -58,7 +58,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
           router.replace(authDestination(user));
         }
       } else {
-        await createAuthApi().register({
+        await authApi.register({
           fullName: String(form.get("name") ?? "").trim(),
           email,
           password,
@@ -197,18 +197,9 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                 </div>
               </div>
 
-              {/* Nhớ tôi & Quên mật khẩu (chỉ khi Đăng nhập) */}
+              {/* Quên mật khẩu (chỉ khi Đăng nhập) */}
               {isLogin && (
-                <div className="flex items-center justify-between mb-5">
-                  <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={rememberMe}
-                      onChange={(e) => setRememberMe(e.target.checked)}
-                      className="w-4 h-4 rounded border-[#cbd5e1] text-[#006ce1] focus:ring-[#006ce1] cursor-pointer"
-                    />
-                    <span>Nhớ tôi</span>
-                  </label>
+                <div className="flex justify-end mb-5">
                   <Link
                     href="/auth/forgot-password"
                     className="text-xs text-[#006ce1] hover:underline font-medium"
