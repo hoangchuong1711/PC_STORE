@@ -33,7 +33,7 @@ paths:
       tags: [Auth]
       operationId: forgotPassword
       summary: Gửi OTP quên mật khẩu qua email
-      description: "OTP 6 số hết hạn sau 5 phút. Response chung cho email không tồn tại/tài khoản không ACTIVE và khi provider từ chối gửi. Tối đa 1 lần/phút/email, 5 lượt/giờ/email, 20 yêu cầu/giờ/IP. Không yêu cầu session."
+      description: "OTP 6 số hết hạn sau 5 phút. Response chung cho email không tồn tại/tài khoản không ACTIVE và khi provider từ chối gửi. Tối đa 1 lần/phút/email. Không yêu cầu session."
       requestBody:
         required: true
         content:
@@ -54,12 +54,12 @@ paths:
         '403':
           description: ORIGIN_NOT_ALLOWED
         '429':
-          description: RATE_LIMITED; chờ cooldown hoặc quota giờ
+          description: RATE_LIMITED; chờ hết cooldown 1 phút/email
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ErrorResponse'}
         '503':
-          description: MAIL_UNAVAILABLE; gửi email đang tắt hoặc thiếu cấu hình
+          description: MAIL_UNAVAILABLE; thiếu cấu hình gửi email
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ErrorResponse'}
@@ -68,7 +68,7 @@ paths:
       tags: [Auth]
       operationId: verifyResetOtp
       summary: Xác minh OTP và nhận quyền đặt lại mật khẩu
-      description: "Tối đa 5 lần sai/mã; 60 request đúng định dạng/5 phút/IP. Thành công hủy OTP; resetToken ngẫu nhiên dùng một lần, hiệu lực 5 phút. Không yêu cầu session. Response no-store."
+      description: "Tối đa 5 lần sai/mã. Thành công hủy OTP; resetToken ngẫu nhiên dùng một lần, hiệu lực 5 phút. Không yêu cầu session. Response no-store."
       requestBody:
         required: true
         content:
@@ -96,13 +96,12 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/ErrorResponse'}
         '403': {description: ORIGIN_NOT_ALLOWED}
-        '429': {description: RATE_LIMITED}
   /api/auth/reset-password:
     post:
       tags: [Auth]
       operationId: resetPassword
       summary: Đặt mật khẩu mới sau xác minh OTP
-      description: "Token phải thuộc email yêu cầu, chưa hết hạn/chưa dùng. Thành công hủy challenge và thu hồi các session cũ bằng auth_version; không tự đăng nhập. Gửi email thông báo sau commit. 60 request đúng định dạng/5 phút/IP."
+      description: "Token phải thuộc email yêu cầu, chưa hết hạn/chưa dùng. Thành công hủy challenge và thu hồi các session cũ bằng auth_version; không tự đăng nhập. Gửi email thông báo sau commit."
       requestBody:
         required: true
         content:
@@ -127,7 +126,6 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/ErrorResponse'}
         '403': {description: ORIGIN_NOT_ALLOWED}
-        '429': {description: RATE_LIMITED}
   "/api/setups/ranking":
     get:
       tags: [Setup]
@@ -442,7 +440,7 @@ paths:
         - "Auth"
       operationId: "register"
       summary: "Đăng ký tài khoản CUSTOMER"
-      description: "Email được trim/chuyển chữ thường. Đăng ký không tự đăng nhập. Gửi email chào mừng qua Brevo sau commit nếu MAIL_ENABLED=true và đã cấu hình. Lỗi gửi email không hủy tài khoản. Email này không phải bước xác minh kích hoạt."
+      description: "Email được trim/chuyển chữ thường. Đăng ký không tự đăng nhập. Backend luôn thử gửi email chào mừng qua Brevo sau commit; cần cấu hình key và địa chỉ gửi. Lỗi gửi email không hủy tài khoản. Email này không phải bước xác minh kích hoạt."
       requestBody:
         required: true
         content:
@@ -2088,7 +2086,7 @@ paths:
               required: [oldPassword, newPassword]
               properties:
                 oldPassword: {type: string}
-                newPassword: {type: string}
+                newPassword: {type: string, format: password, minLength: 8, maxLength: 128}
       responses:
         '200':
           description: Đổi mật khẩu thành công
@@ -2107,8 +2105,8 @@ paths:
       security: [{sessionCookie: []}]
       summary: ADMIN — Danh sách người dùng
       parameters:
-        - {name: role, in: query, schema: {type: string}}
-        - {name: status, in: query, schema: {type: string}}
+        - {name: role, in: query, description: "CUSTOMER, ADMIN hoặc ALL; không phân biệt chữ hoa/thường", schema: {type: string, enum: [CUSTOMER, ADMIN, ALL]}}
+        - {name: status, in: query, description: "ACTIVE, INACTIVE hoặc ALL; không phân biệt chữ hoa/thường", schema: {type: string, enum: [ACTIVE, INACTIVE, ALL]}}
         - {name: query, in: query, schema: {type: string}}
         - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
         - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
@@ -2121,6 +2119,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/AdminUserDto'
+        '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '403': {$ref: '#/components/responses/Forbidden'}
   "/api/admin/users/{id}/status":

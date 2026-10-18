@@ -7,7 +7,6 @@ Backend Java gửi email giao dịch qua Brevo HTTPS API, không dùng cổng SM
 Đặt trong `.env` gốc khi chạy Docker Compose; `compose.yaml` truyền các biến sau cho backend:
 
 ```dotenv
-MAIL_ENABLED=true
 BREVO_API_KEY=<API key, không phải SMTP key>
 MAIL_FROM_EMAIL=<sender đã xác minh trên Brevo>
 MAIL_FROM_NAME=PC Store
@@ -15,7 +14,7 @@ MAIL_FROM_NAME=PC Store
 
 Trên Railway, đặt cùng biến tại service backend rồi deploy bản code mới. Tomcat chạy trực tiếp cần biến môi trường của tiến trình; Java không tự đọc `.env`. Không đặt key vào frontend, không commit key hoặc ghi nội dung email/OTP/token vào log. Dùng sender/domain đã xác thực; kiểm tra Transactional Logs của Brevo và cấu hình Authorized IPs nếu provider trả 401.
 
-Khi thiếu cấu hình hoặc `MAIL_ENABLED=false`, đăng ký vẫn hoạt động nhưng không gửi email; yêu cầu OTP trả `503 MAIL_UNAVAILABLE`. Cấu hình mẫu mặc định tắt gửi email để test không gửi thư thật.
+Không có cờ bật/tắt mail. Khi có key và địa chỉ gửi, backend luôn thử gửi email. Nếu thiếu cấu hình, đăng ký vẫn tạo tài khoản nhưng không gửi được email chào mừng; yêu cầu OTP trả `503 MAIL_UNAVAILABLE`. File mẫu để trống key và địa chỉ gửi, nên cần điền cấu hình thật trước khi dùng chức năng mail. Test dùng mail giả lập và không gửi thư thật.
 
 Chạy local với database riêng:
 
@@ -36,23 +35,23 @@ Lệnh trên chạy migration trên DB local. Railway kết nối Neon chung; ch
 
 Các endpoint phục hồi không yêu cầu session. Backend vẫn kiểm tra Origin. Response POST auth có `Cache-Control: no-store`. Token không nằm trong URL, localStorage hoặc cookie; frontend chỉ giữ trong state. Reload trang cần bắt đầu lại và tuân thủ thời gian chờ gửi lại.
 
-Email được trim/chuyển chữ thường. OTP gồm 6 chữ số sinh bằng SecureRandom, có hiệu lực 5 phút và lưu bằng PBKDF2 có salt. Mỗi mã chỉ được thử sai tối đa 5 lần; các lần thử sai được commit ngay cả khi response báo lỗi. Xác minh đúng hủy OTP và cấp token ngẫu nhiên 256 bit, hiệu lực 5 phút, chỉ lưu SHA-256 của token. Mật khẩu mới dài 8–128 ký tự, băm bằng PasswordUtil hiện có. Gửi lại OTP hủy OTP và token trước đó. Mã/token không dùng được cho email khác hoặc tài khoản không ACTIVE.
+Email được trim/chuyển chữ thường. OTP gồm 6 chữ số sinh bằng SecureRandom, có hiệu lực 5 phút và lưu bằng PBKDF2 có salt. Mỗi mã chỉ được thử sai tối đa 5 lần; các lần thử sai được commit ngay cả khi response báo lỗi. Xác minh đúng hủy OTP và cấp token ngẫu nhiên 256 bit, hiệu lực 5 phút, chỉ lưu SHA-256 của token. Mật khẩu đăng ký, đổi và đặt lại đều dài 8–128 ký tự, băm bằng PasswordUtil hiện có. Gửi lại OTP hủy OTP và token trước đó. Mã/token không dùng được cho email khác hoặc tài khoản không ACTIVE.
 
 Đặt lại mật khẩu khóa bản ghi User và cập nhật mật khẩu, tăng `auth_version`, xóa challenge trong cùng transaction. Hai request đồng thời không thể dùng thành công cùng token. `SessionVersionFilter` kiểm tra phiên bản trên mọi `/api/*`; cookie cũ bị từ chối ở lần gọi tiếp theo. Session tạo trước migration được coi là version 0. Email thông báo đổi mật khẩu gửi sau commit.
 
 Đổi mật khẩu bằng mật khẩu cũ trong trang hồ sơ cũng khóa User và hủy challenge phục hồi đang tồn tại, để OTP/token đã cấp trước đó không thể ghi đè mật khẩu vừa đổi.
 
+Trong luồng auth, Service kiểm tra request, xử lý mật khẩu và email; UserDAO và PasswordRecoveryDAO tự mở EntityManager, quản lý transaction và ghi entity. Các test tích hợp truyền EntityManagerFactory của schema test trực tiếp vào DAO, không thay cấu hình database toàn cục.
+
 ## Giới hạn và lỗi
 
-- Gửi OTP: 20 yêu cầu/giờ/IP; 5 lượt qua giới hạn IP/giờ/email; tối đa 1 lần/phút/email. Lượt bị chặn bởi cooldown vẫn tính vào quota email theo giờ. Email không tồn tại cũng chịu cùng giới hạn.
-- Xác minh OTP: 60 request đúng định dạng/5 phút/IP, ngoài giới hạn 5 lần sai/mã.
-- Đặt mật khẩu: 60 request đúng định dạng/5 phút/IP.
-- Bucket được lưu bằng khóa SHA-256 trong PostgreSQL; giới hạn tồn tại qua restart và dùng chung giữa các replica. Bucket hết hạn hơn một ngày được dọn khi có yêu cầu mới.
-- IP lấy từ `getRemoteAddr()`, không tin tùy ý `X-Forwarded-For`. Nếu proxy chưa được cấu hình để cung cấp IP đã xác thực cho Tomcat, nhiều người dùng có thể chung quota IP. Cần cấu hình trusted proxy phù hợp môi trường trước khi tăng quy mô; không dùng IP công khai truy cập website làm IP outbound cho Brevo.
+- Gửi OTP: tối đa 1 lần/phút/email. Email không tồn tại cũng chịu cùng giới hạn.
+- Xác minh OTP: tối đa 5 lần sai/mã; OTP hết hạn sau 5 phút.
+- Bucket cooldown được lưu bằng khóa SHA-256 trong PostgreSQL; giới hạn tồn tại qua restart và dùng chung giữa các replica. Bucket hết hạn hơn một ngày được dọn khi có yêu cầu mới.
 - `400 INVALID_OTP`: mã sai, hết hạn, vượt số lần thử hoặc đã dùng.
 - `400 INVALID_RESET_TOKEN`: token sai, hết hạn hoặc đã dùng; yêu cầu OTP mới.
 - `429 RATE_LIMITED`: chờ theo cooldown/quota ở trên.
-- `503 MAIL_UNAVAILABLE`: tính năng gửi mail tắt hoặc chưa cấu hình key/sender.
+- `503 MAIL_UNAVAILABLE`: chưa cấu hình key/sender gửi mail.
 
 Gửi mail có connect timeout 3 giây, request timeout 8 giây. Gửi chào mừng hoặc thông báo đổi mật khẩu lỗi không rollback dữ liệu đã commit. Khi Brevo từ chối OTP, backend thu hồi challenge tương ứng và vẫn trả thông báo chung để không lộ sự tồn tại tài khoản qua mã lỗi. Người dùng có thể yêu cầu lại sau cooldown; quản trị viên xem log backend và Brevo.
 
