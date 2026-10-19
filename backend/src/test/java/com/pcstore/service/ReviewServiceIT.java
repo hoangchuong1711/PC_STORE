@@ -59,9 +59,9 @@ class ReviewServiceIT {
         rejects(400, "INVALID_REVIEW", () -> create(1, 1, 1, 5, "   ", List.of()));
 
         ReviewDto.Response created = create(1, 1, 1, 5, "  Excellent  ", List.of());
-        assertEquals("Excellent", created.content());
-        assertEquals("PUBLISHED", created.status());
-        assertTrue(created.verifiedPurchase());
+        assertEquals("Excellent", created.getContent());
+        assertEquals("PUBLISHED", created.getStatus());
+        assertTrue(created.getVerifiedPurchase());
         rejects(409, "REVIEW_ALREADY_EXISTS", () -> create(1, 1, 1, 4, "Duplicate", List.of()));
         assertEquals(1, scalar("SELECT count(*) FROM product_reviews WHERE order_item_id=1"));
     }
@@ -73,53 +73,53 @@ class ReviewServiceIT {
         insertAsset(firstImage, 1);
         ReviewDto.Response first = create(1, 1, 1, 5, "First", List.of(firstImage));
         ReviewDto.Response second = create(2, 3, 1, 1, "Second", List.of());
-        assertEquals(1, first.media().size());
+        assertEquals(1, first.getMedia().size());
         assertEquals("ATTACHED", text("SELECT status FROM media_assets WHERE media_id='" + firstImage + "'"));
 
         ReviewDto.PageResponse initial = call(service -> service.listPublic(1, 0, 20, null, null,
                 ReviewDto.Sort.NEWEST, null));
-        assertEquals(List.of(second.reviewId(), first.reviewId()),
-                initial.items().stream().map(ReviewDto.Response::reviewId).toList());
-        assertEquals(2, initial.summary().totalReviews());
-        assertEquals(3.0, initial.summary().averageRating());
-        assertEquals(1, initial.summary().distribution().getFirst().count());
-        assertEquals(1, initial.summary().distribution().getLast().count());
+        assertEquals(List.of(second.getReviewId(), first.getReviewId()),
+                initial.getItems().stream().map(ReviewDto.Response::getReviewId).toList());
+        assertEquals(2, initial.getSummary().getTotalReviews());
+        assertEquals(3.0, initial.getSummary().getAverageRating());
+        assertEquals(1, initial.getSummary().getDistribution().getFirst().getCount());
+        assertEquals(1, initial.getSummary().getDistribution().getLast().getCount());
         assertEquals(1, call(service -> service.listPublic(1, 0, 20, 5, true,
-                ReviewDto.Sort.NEWEST, null)).totalItems());
+                ReviewDto.Sort.NEWEST, null)).getTotalItems());
 
         insertAsset(replacement, 1);
-        ReviewDto.Response updated = call(service -> service.update(1, first.reviewId(),
+        ReviewDto.Response updated = call(service -> service.update(1, first.getReviewId(),
                 new ReviewDto.UpdateRequest(3, " Updated ", List.of(replacement))));
-        assertEquals(3, updated.rating());
-        assertEquals("Updated", updated.content());
-        assertEquals(List.of(replacement), updated.media().stream().map(ReviewDto.Media::mediaId).toList());
+        assertEquals(3, updated.getRating());
+        assertEquals("Updated", updated.getContent());
+        assertEquals(List.of(replacement), updated.getMedia().stream().map(ReviewDto.Media::getMediaId).toList());
         assertEquals("DELETE_PENDING", text("SELECT status FROM media_assets WHERE media_id='" + firstImage + "'"));
         assertEquals("ATTACHED", text("SELECT status FROM media_assets WHERE media_id='" + replacement + "'"));
-        assertEquals(2.0, call(service -> service.summary(1)).averageRating());
+        assertEquals(2.0, call(service -> service.summary(1)).getAverageRating());
 
-        rejects(404, "REVIEW_NOT_FOUND", () -> call(service -> service.update(2, first.reviewId(),
+        rejects(404, "REVIEW_NOT_FOUND", () -> call(service -> service.update(2, first.getReviewId(),
                 new ReviewDto.UpdateRequest(4, null, null))));
-        call(service -> { service.delete(1, first.reviewId()); return null; });
-        call(service -> { service.delete(1, first.reviewId()); return null; });
+        call(service -> { service.delete(1, first.getReviewId()); return null; });
+        call(service -> { service.delete(1, first.getReviewId()); return null; });
         ReviewDto.Summary afterDelete = call(service -> service.summary(1));
-        assertEquals(1, afterDelete.totalReviews());
-        assertEquals(1.0, afterDelete.averageRating());
+        assertEquals(1, afterDelete.getTotalReviews());
+        assertEquals(1.0, afterDelete.getAverageRating());
         assertEquals("MEDIA_NOT_FOUND", assertThrows(AppException.class,
                 () -> new MediaAccessService(factory).resolve(replacement, null)).getCode());
 
-        ReviewDto.Response restored = call(service -> service.restore(1, first.reviewId()));
-        assertEquals("PUBLISHED", restored.status());
-        assertEquals(2, call(service -> service.summary(1)).totalReviews());
+        ReviewDto.Response restored = call(service -> service.restore(1, first.getReviewId()));
+        assertEquals("PUBLISHED", restored.getStatus());
+        assertEquals(2, call(service -> service.summary(1)).getTotalReviews());
         assertNotNull(new MediaAccessService(factory).resolve(replacement, null));
 
         execute(db, "UPDATE product_reviews SET status='HIDDEN',moderation_reason='QA',"
-                + "moderated_by=2,moderated_at=now() WHERE review_id=" + first.reviewId());
-        assertEquals(1, call(service -> service.summary(1)).totalReviews());
-        rejects(409, "REVIEW_NOT_EDITABLE", () -> call(service -> service.update(1, first.reviewId(),
+                + "moderated_by=2,moderated_at=now() WHERE review_id=" + first.getReviewId());
+        assertEquals(1, call(service -> service.summary(1)).getTotalReviews());
+        rejects(409, "REVIEW_NOT_EDITABLE", () -> call(service -> service.update(1, first.getReviewId(),
                 new ReviewDto.UpdateRequest(4, null, null))));
-        rejects(409, "REVIEW_NOT_EDITABLE", () -> call(service -> service.restore(1, first.reviewId())));
+        rejects(409, "REVIEW_NOT_EDITABLE", () -> call(service -> service.restore(1, first.getReviewId())));
         rejects(409, "REVIEW_NOT_EDITABLE", () -> call(service -> {
-            service.delete(1, first.reviewId());
+            service.delete(1, first.getReviewId());
             return null;
         }));
     }
@@ -128,23 +128,23 @@ class ReviewServiceIT {
     void filtersPaginationAndHelpfulSortOnlyExposePublishedReviews() throws Exception {
         ReviewDto.Response first = create(1, 1, 1, 4, "First", List.of());
         ReviewDto.Response second = create(2, 3, 1, 2, "Second", List.of());
-        execute(db, "INSERT INTO review_likes(review_id,user_id,created_at) VALUES (" + first.reviewId() + ",2,now())");
+        execute(db, "INSERT INTO review_likes(review_id,user_id,created_at) VALUES (" + first.getReviewId() + ",2,now())");
 
         ReviewDto.PageResponse helpful = call(service -> service.listPublic(1, 0, 1, null, false,
                 ReviewDto.Sort.HELPFUL, 2));
-        assertEquals(2, helpful.totalItems());
-        assertEquals(2, helpful.totalPages());
-        assertEquals(first.reviewId(), helpful.items().getFirst().reviewId());
-        assertEquals(1, helpful.items().getFirst().likeCount());
-        assertTrue(helpful.items().getFirst().likedByCurrentUser());
+        assertEquals(2, helpful.getTotalItems());
+        assertEquals(2, helpful.getTotalPages());
+        assertEquals(first.getReviewId(), helpful.getItems().getFirst().getReviewId());
+        assertEquals(1, helpful.getItems().getFirst().getLikeCount());
+        assertTrue(helpful.getItems().getFirst().getLikedByCurrentUser());
 
-        execute(db, "UPDATE product_reviews SET status='DELETED' WHERE review_id=" + first.reviewId());
+        execute(db, "UPDATE product_reviews SET status='DELETED' WHERE review_id=" + first.getReviewId());
         ReviewDto.PageResponse visible = call(service -> service.listPublic(1, 0, 20, null, null,
                 ReviewDto.Sort.NEWEST, null));
-        assertEquals(1, visible.totalItems());
-        assertEquals(second.reviewId(), visible.items().getFirst().reviewId());
-        assertEquals(1, visible.summary().totalReviews());
-        assertEquals(2.0, visible.summary().averageRating());
+        assertEquals(1, visible.getTotalItems());
+        assertEquals(second.getReviewId(), visible.getItems().getFirst().getReviewId());
+        assertEquals(1, visible.getSummary().getTotalReviews());
+        assertEquals(2.0, visible.getSummary().getAverageRating());
     }
 
     private ReviewDto.Response create(int userId, int orderItemId, int productId, int rating,

@@ -43,7 +43,7 @@ public class ReviewSocialService {
             Object[] row = (Object[]) item;
             int reviewId = ((Number) row[0]).intValue();
             var mediaList = reviewDao.media(reviewId).stream()
-                    .map(ReviewDto.Media::contentUrl).filter(Objects::nonNull).toList();
+                    .map(ReviewDto.Media::getContentUrl).filter(Objects::nonNull).toList();
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("reviewId", reviewId);
             map.put("orderItemId", ((Number) row[1]).intValue());
