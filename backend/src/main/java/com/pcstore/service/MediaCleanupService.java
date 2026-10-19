@@ -1,8 +1,11 @@
 package com.pcstore.service;
 
 import com.pcstore.dao.MediaAssetDao;
+import com.pcstore.entity.MediaAsset;
+
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityTransaction;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -25,50 +28,58 @@ public final class MediaCleanupService {
         for (Claim claim : claims) {
             try {
                 storage.delete(claim.publicId(), claim.resourceType());
-                change(claim.id(), asset -> asset.cleanupSucceeded());
+                recordCleanup(claim.id(), true, now);
                 removed++;
             } catch (RuntimeException failure) {
-                change(claim.id(), asset -> asset.cleanupFailed(now));
+                recordCleanup(claim.id(), false, now);
             }
         }
         return removed;
     }
 
     private List<Claim> claim(LocalDateTime now) {
-        try (EntityManager em = factory.createEntityManager()) {
-            var tx = em.getTransaction();
-            tx.begin();
+        try (EntityManager entityManager = factory.createEntityManager()) {
+            EntityTransaction transaction = entityManager.getTransaction();
+            transaction.begin();
             try {
-                var dao = new MediaAssetDao(em);
+                MediaAssetDao dao = new MediaAssetDao(entityManager);
                 List<Claim> claims = new ArrayList<>();
                 for (UUID id : dao.claimable(now)) {
-                    var asset = dao.find(id);
+                    MediaAsset asset = dao.find(id);
                     asset.claimForCleanup(now.plusMinutes(15));
                     claims.add(new Claim(id, asset.getPublicId(), asset.getResourceType()));
                 }
-                tx.commit();
+                transaction.commit();
                 return claims;
             } catch (RuntimeException error) {
-                if (tx.isActive()) tx.rollback();
+                if (transaction.isActive()) {
+                    transaction.rollback();
+                }
                 throw error;
             }
         }
     }
 
-    private void change(UUID id, java.util.function.Consumer<com.pcstore.entity.MediaAsset> action) {
-        try (EntityManager em = factory.createEntityManager()) {
-            var tx = em.getTransaction();
-            tx.begin();
+    private void recordCleanup(UUID id, boolean succeeded, LocalDateTime now) {
+        try (EntityManager entityManager = factory.createEntityManager()) {
+            EntityTransaction transaction = entityManager.getTransaction();
+            transaction.begin();
             try {
-                var asset = em.find(com.pcstore.entity.MediaAsset.class, id);
-                action.accept(asset);
-                tx.commit();
+                MediaAsset asset = entityManager.find(MediaAsset.class, id);
+                if (succeeded) {
+                    asset.cleanupSucceeded();
+                } else {
+                    asset.cleanupFailed(now);
+                }
+                transaction.commit();
             } catch (RuntimeException error) {
-                if (tx.isActive()) tx.rollback();
+                if (transaction.isActive()) {
+                    transaction.rollback();
+                }
                 throw error;
             }
         }
     }
 
-    private record Claim(UUID id, String publicId, String resourceType) { }
+    private record Claim(UUID id, String publicId, String resourceType) {}
 }

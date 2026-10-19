@@ -2,10 +2,13 @@ package com.pcstore.service;
 
 import com.pcstore.dao.MediaAssetDao;
 import com.pcstore.entity.MediaAsset;
+import com.pcstore.entity.User;
 import com.pcstore.entity.enums.UserStatus;
 import com.pcstore.exception.AppException;
+
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityTransaction;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -19,16 +22,24 @@ public final class MediaUploadService {
     private final VideoPreparer videos;
 
     @FunctionalInterface
-    interface VideoPreparer { MediaVideoService.PreparedVideo prepare(byte[] data, String mimeType); }
+    interface VideoPreparer {
+        MediaVideoService.PreparedVideo prepare(byte[] data, String mimeType);
+    }
 
-    public record UploadResult(UUID mediaId, String module, String status) { }
+    public record UploadResult(UUID mediaId, String module, String status) {}
 
-    public MediaUploadService(EntityManagerFactory factory, MediaImageService images, CloudinaryImageStorage storage) {
+    public MediaUploadService(
+            EntityManagerFactory factory,
+            MediaImageService images,
+            CloudinaryImageStorage storage) {
         this(factory, images, storage, new MediaVideoService()::prepare);
     }
 
-    MediaUploadService(EntityManagerFactory factory, MediaImageService images, CloudinaryImageStorage storage,
-                       VideoPreparer videos) {
+    MediaUploadService(
+            EntityManagerFactory factory,
+            MediaImageService images,
+            CloudinaryImageStorage storage,
+            VideoPreparer videos) {
         this.factory = factory;
         this.images = images;
         this.storage = storage;
@@ -36,14 +47,17 @@ public final class MediaUploadService {
     }
 
     public UploadResult upload(int userId, String module, byte[] input, String mimeType) {
-        if (!"SETUP".equals(module) && !"REVIEW".equals(module))
+        if (!"SETUP".equals(module) && !"REVIEW".equals(module)) {
             throw new AppException(400, "INVALID_MEDIA_MODULE", "Module media không hợp lệ.");
-        var prepared = images.prepare(input, mimeType);
+        }
+        MediaImageService.PreparedImage prepared = images.prepare(input, mimeType);
+        // Lưu mã file và chủ sở hữu trước khi gọi dịch vụ ngoài để có thể dọn nếu upload lỗi.
         UUID id = reserve(userId, module, "image", prepared.bytes().length);
         try {
-            var stored = storage.upload(prepared.bytes(), publicId(module, id));
-            transaction(em -> new MediaAssetDao(em).find(id).ready(stored.assetId(), prepared.mimeType(),
-                    prepared.bytes().length, prepared.width(), prepared.height()));
+            CloudinaryImageStorage.StoredImage stored =
+                    storage.upload(prepared.bytes(), publicId(module, id));
+            // Cloudinary đã nhận ảnh; đổi trạng thái trong DB từ UPLOADING sang TEMP.
+            markImageReady(id, stored.assetId(), prepared);
             return new UploadResult(id, module, "TEMP");
         } catch (RuntimeException error) {
             pendingOnError(id, error);
@@ -52,15 +66,16 @@ public final class MediaUploadService {
     }
 
     public UploadResult uploadVideo(int userId, String module, byte[] input, String mimeType) {
-        if (!"REVIEW".equals(module))
+        if (!"REVIEW".equals(module)) {
             throw new AppException(400, "INVALID_MEDIA_MODULE", "Video chỉ dành cho Review.");
+        }
         preflight(userId);
-        var prepared = videos.prepare(input, mimeType);
+        MediaVideoService.PreparedVideo prepared = videos.prepare(input, mimeType);
         UUID id = reserve(userId, module, "video", prepared.bytes().length);
         try {
-            var stored = storage.uploadVideo(prepared.bytes(), publicId(module, id));
-            transaction(em -> new MediaAssetDao(em).find(id).readyVideo(stored.assetId(), prepared.bytes().length,
-                    prepared.width(), prepared.height(), prepared.durationSecond()));
+            CloudinaryImageStorage.StoredImage stored =
+                    storage.uploadVideo(prepared.bytes(), publicId(module, id));
+            markVideoReady(id, stored.assetId(), prepared);
             return new UploadResult(id, module, "TEMP");
         } catch (RuntimeException error) {
             pendingOnError(id, error);
@@ -71,57 +86,144 @@ public final class MediaUploadService {
     private UUID reserve(int userId, String module, String resourceType, int preparedSize) {
         UUID id = UUID.randomUUID();
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
-        transaction(em -> {
-            var dao = new MediaAssetDao(em);
-            var owner = dao.lockOwner(userId);
-            checkQuota(dao, owner, userId, now, preparedSize);
-            dao.persist(new MediaAsset(id, owner, module, resourceType, publicId(module, id), now, now.plusHours(2)));
-        });
+        try (EntityManager entityManager = factory.createEntityManager()) {
+            EntityTransaction transaction = entityManager.getTransaction();
+            transaction.begin();
+            try {
+                MediaAssetDao dao = new MediaAssetDao(entityManager);
+                User owner = dao.lockOwner(userId);
+                checkQuota(dao, owner, userId, now, preparedSize);
+                MediaAsset asset =
+                        new MediaAsset(
+                                id,
+                                owner,
+                                module,
+                                resourceType,
+                                publicId(module, id),
+                                now,
+                                now.plusHours(2));
+                dao.persist(asset);
+                transaction.commit();
+            } catch (RuntimeException error) {
+                if (transaction.isActive()) {
+                    transaction.rollback();
+                }
+                throw error;
+            }
+        }
         return id;
     }
 
     private void preflight(int userId) {
-        transaction(em -> {
-            var dao = new MediaAssetDao(em);
-            checkQuota(dao, dao.lockOwner(userId), userId, LocalDateTime.now(ZoneOffset.UTC), 0);
-        });
+        try (EntityManager entityManager = factory.createEntityManager()) {
+            EntityTransaction transaction = entityManager.getTransaction();
+            transaction.begin();
+            try {
+                MediaAssetDao dao = new MediaAssetDao(entityManager);
+                User owner = dao.lockOwner(userId);
+                checkQuota(dao, owner, userId, LocalDateTime.now(ZoneOffset.UTC), 0);
+                transaction.commit();
+            } catch (RuntimeException error) {
+                if (transaction.isActive()) {
+                    transaction.rollback();
+                }
+                throw error;
+            }
+        }
     }
 
-    private static void checkQuota(MediaAssetDao dao, com.pcstore.entity.User owner, int userId,
-                                   LocalDateTime now, int preparedSize) {
-        if (owner == null || owner.getStatus() != UserStatus.ACTIVE)
+    private static void checkQuota(
+            MediaAssetDao dao, User owner, int userId, LocalDateTime now, int preparedSize) {
+        if (owner == null || owner.getStatus() != UserStatus.ACTIVE) {
             throw new AppException(401, "UNAUTHORIZED", "Tài khoản không hợp lệ.");
+        }
         if (dao.countSince(userId, now.minusMinutes(10)) >= 20
                 || dao.countSince(userId, now.minusDays(1)) >= 50
-                || dao.countUploading(userId) >= 2)
-            throw new AppException(429, "MEDIA_RATE_LIMIT", "Đã đạt giới hạn upload; vui lòng thử lại sau.");
-        if (dao.countOutstanding(userId, now) >= 12)
-            throw new AppException(429, "MEDIA_TEMP_LIMIT", "Đã đạt giới hạn file tạm; vui lòng thử lại sau.");
-        if (dao.bytesSince(userId, now.minusDays(1)) + preparedSize > 100_000_000L)
-            throw new AppException(429, "MEDIA_DAILY_BYTES_LIMIT", "Đã đạt giới hạn dung lượng trong ngày.");
+                || dao.countUploading(userId) >= 2) {
+            throw new AppException(
+                    429, "MEDIA_RATE_LIMIT", "Đã đạt giới hạn upload; vui lòng thử lại sau.");
+        }
+        if (dao.countOutstanding(userId, now) >= 12) {
+            throw new AppException(
+                    429, "MEDIA_TEMP_LIMIT", "Đã đạt giới hạn file tạm; vui lòng thử lại sau.");
+        }
+        if (dao.bytesSince(userId, now.minusDays(1)) + preparedSize > 100_000_000L) {
+            throw new AppException(
+                    429, "MEDIA_DAILY_BYTES_LIMIT", "Đã đạt giới hạn dung lượng trong ngày.");
+        }
     }
 
     private static String publicId(String module, UUID id) {
         return "pcstore/temp/" + module.toLowerCase(java.util.Locale.ROOT) + "/" + id;
     }
 
-    private void pendingOnError(UUID id, RuntimeException error) {
-        // A timeout may mean Cloudinary accepted the file. Keep its public ID for later reconciliation.
-        try { transaction(em -> new MediaAssetDao(em).find(id).deletePending()); }
-        catch (RuntimeException recoveryFailure) { error.addSuppressed(recoveryFailure); }
-    }
-
-    private void transaction(java.util.function.Consumer<EntityManager> action) {
-        try (EntityManager em = factory.createEntityManager()) {
-            var tx = em.getTransaction();
-            tx.begin();
+    private void markImageReady(UUID id, String assetId, MediaImageService.PreparedImage image) {
+        try (EntityManager entityManager = factory.createEntityManager()) {
+            EntityTransaction transaction = entityManager.getTransaction();
+            transaction.begin();
             try {
-                action.accept(em);
-                tx.commit();
+                MediaAsset asset = new MediaAssetDao(entityManager).find(id);
+                asset.ready(
+                        assetId,
+                        image.mimeType(),
+                        image.bytes().length,
+                        image.width(),
+                        image.height());
+                transaction.commit();
             } catch (RuntimeException error) {
-                if (tx.isActive()) tx.rollback();
+                if (transaction.isActive()) {
+                    transaction.rollback();
+                }
                 throw error;
             }
+        }
+    }
+
+    private void markVideoReady(UUID id, String assetId, MediaVideoService.PreparedVideo video) {
+        try (EntityManager entityManager = factory.createEntityManager()) {
+            EntityTransaction transaction = entityManager.getTransaction();
+            transaction.begin();
+            try {
+                MediaAsset asset = new MediaAssetDao(entityManager).find(id);
+                asset.readyVideo(
+                        assetId,
+                        video.bytes().length,
+                        video.width(),
+                        video.height(),
+                        video.durationSecond());
+                transaction.commit();
+            } catch (RuntimeException error) {
+                if (transaction.isActive()) {
+                    transaction.rollback();
+                }
+                throw error;
+            }
+        }
+    }
+
+    private void markDeletePending(UUID id) {
+        try (EntityManager entityManager = factory.createEntityManager()) {
+            EntityTransaction transaction = entityManager.getTransaction();
+            transaction.begin();
+            try {
+                MediaAsset asset = new MediaAssetDao(entityManager).find(id);
+                asset.deletePending();
+                transaction.commit();
+            } catch (RuntimeException error) {
+                if (transaction.isActive()) {
+                    transaction.rollback();
+                }
+                throw error;
+            }
+        }
+    }
+
+    private void pendingOnError(UUID id, RuntimeException error) {
+        // Cloudinary có thể đã nhận file trước khi timeout; giữ public ID để dọn lại.
+        try {
+            markDeletePending(id);
+        } catch (RuntimeException recoveryFailure) {
+            error.addSuppressed(recoveryFailure);
         }
     }
 }
