@@ -4,132 +4,231 @@ import com.pcstore.dao.MediaLinkDao;
 import com.pcstore.dao.SetupDao;
 import com.pcstore.dto.SetupDto;
 import com.pcstore.exception.AppException;
+
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityTransaction;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.function.Supplier;
+import java.util.UUID;
 
 public final class SetupService {
     private static final ZoneId ZONE = ZoneId.of("Asia/Bangkok");
-    private final EntityManager em;
+    private final EntityManager entityManager;
     private final SetupDao dao;
     private final MediaAttachmentService media = new MediaAttachmentService();
 
-    public SetupService(EntityManager em) { this.em = em; this.dao = new SetupDao(em); }
+    public SetupService(EntityManager entityManager) {
+        this.entityManager = entityManager;
+        this.dao = new SetupDao(entityManager);
+    }
 
     public SetupDto.Eligibility eligibility(int userId) {
-        customer(userId);
+        requireActiveCustomer(userId);
         boolean eligible = dao.delivered(userId);
         return new SetupDto.Eligibility(eligible, eligible ? null : "SETUP_PURCHASE_REQUIRED");
     }
 
     public SetupDto.Response create(int userId, SetupDto.Request request) {
+        // Kiểm tra tiêu đề, nội dung, danh sách ảnh và sản phẩm.
         validate(request);
-        return transaction(() -> {
-            customer(userId);
-            if (!dao.delivered(userId)) throw new AppException(403, "SETUP_PURCHASE_REQUIRED", "Cần ít nhất một đơn đã giao.");
-            products(request.productIds());
-            int id = dao.insert(userId, request.title().trim(), request.description().trim(), LocalDateTime.now(ZONE));
-            dao.replaceProducts(id, request.productIds());
-            media.attachSetupImages(em, userId, id, request.mediaIds());
-            return response(dao.find(id, userId, false, false));
-        });
+        EntityTransaction transaction = entityManager.getTransaction();
+        transaction.begin();
+        try {
+            requireActiveCustomer(userId);
+            // Bài tập email chỉ lưu một User; ở đây còn phải kiểm tra điều kiện đã mua hàng.
+            if (!dao.delivered(userId)) {
+                throw new AppException(
+                        403, "SETUP_PURCHASE_REQUIRED", "Cần ít nhất một đơn đã giao.");
+            }
+            validateProducts(request.getProductIds());
+            int id =
+                    dao.insert(
+                            userId,
+                            request.getTitle().trim(),
+                            request.getDescription().trim(),
+                            LocalDateTime.now(ZONE));
+            // Bài đăng, sản phẩm gắn kèm và ảnh phải được lưu cùng nhau.
+            dao.replaceProducts(id, request.getProductIds());
+            media.attachSetupImages(entityManager, userId, id, request.getMediaIds());
+            SetupDto.Response result = toResponse(dao.find(id, userId, false, false));
+            transaction.commit();
+            return result;
+        } catch (RuntimeException error) {
+            if (transaction.isActive()) {
+                transaction.rollback();
+            }
+            throw error;
+        }
     }
 
     public SetupDto.Response update(int userId, int postId, SetupDto.Request request) {
+        // Kiểm tra tiêu đề, nội dung, danh sách ảnh và sản phẩm.
         validate(request);
-        return transaction(() -> {
-            customer(userId);
-            Object[] post = owned(userId, postId, true);
-            if (!"PUBLISHED".equals(post[4])) throw new AppException(409, "SETUP_NOT_EDITABLE", "Bài đang bị ẩn.");
-            products(request.productIds());
-            media.replaceSetupImages(em, userId, postId, request.mediaIds());
-            dao.replaceProducts(postId, request.productIds());
-            dao.update(postId, request.title().trim(), request.description().trim(), LocalDateTime.now(ZONE));
-            return response(dao.find(postId, userId, false, false));
-        });
+        EntityTransaction transaction = entityManager.getTransaction();
+        transaction.begin();
+        try {
+            requireActiveCustomer(userId);
+            Object[] post = findOwnedPost(userId, postId, true);
+            if (!"PUBLISHED".equals(post[4])) {
+                throw new AppException(409, "SETUP_NOT_EDITABLE", "Bài đang bị ẩn.");
+            }
+            validateProducts(request.getProductIds());
+            media.replaceSetupImages(entityManager, userId, postId, request.getMediaIds());
+            dao.replaceProducts(postId, request.getProductIds());
+            dao.update(
+                    postId,
+                    request.getTitle().trim(),
+                    request.getDescription().trim(),
+                    LocalDateTime.now(ZONE));
+            SetupDto.Response result = toResponse(dao.find(postId, userId, false, false));
+            transaction.commit();
+            return result;
+        } catch (RuntimeException error) {
+            if (transaction.isActive()) {
+                transaction.rollback();
+            }
+            throw error;
+        }
     }
 
     public void delete(int userId, int postId) {
-        transaction(() -> {
-            customer(userId);
-            owned(userId, postId, true);
-            new MediaLinkDao(em).detachAllSetupImages(userId, postId);
+        EntityTransaction transaction = entityManager.getTransaction();
+        transaction.begin();
+        try {
+            requireActiveCustomer(userId);
+            findOwnedPost(userId, postId, true);
+            new MediaLinkDao(entityManager).detachAllSetupImages(userId, postId);
             dao.delete(postId);
-            return null;
-        });
+            transaction.commit();
+        } catch (RuntimeException error) {
+            if (transaction.isActive()) {
+                transaction.rollback();
+            }
+            throw error;
+        }
     }
 
     public SetupDto.Response getPublic(int postId) {
         Object[] post = dao.find(postId, null, true, false);
-        if (post == null) throw missing();
-        return response(post);
+        if (post == null) {
+            throw postNotFound();
+        }
+        return toResponse(post);
     }
 
-    public SetupDto.Response getOwn(int userId, int postId) { customer(userId); return response(owned(userId, postId, false)); }
+    public SetupDto.Response getOwn(int userId, int postId) {
+        requireActiveCustomer(userId);
+        return toResponse(findOwnedPost(userId, postId, false));
+    }
 
     public List<SetupDto.Response> listPublic(int offset, int limit) {
-        return dao.ids(null, offset, limit).stream().map(this::getPublic).toList();
+        List<SetupDto.Response> posts = new ArrayList<>();
+        for (int postId : dao.ids(null, offset, limit)) {
+            posts.add(getPublic(postId));
+        }
+        return posts;
     }
 
     public List<SetupDto.Response> listOwn(int userId, int offset, int limit) {
-        customer(userId);
-        return dao.ids(userId, offset, limit).stream().map(id -> getOwn(userId, id)).toList();
+        requireActiveCustomer(userId);
+        List<SetupDto.Response> posts = new ArrayList<>();
+        for (int postId : dao.ids(userId, offset, limit)) {
+            posts.add(getOwn(userId, postId));
+        }
+        return posts;
     }
 
-    private SetupDto.Response response(Object[] post) {
-        int id = ((Number) post[0]).intValue();
-        return new SetupDto.Response(id, ((Number) post[1]).intValue(), (String) post[2], (String) post[3],
-                (String) post[4], SetupDao.time(post[5]), SetupDao.time(post[6]), dao.images(id), dao.linkedProducts(id));
+    private SetupDto.Response toResponse(Object[] post) {
+        // Thứ tự cột tương ứng SELECT trong SetupDao.find.
+        int postId = ((Number) post[0]).intValue();
+        int authorId = ((Number) post[1]).intValue();
+        String title = (String) post[2];
+        String description = (String) post[3];
+        String status = (String) post[4];
+        LocalDateTime createdAt = SetupDao.time(post[5]);
+        LocalDateTime updatedAt = SetupDao.time(post[6]);
+        List<UUID> mediaIds = dao.images(postId);
+        List<SetupDto.Product> products = dao.linkedProducts(postId);
+        return new SetupDto.Response(
+                postId,
+                authorId,
+                title,
+                description,
+                status,
+                createdAt,
+                updatedAt,
+                mediaIds,
+                products);
     }
 
-    private Object[] owned(int userId, int postId, boolean lock) {
+    private Object[] findOwnedPost(int userId, int postId, boolean lock) {
         Object[] post = postId <= 0 ? null : dao.find(postId, userId, false, lock);
-        if (post == null) throw missing();
+        if (post == null) {
+            throw postNotFound();
+        }
         return post;
     }
 
-    private static AppException missing() { return new AppException(404, "SETUP_NOT_FOUND", "Không tìm thấy bài đăng."); }
-
-    private void customer(int userId) {
-        if (!dao.activeCustomer(userId)) throw new AppException(403, "FORBIDDEN", "Chỉ khách hàng được dùng Setup.");
+    private static AppException postNotFound() {
+        return new AppException(404, "SETUP_NOT_FOUND", "Không tìm thấy bài đăng.");
     }
 
-    private void products(List<Integer> ids) {
-        if (dao.products(ids).size() != ids.size())
-            throw new AppException(422, "SETUP_PRODUCT_INVALID", "Sản phẩm không hợp lệ hoặc không bán.");
+    private void requireActiveCustomer(int userId) {
+        if (!dao.activeCustomer(userId)) {
+            throw new AppException(403, "FORBIDDEN", "Chỉ khách hàng được dùng Setup.");
+        }
+    }
+
+    private void validateProducts(List<Integer> ids) {
+        if (dao.products(ids).size() != ids.size()) {
+            throw new AppException(
+                    422, "SETUP_PRODUCT_INVALID", "Sản phẩm không hợp lệ hoặc không bán.");
+        }
     }
 
     private static void validate(SetupDto.Request request) {
-        if (request == null || request.title() == null || request.title().trim().isEmpty()
-                || request.title().trim().length() > 255 || request.description() == null
-                || request.description().trim().isEmpty())
+        if (request == null
+                || request.getTitle() == null
+                || request.getTitle().trim().isEmpty()
+                || request.getTitle().trim().length() > 255
+                || request.getDescription() == null
+                || request.getDescription().trim().isEmpty()) {
             throw new AppException(400, "INVALID_SETUP", "Tiêu đề và nội dung không hợp lệ.");
-        if (request.mediaIds() == null || request.mediaIds().isEmpty())
+        }
+        if (request.getMediaIds() == null || request.getMediaIds().isEmpty()) {
             throw new AppException(422, "SETUP_IMAGE_REQUIRED", "Bài cần ít nhất một ảnh.");
-        if (request.mediaIds().size() > 8 || request.mediaIds().stream().anyMatch(id -> id == null)
-                || new HashSet<>(request.mediaIds()).size() != request.mediaIds().size())
+        }
+        if (request.getMediaIds().size() > 8
+                || hasNullMedia(request.getMediaIds())
+                || new HashSet<>(request.getMediaIds()).size()
+                        != request.getMediaIds().size()) {
             throw new AppException(422, "MEDIA_COUNT_LIMIT", "Ảnh không hợp lệ hoặc quá giới hạn.");
-        if (request.productIds() == null || request.productIds().isEmpty())
+        }
+        if (request.getProductIds() == null || request.getProductIds().isEmpty()) {
             throw new AppException(422, "SETUP_PRODUCT_REQUIRED", "Bài cần ít nhất một sản phẩm.");
-        if (request.productIds().stream().anyMatch(id -> id == null || id <= 0)
-                || new HashSet<>(request.productIds()).size() != request.productIds().size())
-            throw new AppException(422, "SETUP_PRODUCT_INVALID", "Danh sách sản phẩm không hợp lệ.");
+        }
+        for (Integer productId : request.getProductIds()) {
+            if (productId == null || productId <= 0) {
+                throw new AppException(
+                        422, "SETUP_PRODUCT_INVALID", "Danh sách sản phẩm không hợp lệ.");
+            }
+        }
+        if (new HashSet<>(request.getProductIds()).size() != request.getProductIds().size()) {
+            throw new AppException(
+                    422, "SETUP_PRODUCT_INVALID", "Danh sách sản phẩm không hợp lệ.");
+        }
     }
 
-    private <T> T transaction(Supplier<T> operation) {
-        var tx = em.getTransaction();
-        tx.begin();
-        try {
-            T value = operation.get();
-            tx.commit();
-            return value;
-        } catch (RuntimeException failure) {
-            if (tx.isActive()) tx.rollback();
-            throw failure;
+    private static boolean hasNullMedia(List<UUID> ids) {
+        for (UUID id : ids) {
+            if (id == null) {
+                return true;
+            }
         }
+        return false;
     }
 }
