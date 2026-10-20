@@ -3,6 +3,8 @@ package com.pcstore.controller;
 import com.pcstore.dto.CheckoutRequest;
 import com.pcstore.exception.AppException;
 import com.pcstore.service.OrderService;
+import com.pcstore.service.VNPayPaymentService;
+import com.pcstore.service.VNPayQueryDrService;
 import com.pcstore.util.JsonUtil;
 import com.pcstore.util.SessionUtil;
 import jakarta.servlet.annotation.WebServlet;
@@ -16,17 +18,17 @@ import java.util.Map;
 @WebServlet(name = "orderServlet", urlPatterns = {"/api/orders", "/api/orders/*"})
 public class OrderServlet extends HttpServlet {
     private OrderService orderService;
-    private com.pcstore.service.VNPayPaymentService vnPayPaymentService;
-    private com.pcstore.service.VNPayQueryDrService vnPayQueryDrService;
+    private VNPayPaymentService vnPayPaymentService;
+    private VNPayQueryDrService vnPayQueryDrService;
 
     public OrderServlet() {
     }
 
-    public OrderServlet(OrderService orderService, com.pcstore.service.VNPayPaymentService vnPayPaymentService) {
+    public OrderServlet(OrderService orderService, VNPayPaymentService vnPayPaymentService) {
         this(orderService, vnPayPaymentService, null);
     }
 
-    public OrderServlet(OrderService orderService, com.pcstore.service.VNPayPaymentService vnPayPaymentService, com.pcstore.service.VNPayQueryDrService vnPayQueryDrService) {
+    public OrderServlet(OrderService orderService, VNPayPaymentService vnPayPaymentService, VNPayQueryDrService vnPayQueryDrService) {
         this.orderService = orderService;
         this.vnPayPaymentService = vnPayPaymentService;
         this.vnPayQueryDrService = vnPayQueryDrService;
@@ -38,10 +40,10 @@ public class OrderServlet extends HttpServlet {
             orderService = new OrderService();
         }
         if (vnPayPaymentService == null) {
-            vnPayPaymentService = new com.pcstore.service.VNPayPaymentService();
+            vnPayPaymentService = new VNPayPaymentService();
         }
         if (vnPayQueryDrService == null) {
-            vnPayQueryDrService = new com.pcstore.service.VNPayQueryDrService();
+            vnPayQueryDrService = new VNPayQueryDrService();
         }
     }
 
@@ -74,11 +76,7 @@ public class OrderServlet extends HttpServlet {
             int userId = requiredUserId(request);
             String path = normalizedPath(request);
             if (path.isEmpty()) {
-                var result = orderService.checkout(userId, request.getHeader("Idempotency-Key"),
-                        JsonUtil.read(request, CheckoutRequest.class));
-                response.setHeader("Idempotent-Replayed", Boolean.toString(result.replayed()));
-                JsonUtil.write(response, result.replayed() ? HttpServletResponse.SC_OK : HttpServletResponse.SC_CREATED,
-                        result.order());
+                checkout(request, response, userId);
                 return;
             }
             Integer cancelOrderId = actionId(path, "cancel");
@@ -96,9 +94,7 @@ public class OrderServlet extends HttpServlet {
             }
             Integer syncOrderId = paymentActionId(path, "sync");
             if (syncOrderId != null) {
-                orderService.findOwnedOrder(userId, syncOrderId);
-                vnPayQueryDrService.reconcileOrder(syncOrderId);
-                JsonUtil.write(response, HttpServletResponse.SC_OK, orderService.findOwnedOrder(userId, syncOrderId));
+                syncPayment(response, userId, syncOrderId);
                 return;
             }
             notFound(response);
@@ -111,6 +107,20 @@ public class OrderServlet extends HttpServlet {
             getServletContext().log("Order command failed", exception);
             internalError(response);
         }
+    }
+
+    private void checkout(HttpServletRequest request, HttpServletResponse response, int userId) throws IOException {
+        var result = orderService.checkout(userId, request.getHeader("Idempotency-Key"),
+                JsonUtil.read(request, CheckoutRequest.class));
+        response.setHeader("Idempotent-Replayed", Boolean.toString(result.replayed()));
+        JsonUtil.write(response, result.replayed() ? HttpServletResponse.SC_OK : HttpServletResponse.SC_CREATED,
+                result.order());
+    }
+
+    private void syncPayment(HttpServletResponse response, int userId, int orderId) throws IOException {
+        orderService.findOwnedOrder(userId, orderId);
+        vnPayQueryDrService.reconcileOrder(orderId);
+        JsonUtil.write(response, HttpServletResponse.SC_OK, orderService.findOwnedOrder(userId, orderId));
     }
 
     private static int requiredUserId(HttpServletRequest request) {

@@ -3,6 +3,7 @@ package com.pcstore.controller;
 import com.pcstore.dto.OrderStatusUpdateRequest;
 import com.pcstore.exception.AppException;
 import com.pcstore.service.OrderService;
+import com.pcstore.service.VNPayQueryDrService;
 import com.pcstore.util.JsonUtil;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -15,12 +16,12 @@ import java.util.Map;
 @WebServlet(name = "adminOrderServlet", urlPatterns = {"/api/admin/orders", "/api/admin/orders/*"})
 public class AdminOrderServlet extends HttpServlet {
     private OrderService orderService;
-    private com.pcstore.service.VNPayQueryDrService vnPayQueryDrService;
+    private VNPayQueryDrService vnPayQueryDrService;
 
     public AdminOrderServlet() {
     }
 
-    public AdminOrderServlet(OrderService orderService, com.pcstore.service.VNPayQueryDrService vnPayQueryDrService) {
+    public AdminOrderServlet(OrderService orderService, VNPayQueryDrService vnPayQueryDrService) {
         this.orderService = orderService;
         this.vnPayQueryDrService = vnPayQueryDrService;
     }
@@ -31,7 +32,7 @@ public class AdminOrderServlet extends HttpServlet {
             orderService = new OrderService();
         }
         if (vnPayQueryDrService == null) {
-            vnPayQueryDrService = new com.pcstore.service.VNPayQueryDrService();
+            vnPayQueryDrService = new VNPayQueryDrService();
         }
     }
 

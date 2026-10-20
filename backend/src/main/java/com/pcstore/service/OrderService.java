@@ -108,49 +108,11 @@ public class OrderService {
                 Map<Integer, Inventory> inventoryByProduct = indexInventories(orders.lockInventories(productIds));
                 validateAndReserve(cartItems, inventoryByProduct);
 
-                BigDecimal total = BigDecimal.ZERO;
-                for (CartItem cartItem : cartItems) {
-                    BigDecimal unitPrice = money(cartItem.getProduct().getPrice());
-                    BigDecimal lineTotal = checkedMoney(unitPrice.multiply(BigDecimal.valueOf(cartItem.getQuantity())));
-                    total = checkedMoney(total.add(lineTotal));
-                }
-
+                BigDecimal total = calculateTotal(cartItems);
                 LocalDateTime now = now();
-                Order order = new Order();
-                order.setUser(user);
-                order.setOrderDate(now);
-                order.setStatus(OrderStatus.PENDING);
-                order.setShippingName(checkout.shippingName());
-                order.setShippingPhone(checkout.shippingPhone());
-                order.setShippingAddressText(checkout.shippingAddressText());
-                order.setCheckoutIdempotencyKey(checkout.idempotencyKey());
-                order.setCheckoutRequestHash(checkout.requestHash());
-                order.setTotalAmount(total);
-                orders.persist(order);
-
-                for (CartItem cartItem : cartItems) {
-                    Product product = cartItem.getProduct();
-                    BigDecimal unitPrice = money(product.getPrice());
-
-                    OrderItem item = new OrderItem();
-                    item.setOrder(order);
-                    item.setProduct(product);
-                    item.setQuantity(cartItem.getQuantity());
-                    item.setBaseUnitPrice(unitPrice);
-                    item.setUnitPrice(unitPrice);
-                    orders.persist(item);
-                    order.getItems().add(item);
-                }
-
-                Payment payment = new Payment();
-                payment.setOrder(order);
-                payment.setMethod(checkout.paymentMethod());
-                payment.setStatus(PaymentStatus.PENDING);
-                payment.setAmount(total);
-                if (checkout.paymentMethod() == PaymentMethod.VNPAY) {
-                    order.setPaymentExpiresAt(now.plusMinutes(15));
-                }
-                orders.persist(payment);
+                Order order = createOrder(orders, user, checkout, total, now);
+                createOrderItems(orders, order, cartItems);
+                createPayment(orders, order, checkout.paymentMethod(), total, now);
 
                 orders.removeCartItems(cartItems);
                 cart.setUpdatedAt(now);
@@ -170,6 +132,57 @@ public class OrderService {
                 throw exception;
             }
         }
+    }
+
+    private static BigDecimal calculateTotal(List<CartItem> items) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (CartItem item : items) {
+            BigDecimal lineTotal = checkedMoney(money(item.getProduct().getPrice())
+                    .multiply(BigDecimal.valueOf(item.getQuantity())));
+            total = checkedMoney(total.add(lineTotal));
+        }
+        return total;
+    }
+
+    // These helpers share the checkout transaction and never commit independently.
+    private static Order createOrder(OrderDao orders, User user, ValidCheckout checkout,
+                                     BigDecimal total, LocalDateTime now) {
+        Order order = new Order();
+        order.setUser(user);
+        order.setOrderDate(now);
+        order.setStatus(OrderStatus.PENDING);
+        order.setShippingName(checkout.shippingName());
+        order.setShippingPhone(checkout.shippingPhone());
+        order.setShippingAddressText(checkout.shippingAddressText());
+        order.setCheckoutIdempotencyKey(checkout.idempotencyKey());
+        order.setCheckoutRequestHash(checkout.requestHash());
+        order.setTotalAmount(total);
+        return orders.persist(order);
+    }
+
+    private static void createOrderItems(OrderDao orders, Order order, List<CartItem> cartItems) {
+        for (CartItem cartItem : cartItems) {
+            BigDecimal unitPrice = money(cartItem.getProduct().getPrice());
+            OrderItem item = new OrderItem();
+            item.setOrder(order);
+            item.setProduct(cartItem.getProduct());
+            item.setQuantity(cartItem.getQuantity());
+            item.setBaseUnitPrice(unitPrice);
+            item.setUnitPrice(unitPrice);
+            orders.persist(item);
+            order.getItems().add(item);
+        }
+    }
+
+    private static void createPayment(OrderDao orders, Order order, PaymentMethod method,
+                                      BigDecimal total, LocalDateTime now) {
+        Payment payment = new Payment();
+        payment.setOrder(order);
+        payment.setMethod(method);
+        payment.setStatus(PaymentStatus.PENDING);
+        payment.setAmount(total);
+        if (method == PaymentMethod.VNPAY) order.setPaymentExpiresAt(now.plusMinutes(15));
+        orders.persist(payment);
     }
 
     public List<OrderResponse> findOwnedOrders(int userId) {
