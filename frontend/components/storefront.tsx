@@ -955,17 +955,10 @@ export function CatalogPage() {
     void fetchProducts();
   }, [fetchProducts]);
 
-  // Client-side sort guarantee ensures instant and reliable re-ordering
+  // Dữ liệu sản phẩm trả về từ Server đã được sắp xếp chính xác theo yêu cầu người dùng
   const displayedProducts = useMemo(() => {
-    if (!serverProducts || serverProducts.length === 0) return [];
-    if (sort === "price-low") {
-      return [...serverProducts].sort((a, b) => a.price - b.price);
-    }
-    if (sort === "price-high") {
-      return [...serverProducts].sort((a, b) => b.price - a.price);
-    }
-    return serverProducts;
-  }, [serverProducts, sort]);
+    return serverProducts || [];
+  }, [serverProducts]);
 
   const resetFilters = () => {
     setQuery("");

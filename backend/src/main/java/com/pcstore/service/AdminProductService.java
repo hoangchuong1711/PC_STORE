@@ -2,10 +2,10 @@ package com.pcstore.service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 import com.pcstore.config.PersistenceManager;
@@ -28,22 +28,45 @@ import com.pcstore.exception.ValidationException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
 
+/**
+ * AdminProductService: Lớp xử lý nghiệp vụ quản trị Sản phẩm, Tồn kho và Thông số kỹ thuật (Specs).
+ * Tuân thủ mô hình MVC môn học:
+ * - Kiểm tra chặt chẽ các ràng buộc nghiệp vụ (giá không âm, tồn không âm, danh mục & hãng hợp lệ).
+ * - Quản lý Transaction ACID nguyên tử: Tạo Product, Inventory và Specs trong cùng 1 Transaction duy nhất.
+ */
 public class AdminProductService {
-    private final Supplier<EntityManager> entityManagers;
+
+    private final Supplier<EntityManager> entityManagerSupplier;
 
     public AdminProductService() {
         this(() -> PersistenceManager.get().createEntityManager());
     }
 
-    /** Constructor này giúp integration test dùng EntityManagerFactory riêng. */
-    public AdminProductService(Supplier<EntityManager> entityManagers) {
-        this.entityManagers = Objects.requireNonNull(entityManagers);
+    public AdminProductService(Supplier<EntityManager> entityManagerSupplier) {
+        this.entityManagerSupplier = Objects.requireNonNull(entityManagerSupplier);
     }
 
-    /** Tạo Product và Inventory trong cùng một transaction. */
-    public AdminProductResponse create(CreateProductRequest request) {
-        if (request == null) throw new ValidationException("Request không hợp lệ.");
+    private EntityManager createEntityManager() {
+        return entityManagerSupplier.get();
+    }
 
+    /**
+     * THÊM MỚI SẢN PHẨM:
+     * Quy trình giải quyết bài toán:
+     * 1. Validate toàn bộ thông tin đầu vào (tên, giá, tồn kho, danh mục, hãng).
+     * 2. Mở Transaction.
+     * 3. Tìm Danh mục và Hãng sản xuất.
+     * 4. Tạo đối tượng Product và lưu vào CSDL -> sinh ra productId.
+     * 5. Tạo đối tượng Inventory ban đầu với số lượng nhập kho tương ứng.
+     * 6. Nếu có thông số kỹ thuật (Specs), kiểm tra và lưu vào bảng specs của loại linh kiện đó.
+     * 7. Commit Transaction. Nếu có bất kỳ lỗi nào, rollback toàn bộ để bảo vệ CSDL.
+     */
+    public AdminProductResponse create(CreateProductRequest request) {
+        if (request == null) {
+            throw new ValidationException("Dữ liệu yêu cầu tạo sản phẩm không được để trống.");
+        }
+
+        // Validate các trường cơ bản
         String name = validateName(request.name());
         String description = cleanDescription(request.description());
         BigDecimal price = validatePrice(request.price());
@@ -53,120 +76,227 @@ public class AdminProductService {
         if (request.categoryId() == null) throw new ValidationException("Danh mục là bắt buộc.");
         if (request.brandId() == null) throw new ValidationException("Thương hiệu là bắt buộc.");
 
-        return inTransaction(dao -> {
-            Category category = findCategory(dao, request.categoryId());
-            Brand brand = findBrand(dao, request.brandId());
-            validateActiveDependencies(status, category, brand);
+        try (EntityManager em = createEntityManager()) {
+            EntityTransaction tx = em.getTransaction();
+            try {
+                tx.begin();
+                AdminProductDao dao = new AdminProductDao(em);
 
-            Product product = new Product();
-            product.setName(name);
-            product.setDescription(description);
-            product.setPrice(price);
-            product.setStatus(status);
-            product.setCategory(category);
-            product.setBrand(brand);
-            dao.persistProduct(product);
+                // Kiểm tra sự tồn tại của Danh mục và Thương hiệu
+                Category category = findCategory(dao, request.categoryId());
+                Brand brand = findBrand(dao, request.brandId());
+                validateActiveDependencies(status, category, brand);
 
-            Inventory inventory = new Inventory();
-            inventory.setProduct(product);
-            inventory.setQuantityOnHand(quantityOnHand);
-            inventory.setReservedQuantity(0);
-            dao.persistInventory(inventory);
-            if (request.spec() != null) {
-                Map<String, Object> spec = ProductSpecSchema.validate(category.getComponentType(), request.spec());
+                // Bước 1: Lưu đối tượng Product
+                Product product = new Product();
+                product.setName(name);
+                product.setDescription(description);
+                product.setPrice(price);
+                product.setStatus(status);
+                product.setCategory(category);
+                product.setBrand(brand);
+                dao.persistProduct(product);
+
+                // Bước 2: Lưu đối tượng Inventory ban đầu
+                Inventory inventory = new Inventory();
+                inventory.setProduct(product);
+                inventory.setQuantityOnHand(quantityOnHand);
+                inventory.setReservedQuantity(0);
+                dao.persistInventory(inventory);
+
+                // Bước 3: Lưu thông số kỹ thuật Specs (nếu có)
+                if (request.spec() != null) {
+                    ComponentType componentType = category.getComponentType();
+                    Map<String, Object> validatedSpec = ProductSpecSchema.validate(componentType, request.spec());
+                    dao.flush();
+                    dao.specs().replace(product.getProductId(), null, componentType, validatedSpec);
+                }
+
                 dao.flush();
-                dao.specs().replace(product.getProductId(), null, category.getComponentType(), spec);
+                tx.commit();
+
+                return toResponse(dao, product, inventory);
+
+            } catch (RuntimeException e) {
+                if (tx.isActive()) {
+                    tx.rollback();
+                }
+                throw e;
             }
-            return toResponse(dao, product, inventory);
-        });
+        }
     }
 
-    /** Cập nhật các trường khác null; chuỗi description rỗng được chuẩn hóa thành null. */
+    /**
+     * CẬP NHẬT THÔNG TIN SẢN PHẨM:
+     */
     public AdminProductResponse update(int productId, UpdateProductRequest request) {
         validateProductId(productId);
-        if (request == null) throw new ValidationException("Request không hợp lệ.");
-        if (!hasUpdateField(request)) {
-            throw new ValidationException("Phải cung cấp ít nhất một trường cần cập nhật.");
+        if (request == null || !hasUpdateField(request)) {
+            throw new ValidationException("Phải cung cấp ít nhất một trường thông tin cần cập nhật.");
         }
 
-        return inTransaction(dao -> {
-            Product product = findProduct(dao, productId);
-            ComponentType oldType = product.getCategory().getComponentType();
-            Map<String, Object> oldSpec = dao.specs().find(productId, oldType);
+        try (EntityManager em = createEntityManager()) {
+            EntityTransaction tx = em.getTransaction();
+            try {
+                tx.begin();
+                AdminProductDao dao = new AdminProductDao(em);
 
-            if (request.name() != null) product.setName(validateName(request.name()));
-            if (request.description() != null) product.setDescription(cleanDescription(request.description()));
-            if (request.price() != null) product.setPrice(validatePrice(request.price()));
-            if (request.categoryId() != null) product.setCategory(findCategory(dao, request.categoryId()));
-            if (request.brandId() != null) product.setBrand(findBrand(dao, request.brandId()));
-            if (request.status() != null) product.setStatus(request.status());
+                Product product = findProduct(dao, productId);
+                Category currentCategory = product.getCategory();
+                Brand currentBrand = product.getBrand();
 
-            validateActiveDependencies(product.getStatus(), product.getCategory(), product.getBrand());
+                // Cập nhật tên nếu có
+                if (request.name() != null) {
+                    product.setName(validateName(request.name()));
+                }
+                // Cập nhật mô tả nếu có
+                if (request.description() != null) {
+                    product.setDescription(cleanDescription(request.description()));
+                }
+                // Cập nhật giá nếu có
+                if (request.price() != null) {
+                    product.setPrice(validatePrice(request.price()));
+                }
+                // Cập nhật danh mục nếu có
+                if (request.categoryId() != null) {
+                    currentCategory = findCategory(dao, request.categoryId());
+                    product.setCategory(currentCategory);
+                }
+                // Cập nhật hãng nếu có
+                if (request.brandId() != null) {
+                    currentBrand = findBrand(dao, request.brandId());
+                    product.setBrand(currentBrand);
+                }
+                // Cập nhật trạng thái nếu có
+                ProductStatus targetStatus = request.status() != null ? request.status() : product.getStatus();
+                validateActiveDependencies(targetStatus, currentCategory, currentBrand);
+                product.setStatus(targetStatus);
 
-            ComponentType newType = product.getCategory().getComponentType();
-            if (request.spec() == null && oldSpec != null && oldType != newType) {
-                throw new ValidationException("Đổi loại linh kiện cần cung cấp bộ thông số mới.");
-            }
-            if (request.spec() != null) {
-                Map<String, Object> spec = ProductSpecSchema.validate(newType, request.spec());
+                // Cập nhật thông số kỹ thuật Specs
+                ComponentType newType = currentCategory.getComponentType();
+                Map<String, Object> oldSpec = dao.specs().find(productId, newType);
+                if (request.spec() == null && oldSpec != null && oldSpec.isEmpty()) {
+                    throw new ValidationException("Đổi loại linh kiện cần cung cấp bộ thông số mới.");
+                }
+                if (request.spec() != null) {
+                    Map<String, Object> validatedSpec = ProductSpecSchema.validate(newType, request.spec());
+                    dao.flush();
+                    dao.specs().replace(productId, oldSpec == null ? null : newType, newType, validatedSpec);
+                }
+
+                Inventory inventory = dao.findInventoryByProductId(productId);
+                if (inventory == null) {
+                    throw new ResourceNotFoundException("Không tìm thấy tồn kho của sản phẩm.");
+                }
+
                 dao.flush();
-                dao.specs().replace(productId, oldSpec == null ? null : oldType, newType, spec);
-            }
+                tx.commit();
 
-            Inventory inventory = dao.findInventoryByProductId(productId);
-            if (inventory == null) {
-                throw new ResourceNotFoundException("Không tìm thấy tồn kho của sản phẩm.");
+                return toResponse(dao, product, inventory);
+
+            } catch (RuntimeException e) {
+                if (tx.isActive()) {
+                    tx.rollback();
+                }
+                throw e;
             }
-            return toResponse(dao, product, inventory);
-        });
+        }
     }
 
-    /** Admin chỉ đổi tồn thực tế; reservedQuantity do luồng đặt hàng quản lý. */
+    /**
+     * CẬP NHẬT TỒN KHO THỰC TẾ:
+     * Admin chỉnh sửa số lượng thực có trong kho.
+     * Ràng buộc: Số lượng mới không được nhỏ hơn số lượng đang giữ chỗ trong các đơn hàng chờ giao.
+     */
     public AdminProductResponse updateInventory(int productId, UpdateInventoryRequest request) {
         validateProductId(productId);
-        if (request == null) throw new ValidationException("Request không hợp lệ.");
+        if (request == null) {
+            throw new ValidationException("Request cập nhật tồn kho không hợp lệ.");
+        }
         int newQuantity = validateQuantity(request.quantityOnHand());
 
-        return inTransaction(dao -> {
+        try (EntityManager em = createEntityManager()) {
+            EntityTransaction tx = em.getTransaction();
+            try {
+                tx.begin();
+                AdminProductDao dao = new AdminProductDao(em);
+
+                Product product = findProduct(dao, productId);
+                Inventory inventory = dao.findInventoryByProductIdForUpdate(productId);
+                if (inventory == null) {
+                    throw new ResourceNotFoundException("Không tìm thấy tồn kho của sản phẩm.");
+                }
+
+                // Kiểm tra xung đột với đơn hàng đang giữ chỗ
+                if (newQuantity < inventory.getReservedQuantity()) {
+                    throw new AppException(409, "INVENTORY_CONFLICT",
+                            "Tồn kho mới không được nhỏ hơn số lượng đang giữ chỗ cho các đơn hàng.");
+                }
+
+                inventory.setQuantityOnHand(newQuantity);
+                dao.flush();
+                tx.commit();
+
+                return toResponse(dao, product, inventory);
+
+            } catch (RuntimeException e) {
+                if (tx.isActive()) {
+                    tx.rollback();
+                }
+                throw e;
+            }
+        }
+    }
+
+    /**
+     * Xem chi tiết một sản phẩm theo ID (phục vụ màn hình Admin xem và sửa).
+     */
+    public AdminProductResponse get(int productId) {
+        validateProductId(productId);
+        try (EntityManager em = createEntityManager()) {
+            AdminProductDao dao = new AdminProductDao(em);
             Product product = findProduct(dao, productId);
-            Inventory inventory = dao.findInventoryByProductIdForUpdate(productId);
+            Inventory inventory = dao.findInventoryByProductId(productId);
             if (inventory == null) {
                 throw new ResourceNotFoundException("Không tìm thấy tồn kho của sản phẩm.");
             }
-            if (newQuantity < inventory.getReservedQuantity()) {
-                throw new AppException(409, "INVENTORY_CONFLICT",
-                        "Tồn kho không được nhỏ hơn số lượng đang giữ chỗ.");
+            return toResponse(dao, product, inventory);
+        }
+    }
+
+    /**
+     * Lấy danh sách toàn bộ sản phẩm hiển thị trên Dashboard Admin.
+     */
+    public List<AdminProductResponse> list() {
+        try (EntityManager em = createEntityManager()) {
+            AdminProductDao dao = new AdminProductDao(em);
+            List<Product> allProducts = dao.findAllProducts();
+
+            List<Integer> productIds = new ArrayList<>();
+            for (Product product : allProducts) {
+                productIds.add(product.getProductId());
             }
 
-            inventory.setQuantityOnHand(newQuantity);
-            return toResponse(dao, product, inventory);
-        });
+            Map<Integer, Inventory> inventoryMap = dao.findInventories(productIds);
+
+            List<AdminProductResponse> responseList = new ArrayList<>();
+            for (Product product : allProducts) {
+                Inventory inventory = inventoryMap.get(product.getProductId());
+                responseList.add(toResponse(dao, product, inventory));
+            }
+            return responseList;
+        }
     }
 
-    public AdminProductResponse get(int productId) {
-        validateProductId(productId);
-        return inTransaction(dao -> {
-            Product product = findProduct(dao, productId);
-            Inventory inventory = dao.findInventoryByProductId(productId);
-            if (inventory == null) throw new ResourceNotFoundException("Không tìm thấy tồn kho của sản phẩm.");
-            return toResponse(dao, product, inventory);
-        });
-    }
-
-    public List<AdminProductResponse> list() {
-        return inTransaction(dao -> {
-            List<Product> allProducts = dao.findAllProducts();
-            Map<Integer, Inventory> inventoryMap = dao.findInventories(
-                    allProducts.stream().map(Product::getProductId).toList());
-            return allProducts.stream()
-                    .map(product -> toResponse(dao, product, inventoryMap.get(product.getProductId())))
-                    .toList();
-        });
-    }
+    // =========================================================================
+    // CÁC HÀM VALIDATION & PHỤ TRỢ
+    // =========================================================================
 
     private Product findProduct(AdminProductDao dao, int productId) {
         Product product = dao.findProductById(productId);
-        if (product == null) throw new ResourceNotFoundException("Không tìm thấy sản phẩm.");
+        if (product == null) {
+            throw new ResourceNotFoundException("Không tìm thấy sản phẩm có ID: " + productId);
+        }
         return product;
     }
 
@@ -247,31 +377,25 @@ public class AdminProductService {
     private AdminProductResponse toResponse(AdminProductDao dao, Product product, Inventory inventory) {
         int qoh = inventory != null ? inventory.getQuantityOnHand() : 0;
         int reserved = inventory != null ? inventory.getReservedQuantity() : 0;
+        int available = qoh - reserved;
+
+        ComponentType compType = product.getCategory().getComponentType();
+        Map<String, Object> specsMap = dao.specs().find(product.getProductId(), compType);
+
         return new AdminProductResponse(
-                product.getProductId(), product.getName(), product.getDescription(), product.getPrice(),
-                product.getStatus().name(), product.getCategory().getCategoryId(), product.getCategory().getName(),
-                product.getBrand().getBrandId(), product.getBrand().getName(), qoh,
-                reserved, qoh - reserved,
-                dao.specs().find(product.getProductId(), product.getCategory().getComponentType()));
-    }
-
-    private <T> T inTransaction(Function<AdminProductDao, T> operation) {
-        try (EntityManager em = entityManagers.get()) {
-            EntityTransaction transaction = em.getTransaction();
-            try {
-                transaction.begin();
-                T result = operation.apply(new AdminProductDao(em));
-                em.flush();
-                transaction.commit();
-                return result;
-            } catch (RuntimeException exception) {
-                rollback(transaction);
-                throw exception;
-            }
-        }
-    }
-
-    private void rollback(EntityTransaction transaction) {
-        if (transaction != null && transaction.isActive()) transaction.rollback();
+                product.getProductId(),
+                product.getName(),
+                product.getDescription(),
+                product.getPrice(),
+                product.getStatus().name(),
+                product.getCategory().getCategoryId(),
+                product.getCategory().getName(),
+                product.getBrand().getBrandId(),
+                product.getBrand().getName(),
+                qoh,
+                reserved,
+                available,
+                specsMap
+        );
     }
 }

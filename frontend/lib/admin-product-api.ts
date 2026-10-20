@@ -1,3 +1,8 @@
+/**
+ * Admin Product API Client: Module kết nối và gọi các API quản lý Sản phẩm và Tồn kho cho Admin.
+ * Tương ứng với Backend: AdminProductServlet (/api/admin/products/*).
+ */
+
 export type AdminProductStatus =
   | "ACTIVE"
   | "DRAFT"
@@ -46,45 +51,60 @@ export type AdminProductItem = {
   spec?: Record<string, unknown> | null;
 };
 
+/**
+ * Lớp lỗi chuẩn hóa cho các API Admin Product
+ */
 export class AdminProductApiError extends Error {
   status: number;
   code: string;
 
   constructor(status: number, code: string, message: string) {
     super(message);
+    this.name = "AdminProductApiError";
     this.status = status;
     this.code = code;
   }
 }
 
-function positiveInteger(value: unknown): value is number {
+// =============================================================================
+// CÁC HÀM VALIDATE DỮ LIỆU ĐẦU VÀO & PHẢN HỒI JSON
+// =============================================================================
+
+function isPositiveInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 }
 
-function nonNegativeInteger(value: unknown): value is number {
+function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 
-function validProductItem(value: unknown): value is AdminProductItem {
+function isValidProductItem(value: unknown): value is AdminProductItem {
   if (!value || typeof value !== "object") return false;
   const p = value as Partial<AdminProductItem>;
   return (
-    positiveInteger(p.productId) &&
+    isPositiveInteger(p.productId) &&
     typeof p.name === "string" &&
     typeof p.price === "number" &&
     p.price >= 0 &&
     typeof p.status === "string" &&
-    positiveInteger(p.categoryId) &&
+    isPositiveInteger(p.categoryId) &&
     typeof p.categoryName === "string" &&
-    positiveInteger(p.brandId) &&
+    isPositiveInteger(p.brandId) &&
     typeof p.brandName === "string" &&
-    nonNegativeInteger(p.quantityOnHand) &&
-    nonNegativeInteger(p.reservedQuantity) &&
+    isNonNegativeInteger(p.quantityOnHand) &&
+    isNonNegativeInteger(p.reservedQuantity) &&
     typeof p.availableQuantity === "number"
   );
 }
 
+// =============================================================================
+// ADMIN PRODUCT API FACTORY
+// =============================================================================
+
 export function createAdminProductApi(transport: typeof fetch = fetch) {
+  /**
+   * Hàm phụ trợ gửi request HTTP tới máy chủ backend
+   */
   async function request(path: string, method: string, body?: unknown): Promise<unknown> {
     let response: Response;
     try {
@@ -100,32 +120,37 @@ export function createAdminProductApi(transport: typeof fetch = fetch) {
     }
 
     const data = await response.json().catch(() => null);
+
     if (!response.ok) {
-      throw new AdminProductApiError(
-        response.status,
-        data?.code ?? "HTTP_ERROR",
-        data?.message ?? `Máy chủ trả lỗi ${response.status}.`,
-      );
+      const code = typeof data?.code === "string" ? data.code : "HTTP_ERROR";
+      const message = typeof data?.message === "string" ? data.message : `Máy chủ trả lỗi ${response.status}.`;
+      throw new AdminProductApiError(response.status, code, message);
     }
     return data;
   }
 
-  function requireId(id: number): void {
-    if (!positiveInteger(id)) {
+  function requireValidId(productId: number): void {
+    if (!isPositiveInteger(productId)) {
       throw new AdminProductApiError(400, "INVALID_ID", "Product ID không hợp lệ.");
     }
   }
 
   return {
+    /**
+     * Lấy thông tin chi tiết của một sản phẩm theo ID
+     */
     async get(productId: number): Promise<AdminProductItem> {
-      requireId(productId);
+      requireValidId(productId);
       const res = await request(`/api/admin/products/${productId}`, "GET");
-      if (!validProductItem(res)) {
+      if (!isValidProductItem(res)) {
         throw new AdminProductApiError(502, "INVALID_RESPONSE", "Phản hồi sản phẩm không hợp lệ.");
       }
       return res;
     },
 
+    /**
+     * Tạo mới một sản phẩm (kèm tồn kho và thông số kỹ thuật Specs ban đầu)
+     */
     async create(input: CreateProductInput): Promise<AdminProductItem> {
       if (!input.name || input.name.trim().length === 0) {
         throw new AdminProductApiError(400, "INVALID_INPUT", "Tên sản phẩm không được để trống.");
@@ -133,46 +158,55 @@ export function createAdminProductApi(transport: typeof fetch = fetch) {
       if (typeof input.price !== "number" || input.price < 0) {
         throw new AdminProductApiError(400, "INVALID_INPUT", "Giá sản phẩm không hợp lệ.");
       }
-      if (!positiveInteger(input.categoryId)) {
+      if (!isPositiveInteger(input.categoryId)) {
         throw new AdminProductApiError(400, "INVALID_INPUT", "Danh mục là bắt buộc.");
       }
-      if (!positiveInteger(input.brandId)) {
+      if (!isPositiveInteger(input.brandId)) {
         throw new AdminProductApiError(400, "INVALID_INPUT", "Thương hiệu là bắt buộc.");
       }
-      if (!nonNegativeInteger(input.quantityOnHand)) {
+      if (!isNonNegativeInteger(input.quantityOnHand)) {
         throw new AdminProductApiError(400, "INVALID_INPUT", "Số lượng tồn kho ban đầu không hợp lệ.");
       }
 
       const res = await request("/api/admin/products", "POST", input);
-      if (!validProductItem(res)) {
+      if (!isValidProductItem(res)) {
         throw new AdminProductApiError(502, "INVALID_RESPONSE", "Phản hồi tạo sản phẩm không hợp lệ.");
       }
       return res;
     },
 
+    /**
+     * Cập nhật thông tin chi tiết của sản phẩm (PATCH /api/admin/products/{id})
+     */
     async update(productId: number, input: UpdateProductInput): Promise<AdminProductItem> {
-      requireId(productId);
+      requireValidId(productId);
       const res = await request(`/api/admin/products/${productId}`, "PATCH", input);
-      if (!validProductItem(res)) {
+      if (!isValidProductItem(res)) {
         throw new AdminProductApiError(502, "INVALID_RESPONSE", "Phản hồi cập nhật sản phẩm không hợp lệ.");
       }
       return res;
     },
 
-    async updateInventory(productId: number, input: UpdateInventoryInput): Promise<{
+    /**
+     * Cập nhật số lượng tồn kho thực tế của sản phẩm (PATCH /api/admin/products/{id}/inventory)
+     */
+    async updateInventory(
+      productId: number,
+      input: UpdateInventoryInput
+    ): Promise<{
       productId: number;
       quantityOnHand: number;
       reservedQuantity: number;
       availableQuantity: number;
     }> {
-      requireId(productId);
-      if (!nonNegativeInteger(input.quantityOnHand)) {
+      requireValidId(productId);
+      if (!isNonNegativeInteger(input.quantityOnHand)) {
         throw new AdminProductApiError(400, "INVALID_INPUT", "Số lượng tồn kho không hợp lệ.");
       }
       const res = (await request(
         `/api/admin/products/${productId}/inventory`,
         "PATCH",
-        input,
+        input
       )) as {
         productId: number;
         quantityOnHand: number;
@@ -182,13 +216,19 @@ export function createAdminProductApi(transport: typeof fetch = fetch) {
       return res;
     },
 
+    /**
+     * Đổi trạng thái hiển thị của sản phẩm (ACTIVE / DRAFT / HIDDEN...)
+     */
     async setStatus(productId: number, status: AdminProductStatus): Promise<AdminProductItem> {
       return this.update(productId, { status });
     },
 
+    /**
+     * Lấy danh sách toàn bộ sản phẩm cho bảng quản trị Dashboard
+     */
     async list(): Promise<AdminProductItem[]> {
       const res = await request("/api/admin/products", "GET");
-      if (!Array.isArray(res) || !res.every(validProductItem)) {
+      if (!Array.isArray(res) || !res.every(isValidProductItem)) {
         throw new AdminProductApiError(502, "INVALID_RESPONSE", "Danh sách sản phẩm không hợp lệ.");
       }
       return res;
