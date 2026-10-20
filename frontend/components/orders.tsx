@@ -24,7 +24,7 @@ import { useAuth } from "./auth-provider";
 import { orderApi } from "../lib/order-api";
 import { reviewApi } from "../lib/review-api";
 import { useToast } from "./toast";
-import { WriteReviewModal } from "./reviews";
+import { WriteReviewModal } from "./reviews/write-review-modal";
 import { hasUserReviewedProduct } from "../lib/reviews";
 import { formatPrice } from "../lib/products";
 import { parseServerProductId } from "../lib/cart";
@@ -969,6 +969,7 @@ export function OrderDetail({
           </div>
         )}
 
+        {/* Nút Viết đánh giá chọn reviewProduct; form và request nằm ở reviews/write-review-modal.tsx. */}
         {reviewProduct && (
           <WriteReviewModal
             isOpen={Boolean(reviewProduct)}

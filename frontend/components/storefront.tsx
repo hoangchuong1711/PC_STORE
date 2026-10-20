@@ -7,7 +7,7 @@ import { useCart } from "./cart-provider";
 import { useAuth } from "./auth-provider";
 import { useToast } from "./toast";
 import { QuickSearch } from "./quick-search";
-import { ProductReviewsSection } from "./reviews";
+import { ProductReviewsSection } from "./reviews/product-reviews-section";
 import { ProductGalleryZoom } from "./product-gallery-zoom";
 import { useMemo, useState, useEffect, useCallback, useRef, type ComponentType } from "react";
 import {
@@ -1683,7 +1683,7 @@ export function ProductDetail({ slug }: { slug: string }) {
           </div>
         </section>
 
-        {/* Product Reviews & Real Customer Feedback */}
+        {/* Khối đánh giá và API tải/like: reviews/product-reviews-section.tsx. */}
         {serverProductId !== null && (
           <ProductReviewsSection
             productSlug={product.slug}

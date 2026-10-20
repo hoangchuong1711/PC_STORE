@@ -1,3 +1,4 @@
+// File ảnh/video được gửi tới Java backend; backend mới làm việc với Cloudinary.
 export type MediaModule = "REVIEW" | "SETUP";
 
 export type UploadMediaResponse = {
@@ -20,6 +21,7 @@ export class MediaApiError extends Error {
 export const MAX_IMAGE_SIZE_BYTES = 8_000_000;
 export const MAX_VIDEO_SIZE_BYTES = 20_000_000;
 
+// URL để thẻ img/video tải nội dung qua MediaContentServlet.doGet.
 export function mediaContentUrl(mediaId: string): string {
   return `/api/media/${mediaId}/content`;
 }
@@ -50,6 +52,8 @@ function normalizeVideoMimeType(rawType: string, filename?: string): string {
 
 export function createMediaApi(transport: typeof fetch = fetch) {
   return {
+    // Input chọn ảnh → POST /api/customer/media/images → MediaImageUploadServlet.doPost.
+    // Body là file nhị phân, không phải JSON/FormData; X-Media-Module phân biệt REVIEW/SETUP.
     async uploadImage(
       file: Blob | File | Uint8Array,
       module: MediaModule = "REVIEW",
@@ -88,6 +92,7 @@ export function createMediaApi(transport: typeof fetch = fetch) {
         throw new MediaApiError(0, "NETWORK_ERROR", "Không thể kết nối đến máy chủ upload ảnh.");
       }
 
+      // Đọc JSON response; mediaId được form giữ lại để gửi cùng bài đánh giá/Setup.
       const data = await response.json().catch(() => null);
       if (!response.ok) {
         throw new MediaApiError(
@@ -100,6 +105,7 @@ export function createMediaApi(transport: typeof fetch = fetch) {
       return data as UploadMediaResponse;
     },
 
+    // Input chọn video Review → POST /api/customer/media/videos → MediaVideoUploadServlet.doPost.
     async uploadVideo(
       file: Blob | File | Uint8Array,
       options?: { filename?: string; mimeType?: string }
@@ -133,6 +139,7 @@ export function createMediaApi(transport: typeof fetch = fetch) {
         throw new MediaApiError(0, "NETWORK_ERROR", "Không thể kết nối đến máy chủ upload video.");
       }
 
+      // Đọc JSON response; mediaId được form giữ lại để gửi cùng bài đánh giá/Setup.
       const data = await response.json().catch(() => null);
       if (!response.ok) {
         throw new MediaApiError(
