@@ -16,62 +16,94 @@ import jakarta.servlet.http.*;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
 
 @WebServlet(name = "cartServlet", urlPatterns = "/api/customer/cart/*")
 public class CartServlet extends HttpServlet {
-    private static final Set<String> METHODS = Set.of("GET", "POST", "PATCH", "DELETE");
+    private static final String ALLOWED_METHODS = "GET, POST, PATCH, DELETE, OPTIONS";
     private final ObjectMapper mapper = JsonMapper.builder()
             .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT)
             .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
             .build();
 
-    // Servlet 6.0 has no doPatch; dispatch PATCH together with the other cart methods.
-    @Override protected void service(HttpServletRequest req, HttpServletResponse res) throws IOException {
+    // Servlet 6.0 needs explicit PATCH dispatch. Keep the HTTP handlers separate.
+    @Override
+    protected void service(HttpServletRequest req, HttpServletResponse res) throws IOException {
         try {
-            Integer userId = SessionUtil.userId(req);
-            if (userId == null) throw new AppException(401, "UNAUTHORIZED", "Bạn cần đăng nhập.");
-            String method = req.getMethod();
-            if (!METHODS.contains(method)) {
-                res.setHeader("Allow", "GET, POST, PATCH, DELETE, OPTIONS");
-                throw new AppException(405, "METHOD_NOT_ALLOWED", "Phương thức không được hỗ trợ.");
+            if (SessionUtil.userId(req) == null) {
+                throw new AppException(401, "UNAUTHORIZED", "Bạn cần đăng nhập.");
             }
-            String path = req.getPathInfo();
-            Function<CartService, Object> action;
-            if ("GET".equals(method) && (path == null || "/".equals(path))) {
-                action = service -> service.getCart(userId);
-            } else if ("POST".equals(method) && "/items".equals(path)) {
-                AddCartItemRequest body = read(req, AddCartItemRequest.class);
-                positive(body.productId(), "INVALID_ID");
-                positive(body.quantity(), "INVALID_QUANTITY");
-                action = service -> service.addItem(userId, body.productId(), body.quantity());
-            } else if (("PATCH".equals(method) || "DELETE".equals(method)) && isItemPath(path)) {
-                int itemId = itemId(path);
-                if ("PATCH".equals(method)) {
-                    UpdateCartItemRequest body = read(req, UpdateCartItemRequest.class);
-                    if (body.quantity() == null || body.quantity() < 0)
-                        throw new AppException(400, "INVALID_QUANTITY", "Số lượng phải là số nguyên không âm.");
-                    action = service -> service.updateItem(userId, itemId, body.quantity());
-                } else {
-                    action = service -> { service.deleteItem(userId, itemId); return null; };
+            switch (req.getMethod()) {
+                case "GET" -> doGet(req, res);
+                case "POST" -> doPost(req, res);
+                case "PATCH" -> updateItem(req, res);
+                case "DELETE" -> doDelete(req, res);
+                default -> {
+                    res.setHeader("Allow", ALLOWED_METHODS);
+                    throw new AppException(405, "METHOD_NOT_ALLOWED", "Phương thức không được hỗ trợ.");
                 }
-            } else {
-                throw new AppException(404, "NOT_FOUND", "Không tìm thấy endpoint.");
             }
-            Object result;
-            try (var em = PersistenceManager.get().createEntityManager()) {
-                result = action.apply(new CartService(em));
-            }
-            if ("DELETE".equals(method)) res.setStatus(HttpServletResponse.SC_NO_CONTENT);
-            else JsonUtil.write(res, HttpServletResponse.SC_OK, result);
         } catch (AppException exception) {
             JsonUtil.write(res, exception.getStatus(), Map.of("code", exception.getCode(), "message", exception.getMessage()));
         } catch (RuntimeException exception) {
             if (getServletContext() != null) getServletContext().log("Cart request failed", exception);
             JsonUtil.write(res, 500, Map.of("code", "INTERNAL_ERROR", "message", "Không thể xử lý giỏ lúc này."));
         }
+    }
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
+        String path = req.getPathInfo();
+        requirePath(path == null || "/".equals(path));
+        Object result;
+        try (var em = PersistenceManager.get().createEntityManager()) {
+            CartService service = new CartService(em);
+            result = service.getCart(SessionUtil.userId(req));
+        }
+        JsonUtil.write(res, HttpServletResponse.SC_OK, result);
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse res) throws IOException {
+        requirePath("/items".equals(req.getPathInfo()));
+        AddCartItemRequest body = read(req, AddCartItemRequest.class);
+        positive(body.productId(), "INVALID_ID");
+        positive(body.quantity(), "INVALID_QUANTITY");
+        Object result;
+        try (var em = PersistenceManager.get().createEntityManager()) {
+            CartService service = new CartService(em);
+            result = service.addItem(SessionUtil.userId(req), body.productId(), body.quantity());
+        }
+        JsonUtil.write(res, HttpServletResponse.SC_OK, result);
+    }
+
+    private void updateItem(HttpServletRequest req, HttpServletResponse res) throws IOException {
+        requirePath(isItemPath(req.getPathInfo()));
+        int id = itemId(req.getPathInfo());
+        UpdateCartItemRequest body = read(req, UpdateCartItemRequest.class);
+        if (body.quantity() == null || body.quantity() < 0) {
+            throw new AppException(400, "INVALID_QUANTITY", "Số lượng phải là số nguyên không âm.");
+        }
+        Object result;
+        try (var em = PersistenceManager.get().createEntityManager()) {
+            CartService service = new CartService(em);
+            result = service.updateItem(SessionUtil.userId(req), id, body.quantity());
+        }
+        JsonUtil.write(res, HttpServletResponse.SC_OK, result);
+    }
+
+    @Override
+    protected void doDelete(HttpServletRequest req, HttpServletResponse res) {
+        requirePath(isItemPath(req.getPathInfo()));
+        int id = itemId(req.getPathInfo());
+        try (var em = PersistenceManager.get().createEntityManager()) {
+            new CartService(em).deleteItem(SessionUtil.userId(req), id);
+        }
+        res.setStatus(HttpServletResponse.SC_NO_CONTENT);
+    }
+
+    private static void requirePath(boolean matches) {
+        if (!matches) throw new AppException(404, "NOT_FOUND", "Không tìm thấy endpoint.");
     }
 
     private <T> T read(HttpServletRequest req, Class<T> type) {
