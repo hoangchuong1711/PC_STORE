@@ -33,7 +33,17 @@ class MediaImageUploadServletTest {
         assertEquals("MEDIA_TOO_LARGE", response.code());
     }
 
+    @Test void rejectsMissingContentTypeBeforeReadingBody() throws Exception {
+        Result response = request(true, "http://localhost:3000", new byte[0], null);
+        assertEquals(415, response.status());
+        assertEquals("UNSUPPORTED_MEDIA_TYPE", response.code());
+    }
+
     private Result request(boolean loggedIn, String origin, byte[] bytes) throws Exception {
+        return request(loggedIn, origin, bytes, "image/png");
+    }
+
+    private Result request(boolean loggedIn, String origin, byte[] bytes, String mimeType) throws Exception {
         var body = new ByteArrayInputStream(bytes);
         ServletInputStream stream = new ServletInputStream() {
             @Override public int read() { return body.read(); }
@@ -49,7 +59,7 @@ class MediaImageUploadServletTest {
                 new Class<?>[]{HttpServletRequest.class}, (proxy, method, args) -> switch (method.getName()) {
                     case "getSession" -> loggedIn ? session : null;
                     case "getHeader" -> "Origin".equals(args[0]) ? origin : "SETUP";
-                    case "getContentType" -> "image/png";
+                    case "getContentType" -> mimeType;
                     case "getContentLengthLong" -> (long) bytes.length;
                     case "getServerPort" -> 8080;
                     case "getServerName" -> "localhost";

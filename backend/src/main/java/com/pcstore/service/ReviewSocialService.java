@@ -30,11 +30,13 @@ public class ReviewSocialService {
     private final EntityManager entityManager;
     private final ReviewSocialDao reviews;
 
+    // Khởi tạo DAO và dùng chung EntityManager cho lượt thích, kiểm duyệt Review.
     public ReviewSocialService(EntityManager entityManager) {
         this.entityManager = entityManager;
         this.reviews = new ReviewSocialDao(entityManager);
     }
 
+    // Kiểm tra quyền admin rồi ghép danh sách Review với media, lượt thích và thông tin kiểm duyệt.
     public List<Map<String, Object>> listAllForAdmin(int userId) {
         requireUser(userId, UserRole.ADMIN);
         List<?> rows = reviews.findAllForAdmin();
@@ -71,6 +73,7 @@ public class ReviewSocialService {
         return list;
     }
 
+    // Cho khách hàng thích Review đang công khai của người khác; gọi lại không tạo lượt thích trùng.
     public ReviewLikeResponse like(int userId, Integer reviewId) {
         EntityTransaction transaction = entityManager.getTransaction();
         transaction.begin();
@@ -98,6 +101,7 @@ public class ReviewSocialService {
         }
     }
 
+    // Bỏ lượt thích Review đang công khai; nếu chưa thích thì giữ nguyên dữ liệu.
     public ReviewLikeResponse unlike(int userId, Integer reviewId) {
         EntityTransaction transaction = entityManager.getTransaction();
         transaction.begin();
@@ -121,6 +125,7 @@ public class ReviewSocialService {
         }
     }
 
+    // Cho admin ẩn hoặc công khai Review chưa bị chủ xóa; chỉ cập nhật lý do khi đổi trạng thái.
     public ReviewModerationResponse moderate(
             int userId, Integer reviewId, ModerateReviewRequest request) {
         EntityTransaction transaction = entityManager.getTransaction();
@@ -161,6 +166,7 @@ public class ReviewSocialService {
         }
     }
 
+    // Kiểm tra tài khoản còn hoạt động và có đúng vai trò cần cho thao tác.
     private User requireUser(int userId, UserRole role) {
         User user = userId <= 0 ? null : reviews.findUser(userId);
         if (user == null || user.getStatus() != UserStatus.ACTIVE) {
@@ -172,6 +178,7 @@ public class ReviewSocialService {
         return user;
     }
 
+    // Kiểm tra mã Review và khóa bản ghi để các thao tác ghi không xung đột.
     private ProductReview existingReview(Integer reviewId) {
         if (reviewId == null || reviewId <= 0) {
             throw new AppException(400, "INVALID_ID", "Review ID phải là số nguyên dương.");
@@ -183,6 +190,7 @@ public class ReviewSocialService {
         return review;
     }
 
+    // Lấy và khóa Review đang công khai để xử lý like hoặc bỏ like.
     private ProductReview publishedReview(Integer reviewId) {
         ProductReview review = existingReview(reviewId);
         if (review.getStatus() != ReviewStatus.PUBLISHED) {
@@ -191,10 +199,12 @@ public class ReviewSocialService {
         return review;
     }
 
+    // Chỉ chấp nhận trạng thái kiểm duyệt HIDDEN hoặc PUBLISHED.
     private static ReviewStatus moderationStatus(ModerateReviewRequest request) {
         if (request == null
-                || !("PUBLISHED".equals(request.getStatus())
-                        || "HIDDEN".equals(request.getStatus()))) {
+                || request.getStatus() == null
+                || !(request.getStatus().equals("PUBLISHED")
+                        || request.getStatus().equals("HIDDEN"))) {
             throw new AppException(
                     400,
                     "INVALID_REVIEW_STATUS",
@@ -203,6 +213,7 @@ public class ReviewSocialService {
         return ReviewStatus.valueOf(request.getStatus());
     }
 
+    // Ẩn bài phải có lý do 1–1000 ký tự; công khai lại không được gửi lý do.
     private static String moderationReason(ModerateReviewRequest request, ReviewStatus target) {
         String reason = request.getModerationReason();
         if (target == ReviewStatus.PUBLISHED) {
@@ -221,6 +232,7 @@ public class ReviewSocialService {
         return reason;
     }
 
+    // Tạo lỗi 400 khi lý do kiểm duyệt không đúng quy định.
     private static AppException invalidReason() {
         return new AppException(
                 400,
@@ -228,10 +240,12 @@ public class ReviewSocialService {
                 "Ẩn bài cần lý do từ 1 đến 1000 ký tự; khôi phục không gửi lý do.");
     }
 
+    // Tạo lỗi 404 khi không tìm thấy Review được phép thao tác.
     private static AppException missing() {
         return new AppException(404, "REVIEW_NOT_FOUND", "Không tìm thấy review.");
     }
 
+    // Lấy thời gian kiểm duyệt hoặc like, giữ độ chính xác micro giây tương thích PostgreSQL.
     private static LocalDateTime now() {
         // PostgreSQL timestamp has microsecond precision: retry responses keep the same value.
         return LocalDateTime.now(ZONE).truncatedTo(ChronoUnit.MICROS);

@@ -17,26 +17,28 @@ public final class MediaAccessService {
 
     public record AccessibleMedia(String assetId, String mimeType, long sizeBytes) {}
 
+    // Nhận EntityManagerFactory để mở phiên đọc dữ liệu khi kiểm tra quyền xem file.
     public MediaAccessService(EntityManagerFactory factory) {
         this.factory = factory;
     }
 
+    // Cho xem file theo chủ sở hữu, hạn dùng và trạng thái bài; file tạm chỉ chủ được xem.
     public AccessibleMedia resolve(UUID id, Integer viewerId) {
         try (EntityManager entityManager = factory.createEntityManager()) {
             MediaAsset asset = id == null ? null : entityManager.find(MediaAsset.class, id);
             if (asset == null || asset.getCloudinaryAssetId() == null) {
                 throw missing();
             }
-            if ("TEMP".equals(asset.getStatus())) {
+            if (asset.getStatus().equals("TEMP")) {
                 if (viewerId == null
                         || asset.getOwnerId() != viewerId
                         || !asset.getExpiresAt().isAfter(LocalDateTime.now(ZoneOffset.UTC))) {
                     throw missing();
                 }
-            } else if ("ATTACHED".equals(asset.getStatus())) {
+            } else if (asset.getStatus().equals("ATTACHED")) {
                 MediaLinkDao dao = new MediaLinkDao(entityManager);
                 MediaLinkDao.Visibility state =
-                        "SETUP".equals(asset.getModule())
+                        asset.getModule().equals("SETUP")
                                 ? dao.setupVisibility(id)
                                 : dao.reviewVisibility(id);
                 if (state == null) {
@@ -44,7 +46,7 @@ public final class MediaAccessService {
                 }
                 boolean owner = viewerId != null && state.ownerId() == viewerId;
                 String status = state.status();
-                if (!"PUBLISHED".equals(status) && !(owner && "HIDDEN".equals(status))) {
+                if (!status.equals("PUBLISHED") && !(owner && status.equals("HIDDEN"))) {
                     throw missing();
                 }
             } else {
@@ -55,6 +57,7 @@ public final class MediaAccessService {
         }
     }
 
+    // Trả lỗi 404 chung khi file không tồn tại, hết hạn hoặc không được phép xem.
     private static AppException missing() {
         return new AppException(404, "MEDIA_NOT_FOUND", "Không tìm thấy file.");
     }

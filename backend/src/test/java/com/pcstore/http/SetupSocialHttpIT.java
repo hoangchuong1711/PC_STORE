@@ -239,7 +239,7 @@ class SetupSocialHttpIT {
         for(String method:List.of("PUT","DELETE")) error(send(guest,method,"/api/setup-likes/1",null,null),401,"UNAUTHORIZED");
         error(send(guest,"GET","/api/admin/setups",null,null),401,"UNAUTHORIZED");
         error(send(a,"PUT","/api/admin/setups/1/status","{}",null),403,"FORBIDDEN");
-        for(String json:List.of("null","{}","{\"status\":\"HIDDEN\",\"reason\":\" \"}","{\"status\":\"DELETED\",\"reason\":\"x\"}"))
+        for(String json:List.of("null","{}","{\"reason\":\"Spam\"}","{\"status\":null,\"reason\":\"Spam\"}","{\"status\":\"HIDDEN\",\"reason\":\" \"}","{\"status\":\"DELETED\",\"reason\":\"x\"}"))
             assertEquals(400,send(admin,"PUT","/api/admin/setups/1/status",json,null).statusCode());
         assertEquals(400,send(guest,"GET","/api/setups/ranking?limit=0",null,null).statusCode());
         assertEquals(400,send(admin,"GET","/api/admin/setups?status=WRONG",null,null).statusCode());

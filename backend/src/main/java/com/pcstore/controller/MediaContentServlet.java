@@ -19,6 +19,7 @@ import java.util.UUID;
 /** All reads pass through current Setup/Review visibility checks. */
 @WebServlet(name = "mediaContentServlet", urlPatterns = "/api/media/*")
 public class MediaContentServlet extends HttpServlet {
+    // Kiểm tra quyền xem file, tải nội dung từ Cloudinary rồi trả ảnh hoặc video cho trình duyệt.
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
@@ -38,17 +39,18 @@ public class MediaContentServlet extends HttpServlet {
             MediaAccessService.AccessibleMedia media =
                     new MediaAccessService(PersistenceManager.get())
                             .resolve(id, SessionUtil.userId(request));
-            if (!"image/jpeg".equals(media.mimeType()) && !"video/mp4".equals(media.mimeType())) {
+            String mimeType = media.mimeType();
+            if (mimeType == null || (!mimeType.equals("image/jpeg") && !mimeType.equals("video/mp4"))) {
                 throw missing();
             }
-            int maxBytes = "image/jpeg".equals(media.mimeType()) ? 1_000_000 : 4_000_000;
+            int maxBytes = mimeType.equals("image/jpeg") ? 1_000_000 : 4_000_000;
             byte[] content =
                     new CloudinaryImageStorage(
                                     required("CLOUDINARY_CLOUD_NAME"),
                                     required("CLOUDINARY_API_KEY"),
                                     required("CLOUDINARY_API_SECRET"))
                             .download(media.assetId(), maxBytes);
-            writeContent(request, response, media.mimeType(), content);
+            writeContent(request, response, mimeType, content);
         } catch (AppException error) {
             JsonUtil.write(
                     response,
@@ -65,6 +67,7 @@ public class MediaContentServlet extends HttpServlet {
         }
     }
 
+    // Trả toàn bộ file hoặc một đoạn byte theo Range để hỗ trợ phát và tua video.
     private void writeContent(
             HttpServletRequest request,
             HttpServletResponse response,
@@ -96,6 +99,7 @@ public class MediaContentServlet extends HttpServlet {
 
     record ByteRange(int start, int end) {}
 
+    // Đọc khoảng byte trình duyệt yêu cầu, từ chối khoảng sai hoặc vượt vị trí bắt đầu hợp lệ.
     static ByteRange parseRange(String value, int size) {
         if (value == null) {
             return null;
@@ -134,10 +138,12 @@ public class MediaContentServlet extends HttpServlet {
         }
     }
 
+    // Tạo lỗi 404 khi file không tồn tại hoặc người xem không được phép truy cập.
     private static AppException missing() {
         return new AppException(404, "MEDIA_NOT_FOUND", "Không tìm thấy file.");
     }
 
+    // Đọc biến môi trường Cloudinary bắt buộc; báo lỗi nếu thiếu cấu hình.
     private static String required(String name) {
         String value = System.getenv(name);
         if (value == null || value.isBlank()) {

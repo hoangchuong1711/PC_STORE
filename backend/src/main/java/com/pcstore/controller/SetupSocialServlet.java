@@ -31,6 +31,7 @@ public final class SetupSocialServlet extends HttpServlet {
                     .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                     .build();
 
+    // Kiểm tra đường dẫn, điều phối tương tác Community và chuyển lỗi thành JSON.
     @Override
     protected void service(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -53,6 +54,7 @@ public final class SetupSocialServlet extends HttpServlet {
         }
     }
 
+    // Trả bảng xếp hạng, trạng thái like hoặc dữ liệu kiểm duyệt Setup tùy đường dẫn.
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
@@ -62,14 +64,14 @@ public final class SetupSocialServlet extends HttpServlet {
             String route = request.getServletPath();
             String path = request.getPathInfo();
             Object result;
-            if ("/api/setups/ranking".equals(route)) {
+            if (route.equals("/api/setups/ranking")) {
                 int offset = parseInteger(request.getParameter("offset"), 0);
                 int limit = parseInteger(request.getParameter("limit"), 20);
                 result = setups.ranking(userId, offset, limit);
-            } else if ("/api/setup-likes".equals(route)) {
+            } else if (route.equals("/api/setup-likes")) {
                 int postId = parseInteger(path.substring(1), 0);
                 result = setups.getLike(postId, userId);
-            } else if (path == null || "/".equals(path)) {
+            } else if (path == null || path.equals("/")) {
                 String status = request.getParameter("status");
                 int offset = parseInteger(request.getParameter("offset"), 0);
                 int limit = parseInteger(request.getParameter("limit"), 20);
@@ -82,6 +84,7 @@ public final class SetupSocialServlet extends HttpServlet {
         }
     }
 
+    // Ghi nhận like hoặc cập nhật trạng thái kiểm duyệt bài Setup tùy đường dẫn.
     @Override
     protected void doPut(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
@@ -90,7 +93,7 @@ public final class SetupSocialServlet extends HttpServlet {
             Integer userId = SessionUtil.userId(request);
             String path = request.getPathInfo();
             Object result;
-            if ("/api/setup-likes".equals(request.getServletPath())) {
+            if (request.getServletPath().equals("/api/setup-likes")) {
                 int postId = parseInteger(path.substring(1), 0);
                 result = setups.setLike(userId, postId, true);
             } else {
@@ -102,6 +105,7 @@ public final class SetupSocialServlet extends HttpServlet {
         }
     }
 
+    // Bỏ lượt thích bài Setup của người đang đăng nhập.
     @Override
     protected void doDelete(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
@@ -114,19 +118,20 @@ public final class SetupSocialServlet extends HttpServlet {
         }
     }
 
+    // Kiểm tra đường dẫn và phương thức cho xếp hạng, like và kiểm duyệt Setup.
     private void validateRoute(HttpServletRequest request) {
         String route = request.getServletPath();
         String path = request.getPathInfo();
         String method = request.getMethod();
-        if ("/api/setups/ranking".equals(route)) {
+        if (route.equals("/api/setups/ranking")) {
             require(method, "GET");
-        } else if ("/api/setup-likes".equals(route) && path != null && path.matches("/[0-9]+")) {
+        } else if (route.equals("/api/setup-likes") && path != null && path.matches("/[0-9]+")) {
             parseInteger(path.substring(1), 0);
-            if (!"GET".equals(method) && !"PUT".equals(method) && !"DELETE".equals(method)) {
+            if (!method.equals("GET") && !method.equals("PUT") && !method.equals("DELETE")) {
                 throw methodNotAllowed();
             }
-        } else if ("/api/admin/setups".equals(route)) {
-            if (path == null || "/".equals(path) || path.matches("/[0-9]+")) {
+        } else if (route.equals("/api/admin/setups")) {
+            if (path == null || path.equals("/") || path.matches("/[0-9]+")) {
                 require(method, "GET");
             } else if (path.matches("/[0-9]+/status")) {
                 require(method, "PUT");
@@ -138,6 +143,7 @@ public final class SetupSocialServlet extends HttpServlet {
         }
     }
 
+    // Đọc trạng thái và lý do kiểm duyệt Setup từ JSON gửi lên.
     private SetupSocialDto.ModerationRequest readRequest(HttpServletRequest request) {
         try {
             SetupSocialDto.ModerationRequest body =
@@ -151,6 +157,7 @@ public final class SetupSocialServlet extends HttpServlet {
         throw new AppException(400, "INVALID_JSON", "JSON không hợp lệ.");
     }
 
+    // Chuyển tham số thành số nguyên; dùng giá trị mặc định khi tham số bị thiếu.
     private static int parseInteger(String text, int fallback) {
         if (text == null) {
             return fallback;
@@ -162,16 +169,19 @@ public final class SetupSocialServlet extends HttpServlet {
         }
     }
 
+    // Báo lỗi nếu phương thức HTTP khác phương thức đường dẫn yêu cầu.
     private static void require(String actual, String expected) {
-        if (!expected.equals(actual)) {
+        if (!actual.equals(expected)) {
             throw methodNotAllowed();
         }
     }
 
+    // Tạo lỗi 405 khi đường dẫn không hỗ trợ phương thức được gọi.
     private static AppException methodNotAllowed() {
         return new AppException(405, "METHOD_NOT_ALLOWED", "Phương thức không hỗ trợ.");
     }
 
+    // Tạo lỗi 404 khi đường dẫn tương tác Community không tồn tại.
     private static AppException endpointNotFound() {
         return new AppException(404, "NOT_FOUND", "Không tìm thấy endpoint.");
     }

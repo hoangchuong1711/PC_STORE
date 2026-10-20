@@ -24,6 +24,7 @@ public final class MediaVideoService {
 
     public record VideoInfo(int width, int height, int durationSecond) {}
 
+    // Kiểm tra video Review, dùng ffmpeg chuẩn hóa thành MP4 tối đa 4 MB và dọn file tạm.
     public PreparedVideo prepare(byte[] input, String claimedMimeType) {
         if (input == null || input.length == 0) {
             throw invalid();
@@ -31,7 +32,8 @@ public final class MediaVideoService {
         if (input.length > MAX_INPUT) {
             throw new AppException(413, "MEDIA_TOO_LARGE", "Video vượt giới hạn 20 MB.");
         }
-        if (!"video/mp4".equals(claimedMimeType) && !"video/quicktime".equals(claimedMimeType)) {
+        if (claimedMimeType == null
+                || (!claimedMimeType.equals("video/mp4") && !claimedMimeType.equals("video/quicktime"))) {
             throw invalid();
         }
         if (input.length < 12
@@ -141,6 +143,7 @@ public final class MediaVideoService {
         }
     }
 
+    // Xóa file và thư mục tạm của lần xử lý video; lỗi dọn không thay thế kết quả xử lý.
     private static void deleteTemporaryFiles(Path directory) {
         try (Stream<Path> paths = Files.walk(directory)) {
             // Xóa file con trước, rồi mới xóa thư mục tạm của lần xử lý này.
@@ -157,6 +160,7 @@ public final class MediaVideoService {
         }
     }
 
+    // Đọc kết quả ffprobe để kiểm tra định dạng, codec, kích thước, tốc độ khung hình và giới hạn 10 giây.
     static VideoInfo validateProbe(String output) {
         try {
             JsonNode root = JSON.readTree(output);
@@ -180,7 +184,7 @@ public final class MediaVideoService {
                 switch (stream.path("codec_type").asText()) {
                     case "video" -> {
                         videoCount++;
-                        if (!"h264".equals(stream.path("codec_name").asText())) {
+                        if (!stream.path("codec_name").asText().equals("h264")) {
                             throw invalid();
                         }
                         width = stream.path("width").asInt();
@@ -193,7 +197,7 @@ public final class MediaVideoService {
                     }
                     case "audio" -> {
                         audioCount++;
-                        if (!"aac".equals(stream.path("codec_name").asText())) {
+                        if (!stream.path("codec_name").asText().equals("aac")) {
                             throw invalid();
                         }
                     }
@@ -217,6 +221,7 @@ public final class MediaVideoService {
         }
     }
 
+    // Chạy ffprobe hoặc ffmpeg với thời hạn, kiểm tra mã thoát rồi đọc kết quả từ file log.
     private static String run(List<String> command, Path log, int seconds) throws IOException {
         Process process =
                 new ProcessBuilder(command)
@@ -243,6 +248,7 @@ public final class MediaVideoService {
         return Files.readString(log);
     }
 
+    // Tạo lỗi 400 khi video không đúng định dạng MP4/MOV với H.264 và AAC được hỗ trợ.
     private static AppException invalid() {
         return new AppException(400, "INVALID_MEDIA", "Video phải là MP4/MOV H.264 và AAC hợp lệ.");
     }

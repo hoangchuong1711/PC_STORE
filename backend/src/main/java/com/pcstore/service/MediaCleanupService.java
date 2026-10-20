@@ -17,11 +17,13 @@ public final class MediaCleanupService {
     private final EntityManagerFactory factory;
     private final CloudinaryImageStorage storage;
 
+    // Nhận kết nối database và dịch vụ Cloudinary để dọn các file không còn được sử dụng.
     public MediaCleanupService(EntityManagerFactory factory, CloudinaryImageStorage storage) {
         this.factory = factory;
         this.storage = storage;
     }
 
+    // Dọn một đợt file hết hạn hoặc chờ xóa, ghi nhận kết quả và trả số file đã xóa thành công.
     public int runOnce(LocalDateTime now) {
         List<Claim> claims = claim(now);
         int removed = 0;
@@ -37,6 +39,7 @@ public final class MediaCleanupService {
         return removed;
     }
 
+    // Nhận tối đa 10 file để dọn và giữ lịch xử lý 15 phút, tránh nhiều tiến trình cùng nhận một file.
     private List<Claim> claim(LocalDateTime now) {
         try (EntityManager entityManager = factory.createEntityManager()) {
             EntityTransaction transaction = entityManager.getTransaction();
@@ -60,6 +63,7 @@ public final class MediaCleanupService {
         }
     }
 
+    // Lưu trạng thái xóa thành công hoặc hẹn thời điểm thử lại nếu Cloudinary gặp lỗi.
     private void recordCleanup(UUID id, boolean succeeded, LocalDateTime now) {
         try (EntityManager entityManager = factory.createEntityManager()) {
             EntityTransaction transaction = entityManager.getTransaction();

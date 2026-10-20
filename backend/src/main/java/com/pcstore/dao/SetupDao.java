@@ -14,10 +14,12 @@ import java.util.UUID;
 public final class SetupDao {
     private final EntityManager entityManager;
 
+    // Nhận EntityManager để truy vấn bài Setup trong transaction do service quản lý.
     public SetupDao(EntityManager entityManager) {
         this.entityManager = entityManager;
     }
 
+    // Kiểm tra khách hàng có ít nhất một đơn ở trạng thái DELIVERED để đủ điều kiện đăng Setup.
     public boolean delivered(int userId) {
         String sql =
                 "SELECT order_id FROM orders WHERE user_id=:user AND status='DELIVERED'"
@@ -27,6 +29,7 @@ public final class SetupDao {
         return !query.getResultList().isEmpty();
     }
 
+    // Kiểm tra tài khoản là CUSTOMER và đang ACTIVE.
     public boolean activeCustomer(int userId) {
         String sql =
                 "SELECT user_id FROM users WHERE user_id=:user AND role='CUSTOMER' AND"
@@ -36,6 +39,7 @@ public final class SetupDao {
         return !query.getResultList().isEmpty();
     }
 
+    // Lấy các sản phẩm được chọn còn công khai cùng danh mục và thương hiệu đang hoạt động.
     public List<SetupDto.Product> products(List<Integer> ids) {
         if (ids.isEmpty()) {
             return List.of();
@@ -59,6 +63,7 @@ public final class SetupDao {
         return products;
     }
 
+    // Lưu nội dung bài Setup mới và trả mã bài đăng vừa tạo.
     public int insert(int userId, String title, String description, LocalDateTime now) {
         String sql =
                 "INSERT INTO"
@@ -73,6 +78,7 @@ public final class SetupDao {
         return ((Number) query.getSingleResult()).intValue();
     }
 
+    // Tìm bài theo mã, có thể lọc chủ sở hữu, chỉ lấy bài công khai hoặc khóa trước khi sửa.
     public Object[] find(int postId, Integer ownerId, boolean publicOnly, boolean lock) {
         String sql =
                 "SELECT post_id,user_id,title,description,status,created_at,updated_at FROM"
@@ -94,6 +100,7 @@ public final class SetupDao {
         return rows.isEmpty() ? null : (Object[]) rows.getFirst();
     }
 
+    // Lấy một trang mã bài mới nhất, theo chủ sở hữu hoặc chỉ các bài công khai.
     public List<Integer> ids(Integer ownerId, int offset, int limit) {
         String where = ownerId == null ? "status='PUBLISHED'" : "user_id=:owner";
         String sql =
@@ -114,6 +121,7 @@ public final class SetupDao {
         return postIds;
     }
 
+    // Lấy danh sách mã ảnh của bài theo thứ tự hiển thị.
     public List<UUID> images(int postId) {
         String sql =
                 "SELECT media_asset_id FROM setup_images WHERE post_id=:id ORDER BY"
@@ -128,6 +136,7 @@ public final class SetupDao {
         return mediaIds;
     }
 
+    // Lấy mã và tên các sản phẩm đang được gắn trong bài Setup.
     public List<SetupDto.Product> linkedProducts(int postId) {
         String sql =
                 "SELECT p.product_id,p.name FROM setup_post_products sp JOIN"
@@ -146,6 +155,7 @@ public final class SetupDao {
         return products;
     }
 
+    // Xóa các liên kết sản phẩm cũ rồi lưu lại danh sách sản phẩm mới của bài.
     public void replaceProducts(int postId, List<Integer> ids) {
         String sql = "DELETE FROM setup_post_products WHERE post_id=:id";
         Query query = entityManager.createNativeQuery(sql);
@@ -162,6 +172,7 @@ public final class SetupDao {
         }
     }
 
+    // Cập nhật tiêu đề, nội dung và thời điểm chỉnh sửa bài Setup.
     public void update(int postId, String title, String description, LocalDateTime now) {
         String sql =
                 "UPDATE setup_posts SET"
@@ -175,6 +186,7 @@ public final class SetupDao {
         query.executeUpdate();
     }
 
+    // Xóa bản ghi bài Setup khỏi database sau khi service đã xử lý ảnh liên quan.
     public void delete(int postId) {
         String sql = "DELETE FROM setup_posts WHERE post_id=:id";
         Query query = entityManager.createNativeQuery(sql);
@@ -182,6 +194,7 @@ public final class SetupDao {
         query.executeUpdate();
     }
 
+    // Chuyển giá trị thời gian do truy vấn trả về thành LocalDateTime.
     public static LocalDateTime time(Object value) {
         return value instanceof Timestamp stamp ? stamp.toLocalDateTime() : (LocalDateTime) value;
     }

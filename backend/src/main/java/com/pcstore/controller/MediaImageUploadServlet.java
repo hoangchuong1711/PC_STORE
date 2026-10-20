@@ -21,6 +21,7 @@ import java.util.Map;
 public class MediaImageUploadServlet extends HttpServlet {
     private static final int MAX_BODY = 8_000_000;
 
+    // Kiểm tra đăng nhập và Origin, nhận ảnh rồi trả mã media sau khi upload thành công.
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
@@ -66,8 +67,9 @@ public class MediaImageUploadServlet extends HttpServlet {
         }
     }
 
+    // Chỉ nhận body JPEG hoặc PNG, giới hạn dữ liệu đọc tối đa 8 MB.
     private byte[] readUpload(HttpServletRequest request, String mimeType) throws IOException {
-        if (!"image/jpeg".equals(mimeType) && !"image/png".equals(mimeType)) {
+        if (mimeType == null || (!mimeType.equals("image/jpeg") && !mimeType.equals("image/png"))) {
             throw new AppException(415, "UNSUPPORTED_MEDIA_TYPE", "Chỉ hỗ trợ JPEG hoặc PNG.");
         }
         if (request.getContentLengthLong() > MAX_BODY) {
@@ -80,6 +82,7 @@ public class MediaImageUploadServlet extends HttpServlet {
         return input;
     }
 
+    // Kiểm tra nơi gửi yêu cầu upload thuộc cùng máy chủ hoặc danh sách Origin cho phép.
     static boolean allowedOrigin(HttpServletRequest request, String origin) {
         String scheme = request.getScheme();
         String server = request.getServerName();
@@ -87,8 +90,8 @@ public class MediaImageUploadServlet extends HttpServlet {
         if (scheme != null && server != null) {
             String local = scheme + "://" + server;
             boolean defaultPort =
-                    ("http".equals(scheme) && port == 80)
-                            || ("https".equals(scheme) && port == 443);
+                    (scheme.equals("http") && port == 80)
+                            || (scheme.equals("https") && port == 443);
             if (!defaultPort) {
                 local += ":" + port;
             }
@@ -106,6 +109,7 @@ public class MediaImageUploadServlet extends HttpServlet {
         return false;
     }
 
+    // Đọc biến môi trường bắt buộc để kết nối Cloudinary; báo lỗi nếu chưa cấu hình.
     static String required(String name) {
         String value = System.getenv(name);
         if (value == null || value.isBlank()) {

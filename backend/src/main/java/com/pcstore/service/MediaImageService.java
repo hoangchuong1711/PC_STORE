@@ -28,6 +28,7 @@ public final class MediaImageService {
 
     public record PreparedImage(byte[] bytes, String mimeType, int width, int height) {}
 
+    // Kiểm tra ảnh thật, thu nhỏ và bỏ metadata, nén thành JPEG tối đa 1 MB trước khi upload.
     public PreparedImage prepare(byte[] input, String claimedMimeType) {
         if (input == null || input.length == 0) {
             throw invalid();
@@ -95,6 +96,7 @@ public final class MediaImageService {
         }
     }
 
+    // Mã hóa ảnh thành JPEG với mức chất lượng được chọn để giảm dung lượng.
     private static byte[] encodeJpeg(BufferedImage image, float quality) throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
@@ -110,6 +112,7 @@ public final class MediaImageService {
         return bytes.toByteArray();
     }
 
+    // Nhận biết JPEG hoặc PNG bằng các byte đầu file, không chỉ dựa vào MIME người dùng gửi.
     private static String detectMime(byte[] input) {
         if (input.length >= 3
                 && (input[0] & 0xff) == 0xff
@@ -131,6 +134,7 @@ public final class MediaImageService {
         return null;
     }
 
+    // Tạo lỗi 400 khi dữ liệu ảnh không phải JPEG hoặc PNG hợp lệ.
     private static AppException invalid() {
         return new AppException(400, "INVALID_MEDIA", "Ảnh phải là JPEG hoặc PNG hợp lệ.");
     }

@@ -15,6 +15,7 @@ import java.util.UUID;
 
 /** Called by Setup/Review services inside the same transaction that creates the parent. */
 public final class MediaAttachmentService {
+    // Gắn ảnh tạm còn hạn của đúng chủ vào Setup, giữ thứ tự và giới hạn tối đa 8 ảnh.
     public void attachSetupImages(
             EntityManager entityManager, int ownerId, int postId, List<UUID> ids) {
         requireTransaction(entityManager);
@@ -34,6 +35,7 @@ public final class MediaAttachmentService {
         }
     }
 
+    // Gắn media tạm của đúng chủ vào Review, tối đa 6 file và không quá một video.
     public void attachReviewMedia(
             EntityManager entityManager, int ownerId, int reviewId, List<UUID> ids) {
         requireTransaction(entityManager);
@@ -51,7 +53,7 @@ public final class MediaAttachmentService {
         int newVideos = 0;
         for (UUID id : ids) {
             MediaAsset asset = lockAvailable(dao, id, ownerId, "REVIEW");
-            if ("video".equals(asset.getResourceType())) {
+            if (asset.getResourceType().equals("video")) {
                 newVideos++;
             }
             assets.add(asset);
@@ -66,6 +68,7 @@ public final class MediaAttachmentService {
         }
     }
 
+    // Gỡ một ảnh khỏi Setup và cho vào hàng chờ xóa; bài phải còn ít nhất một ảnh.
     public void detachSetupImage(
             EntityManager entityManager, int ownerId, int postId, UUID mediaId) {
         requireTransaction(entityManager);
@@ -79,6 +82,7 @@ public final class MediaAttachmentService {
         detachLinked(dao, mediaId, ownerId, "SETUP", postId);
     }
 
+    // Giữ ảnh còn dùng, gỡ ảnh bị bỏ, gắn ảnh mới và sắp lại thứ tự theo yêu cầu.
     public void replaceSetupImages(
             EntityManager entityManager, int ownerId, int postId, List<UUID> ids) {
         requireTransaction(entityManager);
@@ -107,6 +111,7 @@ public final class MediaAttachmentService {
         dao.reorderSetup(postId, ids);
     }
 
+    // Gỡ media khỏi Review thuộc người đăng và đánh dấu file chờ xóa.
     public void detachReviewMedia(
             EntityManager entityManager, int ownerId, int reviewId, UUID mediaId) {
         requireTransaction(entityManager);
@@ -117,6 +122,7 @@ public final class MediaAttachmentService {
         detachLinked(dao, mediaId, ownerId, "REVIEW", reviewId);
     }
 
+    // Thay danh sách media Review, chỉ gỡ file bị bỏ và giữ đúng thứ tự mới.
     public void replaceReviewMedia(
             EntityManager entityManager, int ownerId, int reviewId, List<UUID> ids) {
         requireTransaction(entityManager);
@@ -145,17 +151,18 @@ public final class MediaAttachmentService {
         dao.reorderReview(reviewId, ids);
     }
 
+    // Kiểm tra file đúng chủ và đúng bài, xóa liên kết rồi chuyển file sang chờ dọn.
     private static void detachLinked(
             MediaLinkDao dao, UUID id, int ownerId, String module, int parentId) {
         MediaAsset asset = id == null ? null : dao.lockAsset(id);
         if (asset == null
                 || asset.getOwnerId() != ownerId
                 || !module.equals(asset.getModule())
-                || !"ATTACHED".equals(asset.getStatus())) {
+                || !asset.getStatus().equals("ATTACHED")) {
             throw new AppException(404, "MEDIA_NOT_FOUND", "Không tìm thấy file trong bài.");
         }
         int removed =
-                "SETUP".equals(module)
+                module.equals("SETUP")
                         ? dao.deleteSetup(parentId, id)
                         : dao.deleteReview(parentId, id);
         if (removed != 1) {
@@ -164,12 +171,13 @@ public final class MediaAttachmentService {
         asset.detach();
     }
 
+    // Khóa và kiểm tra file TEMP còn hạn, đúng chủ sở hữu và đúng module trước khi gắn.
     private static MediaAsset lockAvailable(MediaLinkDao dao, UUID id, int ownerId, String module) {
         MediaAsset asset = id == null ? null : dao.lockAsset(id);
         if (asset == null
                 || asset.getOwnerId() != ownerId
                 || !module.equals(asset.getModule())
-                || !"TEMP".equals(asset.getStatus())
+                || !asset.getStatus().equals("TEMP")
                 || !asset.getExpiresAt().isAfter(LocalDateTime.now(ZoneOffset.UTC))) {
             throw new AppException(
                     422, "MEDIA_NOT_AVAILABLE", "File tạm không hợp lệ hoặc đã hết hạn.");
@@ -177,6 +185,7 @@ public final class MediaAttachmentService {
         return asset;
     }
 
+    // Kiểm tra số lượng file trong khoảng cho phép và không có mã bị trùng.
     private static void checkCount(List<UUID> ids, int min, int max) {
         if (ids == null || ids.size() < min || ids.size() > max) {
             throw invalidCount();
@@ -186,12 +195,14 @@ public final class MediaAttachmentService {
         }
     }
 
+    // Yêu cầu dùng transaction của bài đăng để bài và liên kết media cùng thành công hoặc hoàn tác.
     private static void requireTransaction(EntityManager entityManager) {
         if (entityManager == null || !entityManager.getTransaction().isActive()) {
             throw new IllegalStateException("Media attachment needs the parent transaction");
         }
     }
 
+    // Tạo lỗi 404 khi bài cần gắn hoặc gỡ media không tồn tại hoặc không thuộc người dùng.
     private static AppException targetMissing() {
         return new AppException(
                 404,
@@ -199,6 +210,7 @@ public final class MediaAttachmentService {
                 "Bài viết không tồn tại hoặc không thuộc tài khoản này.");
     }
 
+    // Tạo lỗi 422 khi số lượng media không đáp ứng giới hạn của bài.
     private static AppException invalidCount() {
         return new AppException(422, "MEDIA_COUNT_LIMIT", "Số lượng file vượt giới hạn.");
     }

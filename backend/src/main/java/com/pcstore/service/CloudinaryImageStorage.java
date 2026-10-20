@@ -30,12 +30,12 @@ public final class CloudinaryImageStorage {
 
     public record StoredImage(String assetId, String publicId, long sizeBytes) {}
 
-    // cấu hình Cloudinary được lấy từ biến môi trường, không hardcode trong mã nguồn
+    // Nhận cấu hình từ backend để kết nối API Cloudinary, không ghi cứng khóa trong mã nguồn.
     public CloudinaryImageStorage(String cloudName, String apiKey, String apiSecret) {
         this(cloudName, apiKey, apiSecret, URI.create("https://api.cloudinary.com"));
     }
 
-    // Cho phép dùng HTTP server giả trong kiểm thử thay cho API Cloudinary thật.
+    // Kiểm tra cấu hình và cho phép đổi địa chỉ API để dùng máy chủ giả khi kiểm thử.
     CloudinaryImageStorage(String cloudName, String apiKey, String apiSecret, URI apiOrigin) {
         if (cloudName == null
                 || !cloudName.matches("[A-Za-z0-9_-]+")
@@ -52,12 +52,12 @@ public final class CloudinaryImageStorage {
         this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     }
 
-    // tải lên ảnh đã chuẩn bị (đã được chuẩn hóa và nén) với publicId tạm thời, trả về thông tin
-    // ảnh đã lưu
+    // Gửi ảnh JPEG đã chuẩn hóa lên Cloudinary với mã file tạm do backend tạo.
     public StoredImage upload(byte[] jpeg, String publicId) {
         return uploadResource(jpeg, publicId, "image", "image/jpeg", "image.jpg");
     }
 
+    // Gửi video MP4 đã chuẩn hóa, chỉ chấp nhận mã file thuộc module Review.
     public StoredImage uploadVideo(byte[] mp4, String publicId) {
         if (publicId == null || !publicId.startsWith("pcstore/temp/review/")) {
             throw new IllegalArgumentException("Review video requires a review public ID");
@@ -65,6 +65,7 @@ public final class CloudinaryImageStorage {
         return uploadResource(mp4, publicId, "video", "video/mp4", "video.mp4");
     }
 
+    // Ký yêu cầu, gửi file riêng tư (authenticated) và kiểm tra thông tin Cloudinary trả về.
     private StoredImage uploadResource(
             byte[] data,
             String publicId,
@@ -105,7 +106,7 @@ public final class CloudinaryImageStorage {
             }
             JsonNode result = json.readTree(response.body());
             if (!publicId.equals(result.path("public_id").asText())
-                    || !"authenticated".equals(result.path("type").asText())
+                    || !result.path("type").asText().equals("authenticated")
                     || !resourceType.equals(result.path("resource_type").asText())
                     || result.path("asset_id").asText().isBlank()) {
                 throw unavailable();
@@ -120,16 +121,17 @@ public final class CloudinaryImageStorage {
         }
     }
 
-    /** Idempotent removal of a temporary authenticated image. */
+    // Xóa ảnh riêng tư theo publicId; ảnh đã không còn cũng được xem là thành công.
     public boolean delete(String publicId) {
         return delete(publicId, "image");
     }
 
+    // Ký yêu cầu xóa ảnh hoặc video trên Cloudinary; gọi lại sau khi đã xóa vẫn thành công.
     public boolean delete(String publicId, String resourceType) {
         if (publicId == null || !publicId.matches("pcstore/temp/(setup|review)/[A-Za-z0-9_-]+")) {
             throw new IllegalArgumentException("Invalid temporary public ID");
         }
-        if (!"image".equals(resourceType) && !"video".equals(resourceType)) {
+        if (resourceType == null || (!resourceType.equals("image") && !resourceType.equals("video"))) {
             throw new IllegalArgumentException("Invalid resource type");
         }
         String timestamp = Long.toString(Instant.now().getEpochSecond());
@@ -164,7 +166,7 @@ public final class CloudinaryImageStorage {
                 throw unavailable("destroy", response.statusCode());
             }
             String result = json.readTree(response.body()).path("result").asText();
-            if ("ok".equals(result) || "not found".equals(result)) {
+            if (result.equals("ok") || result.equals("not found")) {
                 return true;
             }
             throw unavailable();
@@ -176,10 +178,7 @@ public final class CloudinaryImageStorage {
         }
     }
 
-    /**
-     * Backend-only private download. A strict byte bound protects the app from oversized upstream
-     * data.
-     */
+    // Backend ký yêu cầu tải file riêng tư và giới hạn số byte nhận về trước khi trả cho người xem.
     public byte[] download(String assetId, int maxBytes) {
         if (assetId == null
                 || !assetId.matches("[A-Za-z0-9_-]+")
@@ -224,6 +223,7 @@ public final class CloudinaryImageStorage {
         }
     }
 
+    // Đóng gói file và các tham số xác thực thành body multipart/form-data để upload.
     private byte[] multipart(
             String boundary,
             byte[] data,
@@ -253,6 +253,7 @@ public final class CloudinaryImageStorage {
         return out.toByteArray();
     }
 
+    // Thêm một trường tên–giá trị vào body multipart gửi Cloudinary.
     private static void field(
             ByteArrayOutputStream out, String boundary, String name, String value) {
         write(
@@ -266,15 +267,17 @@ public final class CloudinaryImageStorage {
                         + "\r\n");
     }
 
+    // Ghi chuỗi thành byte UTF-8 khi tạo body HTTP.
     private static void write(ByteArrayOutputStream out, String value) {
         out.writeBytes(value.getBytes(StandardCharsets.UTF_8));
     }
 
-    // Chuỗi tham số đã được xếp theo tên trước khi thêm secret và ký.
+    // Thêm API secret vào chuỗi tham số đã sắp theo tên rồi tạo chữ ký Cloudinary.
     private String sign(String parameters) {
         return sha1(parameters + apiSecret);
     }
 
+    // Tạo chuỗi băm SHA-1 dạng hex để ký tham số theo giao thức Cloudinary.
     private static String sha1(String value) {
         try {
             return HexFormat.of()
@@ -286,10 +289,12 @@ public final class CloudinaryImageStorage {
         }
     }
 
+    // Tạo lỗi 502 khi backend không thể hoàn tất thao tác với Cloudinary.
     private static AppException unavailable() {
         return new AppException(502, "MEDIA_STORAGE_UNAVAILABLE", "Không thể lưu ảnh lúc này.");
     }
 
+    // Tạo lỗi 502 và giữ tên thao tác, mã HTTP của Cloudinary để phục vụ ghi log.
     private static AppException unavailable(String operation, int status) {
         return new AppException(
                 502,
@@ -298,6 +303,7 @@ public final class CloudinaryImageStorage {
                 new IllegalStateException("Cloudinary " + operation + " HTTP " + status));
     }
 
+    // Rút gọn phản hồi lỗi Cloudinary thành nhóm nguyên nhân để ghi log.
     private String providerCategory(String responseBody) {
         try {
             String message =

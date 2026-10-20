@@ -34,7 +34,7 @@ public final class ReviewServlet extends HttpServlet {
                     .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                     .build();
 
-    // Servlet 6.0 chưa có doPatch. service chỉ điều phối HTTP và trả lỗi JSON.
+    // Điều phối yêu cầu Review, xử lý PATCH riêng vì Servlet 6.0 chưa có doPatch và trả lỗi JSON.
     @Override
     protected void service(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -48,7 +48,7 @@ public final class ReviewServlet extends HttpServlet {
                 throw new AppException(401, "UNAUTHORIZED", "Bạn cần đăng nhập.");
             }
             validateRoute(request);
-            if ("PATCH".equals(request.getMethod())) {
+            if (request.getMethod().equals("PATCH")) {
                 updateReview(request, response);
             } else {
                 super.service(request, response);
@@ -69,16 +69,21 @@ public final class ReviewServlet extends HttpServlet {
         }
     }
 
+    // Trả danh sách, thống kê Review công khai hoặc Review của khách hàng đang đăng nhập.
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         try (EntityManager entityManager = PersistenceManager.get().createEntityManager()) {
             ReviewService reviews = new ReviewService(entityManager);
             String path = request.getPathInfo();
+            // Đường dẫn danh sách không có phần phía sau /reviews nên path có thể null.
+            if (path == null) {
+                path = "/";
+            }
             Integer userId = SessionUtil.userId(request);
             Object result;
             if (!isCustomerRoute(request)) {
-                if ("/summary".equals(path)) {
+                if (path.equals("/summary")) {
                     result = reviews.summary(requiredQueryId(request, "productId"));
                 } else {
                     result = listReviews(request, reviews, userId);
@@ -93,6 +98,7 @@ public final class ReviewServlet extends HttpServlet {
         }
     }
 
+    // Nhận JSON để tạo Review mới hoặc khôi phục Review đã xóa theo đường dẫn yêu cầu.
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
@@ -114,6 +120,7 @@ public final class ReviewServlet extends HttpServlet {
         }
     }
 
+    // Nhận yêu cầu PATCH và chuyển các trường cần sửa cho ReviewService.
     private void updateReview(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         try (EntityManager entityManager = PersistenceManager.get().createEntityManager()) {
@@ -126,6 +133,7 @@ public final class ReviewServlet extends HttpServlet {
         }
     }
 
+    // Yêu cầu xóa mềm Review của khách hàng và trả mã 204 khi thành công.
     @Override
     protected void doDelete(HttpServletRequest request, HttpServletResponse response) {
         try (EntityManager entityManager = PersistenceManager.get().createEntityManager()) {
@@ -137,6 +145,7 @@ public final class ReviewServlet extends HttpServlet {
         }
     }
 
+    // Đọc bộ lọc, cách sắp xếp và phân trang để lấy Review công khai của sản phẩm.
     private ReviewDto.PageResponse listReviews(
             HttpServletRequest request, ReviewService reviews, Integer userId) {
         int productId = requiredQueryId(request, "productId");
@@ -148,11 +157,12 @@ public final class ReviewServlet extends HttpServlet {
         return reviews.listPublic(productId, page, size, rating, hasMedia, sort, userId);
     }
 
+    // Kiểm tra đường dẫn Review có tồn tại và cho phép phương thức HTTP đang dùng hay không.
     private void validateRoute(HttpServletRequest request) {
         String path = request.getPathInfo();
         String method = request.getMethod();
         if (!isCustomerRoute(request)) {
-            if (isCollection(path) || "/summary".equals(path)) {
+            if (isCollection(path) || path.equals("/summary")) {
                 requireMethod(method, "GET");
             } else {
                 throw notFound();
@@ -164,7 +174,7 @@ public final class ReviewServlet extends HttpServlet {
         } else if (path.matches("/[0-9]+")) {
             // Parse before method validation to preserve INVALID_ID for overflowing IDs.
             pathId(path.substring(1));
-            if (!"GET".equals(method) && !"PATCH".equals(method) && !"DELETE".equals(method)) {
+            if (!method.equals("GET") && !method.equals("PATCH") && !method.equals("DELETE")) {
                 throw methodNotAllowed();
             }
         } else if (path.matches("/[0-9]+/restore")) {
@@ -174,15 +184,18 @@ public final class ReviewServlet extends HttpServlet {
         }
     }
 
+    // Nhận biết đường dẫn dành cho khách hàng để yêu cầu đăng nhập và kiểm tra quyền sở hữu.
     private boolean isCustomerRoute(HttpServletRequest request) {
         String path = request.getRequestURI().substring(request.getContextPath().length());
         return path.startsWith("/api/customer/reviews");
     }
 
+    // Kiểm tra đường dẫn gốc của nhóm Review, chưa chỉ định mã Review cụ thể.
     private boolean isCollection(String path) {
-        return path == null || "/".equals(path);
+        return path == null || path.equals("/");
     }
 
+    // Chuyển JSON gửi lên thành đối tượng Java và báo lỗi nếu dữ liệu không hợp lệ.
     private <T> T readRequest(HttpServletRequest request, Class<T> type) {
         try {
             T body = mapper.readValue(request.getInputStream(), type);
@@ -194,12 +207,14 @@ public final class ReviewServlet extends HttpServlet {
         throw new AppException(400, "INVALID_JSON", "JSON không hợp lệ.");
     }
 
+    // Từ chối yêu cầu nếu phương thức HTTP khác phương thức mà đường dẫn hỗ trợ.
     private static void requireMethod(String actual, String expected) {
-        if (!expected.equals(actual)) {
+        if (!actual.equals(expected)) {
             throw methodNotAllowed();
         }
     }
 
+    // Đọc tham số ID bắt buộc trên URL và kiểm tra đó là số nguyên dương.
     private static int requiredQueryId(HttpServletRequest request, String name) {
         String value = request.getParameter(name);
         if (value == null) {
@@ -208,6 +223,7 @@ public final class ReviewServlet extends HttpServlet {
         return integer(value, 0, 1, Integer.MAX_VALUE, name);
     }
 
+    // Chuyển ID trong đường dẫn thành số nguyên dương, báo lỗi nếu sai định dạng.
     private static int pathId(String value) {
         try {
             int id = Integer.parseInt(value);
@@ -219,6 +235,7 @@ public final class ReviewServlet extends HttpServlet {
         throw new AppException(400, "INVALID_ID", "ID Review không hợp lệ.");
     }
 
+    // Đọc số nguyên trong giới hạn cho phép; dùng giá trị mặc định khi thiếu tham số.
     private static int integer(String text, int fallback, int min, int max, String name) {
         if (text == null) {
             return fallback;
@@ -233,23 +250,26 @@ public final class ReviewServlet extends HttpServlet {
         throw query("Tham số " + name + " không hợp lệ.");
     }
 
+    // Đọc bộ lọc số tùy chọn; trả null khi người dùng không gửi bộ lọc.
     private static Integer optionalInteger(String text, int min, int max, String name) {
         return text == null ? null : integer(text, 0, min, max, name);
     }
 
+    // Đọc bộ lọc có media hay không; chỉ chấp nhận true, false hoặc không truyền.
     private static Boolean optionalBoolean(String text) {
         if (text == null) {
             return null;
         }
-        if ("true".equalsIgnoreCase(text)) {
+        if (text.equalsIgnoreCase("true")) {
             return true;
         }
-        if ("false".equalsIgnoreCase(text)) {
+        if (text.equalsIgnoreCase("false")) {
             return false;
         }
         throw query("Tham số hasMedia phải là true hoặc false.");
     }
 
+    // Chuyển tham số sắp xếp thành kiểu Sort; mặc định hiển thị Review mới nhất.
     private static ReviewDto.Sort sort(String text) {
         if (text == null) {
             return ReviewDto.Sort.NEWEST;
@@ -261,14 +281,17 @@ public final class ReviewServlet extends HttpServlet {
         }
     }
 
+    // Tạo lỗi 400 khi tham số lọc hoặc phân trang Review không hợp lệ.
     private static AppException query(String message) {
         return new AppException(400, "INVALID_REVIEW_QUERY", message);
     }
 
+    // Tạo lỗi 405 khi đường dẫn không hỗ trợ phương thức HTTP được gọi.
     private static AppException methodNotAllowed() {
         return new AppException(405, "METHOD_NOT_ALLOWED", "Phương thức không hỗ trợ.");
     }
 
+    // Tạo lỗi 404 khi đường dẫn API Review không tồn tại.
     private static AppException notFound() {
         return new AppException(404, "NOT_FOUND", "Không tìm thấy endpoint.");
     }

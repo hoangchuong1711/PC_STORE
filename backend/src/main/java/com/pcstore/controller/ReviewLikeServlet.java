@@ -20,6 +20,7 @@ import java.util.Map;
 // and delegates /{reviewId}/like requests here. Duplicate servlet mappings to the same URL pattern
 // cause Tomcat deployment to fail with IllegalArgumentException.
 public class ReviewLikeServlet extends HttpServlet {
+    // Kiểm tra đăng nhập, đường dẫn và body rỗng trước khi chuyển sang like hoặc bỏ like.
     @Override
     protected void service(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -31,7 +32,7 @@ public class ReviewLikeServlet extends HttpServlet {
                 throw new AppException(401, "UNAUTHORIZED", "Bạn cần đăng nhập.");
             }
             String method = request.getMethod();
-            if (!"PUT".equals(method) && !"DELETE".equals(method)) {
+            if (!method.equals("PUT") && !method.equals("DELETE")) {
                 response.setHeader("Allow", "PUT, DELETE, OPTIONS");
                 throw new AppException(405, "METHOD_NOT_ALLOWED", "Phương thức không được hỗ trợ.");
             }
@@ -56,6 +57,7 @@ public class ReviewLikeServlet extends HttpServlet {
         }
     }
 
+    // Ghi nhận lượt thích Review của khách hàng và trả tổng lượt thích mới.
     @Override
     protected void doPut(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
@@ -68,6 +70,7 @@ public class ReviewLikeServlet extends HttpServlet {
         }
     }
 
+    // Bỏ lượt thích Review của khách hàng và trả tổng lượt thích còn lại.
     @Override
     protected void doDelete(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
@@ -80,6 +83,7 @@ public class ReviewLikeServlet extends HttpServlet {
         }
     }
 
+    // Lấy mã Review từ đường dẫn /{id}/like và kiểm tra ID là số nguyên dương.
     private static int reviewId(String path) {
         if (path == null || !path.matches("/[^/]+/like")) {
             throw new AppException(404, "NOT_FOUND", "Không tìm thấy endpoint.");

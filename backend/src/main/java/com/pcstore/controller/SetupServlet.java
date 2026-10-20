@@ -32,6 +32,7 @@ public final class SetupServlet extends HttpServlet {
                     .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                     .build();
 
+    // Kiểm tra đăng nhập, tham số và đường dẫn Setup trước khi xử lý; trả lỗi dưới dạng JSON.
     @Override
     protected void service(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -60,6 +61,7 @@ public final class SetupServlet extends HttpServlet {
         }
     }
 
+    // Trả bài Setup công khai, bài của người đăng hoặc điều kiện được đăng bài.
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
@@ -77,7 +79,7 @@ public final class SetupServlet extends HttpServlet {
                 } else {
                     result = setups.listPublic(offset, limit);
                 }
-            } else if ("/eligibility".equals(path)) {
+            } else if (path.equals("/eligibility")) {
                 result = setups.eligibility(userId);
             } else {
                 int postId = parseInteger(path.substring(1), 0, 1, Integer.MAX_VALUE);
@@ -91,6 +93,7 @@ public final class SetupServlet extends HttpServlet {
         }
     }
 
+    // Nhận dữ liệu tạo bài Setup, gọi service lưu bài và trả kết quả với mã 201.
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
@@ -103,6 +106,7 @@ public final class SetupServlet extends HttpServlet {
         }
     }
 
+    // Nhận nội dung, ảnh và sản phẩm mới để cập nhật bài Setup của người đăng.
     @Override
     protected void doPut(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
@@ -116,6 +120,7 @@ public final class SetupServlet extends HttpServlet {
         }
     }
 
+    // Yêu cầu xóa bài Setup của người đăng và trả mã 204 khi thành công.
     @Override
     protected void doDelete(HttpServletRequest request, HttpServletResponse response) {
         try (EntityManager entityManager = PersistenceManager.get().createEntityManager()) {
@@ -127,20 +132,21 @@ public final class SetupServlet extends HttpServlet {
         }
     }
 
+    // Kiểm tra đường dẫn Setup và phương thức HTTP được phép trên từng đường dẫn.
     private void validateRoute(HttpServletRequest request) {
         String path = request.getPathInfo();
         String method = request.getMethod();
         boolean customerRoute = isCustomerRoute(request);
         if (isCollection(path)) {
-            if (!"GET".equals(method) && !(customerRoute && "POST".equals(method))) {
+            if (!method.equals("GET") && !(customerRoute && method.equals("POST"))) {
                 throw methodNotAllowed();
             }
-        } else if (customerRoute && "/eligibility".equals(path) && "GET".equals(method)) {
+        } else if (customerRoute && path.equals("/eligibility") && method.equals("GET")) {
             return;
         } else if (path.matches("/[0-9]+")) {
             parseInteger(path.substring(1), 0, 1, Integer.MAX_VALUE);
-            if (!"GET".equals(method)
-                    && !(customerRoute && ("PUT".equals(method) || "DELETE".equals(method)))) {
+            if (!method.equals("GET")
+                    && !(customerRoute && (method.equals("PUT") || method.equals("DELETE")))) {
                 throw methodNotAllowed();
             }
         } else {
@@ -148,15 +154,18 @@ public final class SetupServlet extends HttpServlet {
         }
     }
 
+    // Nhận biết API Setup dành cho khách hàng đang đăng nhập.
     private boolean isCustomerRoute(HttpServletRequest request) {
         String path = request.getRequestURI().substring(request.getContextPath().length());
         return path.startsWith("/api/customer/setups");
     }
 
+    // Kiểm tra đường dẫn danh sách Setup, chưa chỉ định mã bài đăng.
     private boolean isCollection(String path) {
-        return path == null || "/".equals(path);
+        return path == null || path.equals("/");
     }
 
+    // Chuyển JSON thành dữ liệu bài Setup và báo lỗi nếu JSON không hợp lệ.
     private SetupDto.Request readRequest(HttpServletRequest request) {
         try {
             SetupDto.Request body =
@@ -169,6 +178,7 @@ public final class SetupServlet extends HttpServlet {
         throw new AppException(400, "INVALID_JSON", "JSON không hợp lệ.");
     }
 
+    // Đọc ID hoặc tham số phân trang trong giới hạn; dùng mặc định khi không truyền.
     private static int parseInteger(String text, int fallback, int min, int max) {
         if (text == null) {
             return fallback;
@@ -183,6 +193,7 @@ public final class SetupServlet extends HttpServlet {
         throw new AppException(400, "INVALID_ID", "Tham số số không hợp lệ.");
     }
 
+    // Tạo lỗi 405 khi phương thức HTTP không được hỗ trợ.
     private static AppException methodNotAllowed() {
         return new AppException(405, "METHOD_NOT_ALLOWED", "Phương thức không hỗ trợ.");
     }

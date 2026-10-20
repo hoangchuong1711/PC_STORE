@@ -28,6 +28,7 @@ public final class MediaUploadService {
 
     public record UploadResult(UUID mediaId, String module, String status) {}
 
+    // Khởi tạo dịch vụ upload với bộ xử lý ảnh, video và nơi lưu Cloudinary.
     public MediaUploadService(
             EntityManagerFactory factory,
             MediaImageService images,
@@ -35,6 +36,7 @@ public final class MediaUploadService {
         this(factory, images, storage, new MediaVideoService()::prepare);
     }
 
+    // Cho phép truyền bộ xử lý video riêng để kiểm thử luồng upload.
     MediaUploadService(
             EntityManagerFactory factory,
             MediaImageService images,
@@ -46,8 +48,9 @@ public final class MediaUploadService {
         this.videos = videos;
     }
 
+    // Chuẩn hóa ảnh, tạo bản ghi upload rồi gửi Cloudinary; thành công chuyển file sang TEMP chờ gắn bài.
     public UploadResult upload(int userId, String module, byte[] input, String mimeType) {
-        if (!"SETUP".equals(module) && !"REVIEW".equals(module)) {
+        if (module == null || (!module.equals("SETUP") && !module.equals("REVIEW"))) {
             throw new AppException(400, "INVALID_MEDIA_MODULE", "Module media không hợp lệ.");
         }
         MediaImageService.PreparedImage prepared = images.prepare(input, mimeType);
@@ -65,8 +68,9 @@ public final class MediaUploadService {
         }
     }
 
+    // Kiểm tra hạn mức, xử lý video dành cho Review rồi upload thành file TEMP chờ gắn bài.
     public UploadResult uploadVideo(int userId, String module, byte[] input, String mimeType) {
-        if (!"REVIEW".equals(module)) {
+        if (module == null || !module.equals("REVIEW")) {
             throw new AppException(400, "INVALID_MEDIA_MODULE", "Video chỉ dành cho Review.");
         }
         preflight(userId);
@@ -83,6 +87,7 @@ public final class MediaUploadService {
         }
     }
 
+    // Khóa tài khoản, kiểm tra hạn mức và lưu file UPLOADING có hạn dùng trước khi gọi Cloudinary.
     private UUID reserve(int userId, String module, String resourceType, int preparedSize) {
         UUID id = UUID.randomUUID();
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
@@ -114,6 +119,7 @@ public final class MediaUploadService {
         return id;
     }
 
+    // Kiểm tra tài khoản và hạn mức trước khi chạy xử lý video tốn tài nguyên.
     private void preflight(int userId) {
         try (EntityManager entityManager = factory.createEntityManager()) {
             EntityTransaction transaction = entityManager.getTransaction();
@@ -132,6 +138,7 @@ public final class MediaUploadService {
         }
     }
 
+    // Kiểm tra tài khoản, số lần upload, số file tạm và tổng dung lượng trong ngày.
     private static void checkQuota(
             MediaAssetDao dao, User owner, int userId, LocalDateTime now, int preparedSize) {
         if (owner == null || owner.getStatus() != UserStatus.ACTIVE) {
@@ -153,10 +160,12 @@ public final class MediaUploadService {
         }
     }
 
+    // Tạo tên file Cloudinary từ module và UUID do backend cấp.
     private static String publicId(String module, UUID id) {
         return "pcstore/temp/" + module.toLowerCase(java.util.Locale.ROOT) + "/" + id;
     }
 
+    // Lưu thông tin ảnh đã upload và chuyển trạng thái sang TEMP để có thể gắn vào bài.
     private void markImageReady(UUID id, String assetId, MediaImageService.PreparedImage image) {
         try (EntityManager entityManager = factory.createEntityManager()) {
             EntityTransaction transaction = entityManager.getTransaction();
@@ -179,6 +188,7 @@ public final class MediaUploadService {
         }
     }
 
+    // Lưu thông tin video đã upload, gồm thời lượng, rồi chuyển sang TEMP.
     private void markVideoReady(UUID id, String assetId, MediaVideoService.PreparedVideo video) {
         try (EntityManager entityManager = factory.createEntityManager()) {
             EntityTransaction transaction = entityManager.getTransaction();
@@ -201,6 +211,7 @@ public final class MediaUploadService {
         }
     }
 
+    // Đánh dấu file DELETE_PENDING để tác vụ dọn dẹp xóa trên Cloudinary sau.
     private void markDeletePending(UUID id) {
         try (EntityManager entityManager = factory.createEntityManager()) {
             EntityTransaction transaction = entityManager.getTransaction();
@@ -218,6 +229,7 @@ public final class MediaUploadService {
         }
     }
 
+    // Đánh dấu file chờ dọn khi upload lỗi, đồng thời giữ lại lỗi gốc để báo cho bên gọi.
     private void pendingOnError(UUID id, RuntimeException error) {
         // Cloudinary có thể đã nhận file trước khi timeout; giữ public ID để dọn lại.
         try {

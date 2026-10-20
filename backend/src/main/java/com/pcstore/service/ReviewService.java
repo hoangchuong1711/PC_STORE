@@ -19,11 +19,13 @@ public final class ReviewService {
     private final ReviewDao dao;
     private final MediaAttachmentService media = new MediaAttachmentService();
 
+    // Khởi tạo DAO dùng chung EntityManager để các bước lưu Review nằm trong cùng transaction.
     public ReviewService(EntityManager entityManager) {
         this.entityManager = entityManager;
         this.dao = new ReviewDao(entityManager);
     }
 
+    // Tạo Review cho dòng đơn thuộc người mua đã nhận hàng; mỗi dòng chỉ có một Review, media lưu cùng bài.
     public ReviewDto.Response create(int userId, ReviewDto.CreateRequest request) {
         // 1. Kiểm tra đầu vào và bỏ khoảng trắng thừa trước khi mở transaction.
         ReviewDto.CreateRequest valid = validate(request);
@@ -47,7 +49,7 @@ public final class ReviewService {
                 throw new AppException(
                         409, "REVIEW_PRODUCT_MISMATCH", "Sản phẩm không khớp dòng đơn hàng.");
             }
-            if (!"DELIVERED".equals(line.getOrderStatus()) || !line.getDeliveredAtPresent()) {
+            if (!line.getOrderStatus().equals("DELIVERED") || !line.getDeliveredAtPresent()) {
                 throw new AppException(
                         409,
                         "REVIEW_ORDER_NOT_DELIVERED",
@@ -76,6 +78,7 @@ public final class ReviewService {
         }
     }
 
+    // Sửa Review đang công khai của chính người mua; trường không gửi trong PATCH được giữ nguyên.
     public ReviewDto.Response update(int userId, int reviewId, ReviewDto.UpdateRequest request) {
         validate(request);
         EntityTransaction transaction = entityManager.getTransaction();
@@ -105,16 +108,17 @@ public final class ReviewService {
         }
     }
 
+    // Xóa mềm Review của người mua bằng trạng thái DELETED; không cho tự xóa bài đang bị admin ẩn.
     public void delete(int userId, int reviewId) {
         EntityTransaction transaction = entityManager.getTransaction();
         transaction.begin();
         try {
             requireActiveCustomer(userId);
             ReviewDao.ReviewRow review = findOwnedReview(userId, reviewId, true);
-            if ("HIDDEN".equals(review.getStatus())) {
+            if (review.getStatus().equals("HIDDEN")) {
                 throw reviewNotEditable();
             }
-            if (!"DELETED".equals(review.getStatus())) {
+            if (!review.getStatus().equals("DELETED")) {
                 dao.status(reviewId, "DELETED");
             }
             transaction.commit();
@@ -126,16 +130,17 @@ public final class ReviewService {
         }
     }
 
+    // Khôi phục Review đã xóa về PUBLISHED; không cho chủ bài tự khôi phục bài bị admin ẩn.
     public ReviewDto.Response restore(int userId, int reviewId) {
         EntityTransaction transaction = entityManager.getTransaction();
         transaction.begin();
         try {
             requireActiveCustomer(userId);
             ReviewDao.ReviewRow review = findOwnedReview(userId, reviewId, true);
-            if ("HIDDEN".equals(review.getStatus())) {
+            if (review.getStatus().equals("HIDDEN")) {
                 throw reviewNotEditable();
             }
-            if ("DELETED".equals(review.getStatus())) {
+            if (review.getStatus().equals("DELETED")) {
                 dao.status(reviewId, "PUBLISHED");
             }
             ReviewDto.Response result =
@@ -150,11 +155,13 @@ public final class ReviewService {
         }
     }
 
+    // Lấy chi tiết Review thuộc khách hàng đang hoạt động, kể cả bài đã ẩn hoặc xóa.
     public ReviewDto.Response getOwn(int userId, int reviewId) {
         requireActiveCustomer(userId);
         return toResponse(findOwnedReview(userId, reviewId, false), userId);
     }
 
+    // Tìm Review của người mua theo dòng đơn hàng để hiển thị lại đánh giá đã viết.
     public ReviewDto.Response getOwnByOrderItem(int userId, int orderItemId) {
         requireActiveCustomer(userId);
         ReviewDao.ReviewRow review =
@@ -165,6 +172,7 @@ public final class ReviewService {
         return toResponse(review, userId);
     }
 
+    // Lọc, sắp xếp và phân trang Review công khai của sản phẩm, kèm thống kê và trạng thái like.
     public ReviewDto.PageResponse listPublic(
             int productId,
             int page,
@@ -187,11 +195,13 @@ public final class ReviewService {
         return new ReviewDto.PageResponse(items, page, size, total, pages, dao.summary(productId));
     }
 
+    // Lấy điểm trung bình và phân bố số sao của sản phẩm được phép hiển thị công khai.
     public ReviewDto.Summary summary(int productId) {
         requirePublicProduct(productId);
         return dao.summary(productId);
     }
 
+    // Ghép dữ liệu Review, tác giả, media và lượt thích thành kết quả trả cho giao diện.
     private ReviewDto.Response toResponse(ReviewDao.ReviewRow review, Integer currentUserId) {
         return new ReviewDto.Response(
                 review.getReviewId(),
@@ -209,6 +219,7 @@ public final class ReviewService {
                 true);
     }
 
+    // Tìm Review đúng chủ sở hữu, có thể khóa bản ghi trước khi sửa; báo lỗi nếu không tìm thấy.
     private ReviewDao.ReviewRow findOwnedReview(int userId, int reviewId, boolean lock) {
         ReviewDao.ReviewRow review = reviewId <= 0 ? null : dao.find(reviewId, userId, false, lock);
         if (review == null) {
@@ -217,6 +228,7 @@ public final class ReviewService {
         return review;
     }
 
+    // Chỉ cho xem Review công khai khi sản phẩm, danh mục và thương hiệu đều đang hoạt động.
     private void requirePublicProduct(int productId) {
         if (productId <= 0 || !dao.publicProduct(productId)) {
             throw new AppException(
@@ -224,6 +236,7 @@ public final class ReviewService {
         }
     }
 
+    // Chỉ cho tài khoản CUSTOMER đang hoạt động thực hiện nghiệp vụ Review của người mua.
     private void requireActiveCustomer(int userId) {
         if (!dao.activeCustomer(userId)) {
             throw new AppException(
@@ -231,12 +244,14 @@ public final class ReviewService {
         }
     }
 
+    // Chỉ cho chỉnh sửa Review ở trạng thái PUBLISHED.
     private static void requireEditableReview(ReviewDao.ReviewRow review) {
-        if (!"PUBLISHED".equals(review.getStatus())) {
+        if (!review.getStatus().equals("PUBLISHED")) {
             throw reviewNotEditable();
         }
     }
 
+    // Kiểm tra dữ liệu tạo Review và chuẩn hóa nội dung, danh sách media trước khi lưu.
     private static ReviewDto.CreateRequest validate(ReviewDto.CreateRequest request) {
         if (request == null
                 || request.getOrderItemId() == null
@@ -258,6 +273,7 @@ public final class ReviewService {
                 mediaIds);
     }
 
+    // Kiểm tra PATCH có ít nhất một trường cần sửa và các giá trị được gửi đều hợp lệ.
     private static void validate(ReviewDto.UpdateRequest request) {
         if (request == null
                 || (request.getRating() == null
@@ -276,12 +292,14 @@ public final class ReviewService {
         }
     }
 
+    // Kiểm tra điểm đánh giá là số nguyên từ 1 đến 5 sao.
     private static void validateRating(Integer rating) {
         if (rating == null || rating < 1 || rating > 5) {
             throw invalidReview("rating phải từ 1 đến 5.");
         }
     }
 
+    // Bỏ khoảng trắng đầu cuối và yêu cầu nội dung có từ 1 đến 5000 ký tự.
     private static String validateContent(String content) {
         String clean = content == null ? "" : content.trim();
         if (clean.isEmpty() || clean.length() > MAX_CONTENT_LENGTH) {
@@ -291,6 +309,7 @@ public final class ReviewService {
         return clean;
     }
 
+    // Kiểm tra Review có tối đa 6 mã media, không chứa null hoặc mã trùng.
     private static void validateMedia(List<UUID> ids) {
         if (ids.size() > 6
                 || hasNullMedia(ids)
@@ -300,23 +319,28 @@ public final class ReviewService {
         }
     }
 
+    // Tạo lỗi 400 kèm lý do dữ liệu Review không hợp lệ.
     private static AppException invalidReview(String message) {
         return new AppException(400, "INVALID_REVIEW", message);
     }
 
+    // Tạo lỗi 409 khi dòng đơn hàng đã có Review, tránh tạo đánh giá trùng.
     private static AppException reviewAlreadyExists() {
         return new AppException(409, "REVIEW_ALREADY_EXISTS", "Dòng đơn hàng đã có Review.");
     }
 
+    // Tạo lỗi 404 khi không tìm thấy Review theo phạm vi truy cập.
     private static AppException reviewNotFound() {
         return new AppException(404, "REVIEW_NOT_FOUND", "Không tìm thấy Review.");
     }
 
+    // Tạo lỗi 409 khi trạng thái Review không cho phép thao tác sửa đổi.
     private static AppException reviewNotEditable() {
         return new AppException(
                 409, "REVIEW_NOT_EDITABLE", "Review bị ẩn hoặc đã xóa nên không thể sửa.");
     }
 
+    // Kiểm tra danh sách media có phần tử null trước khi xử lý các mã file.
     private static boolean hasNullMedia(List<UUID> ids) {
         for (UUID id : ids) {
             if (id == null) {

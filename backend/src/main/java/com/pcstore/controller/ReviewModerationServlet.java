@@ -33,6 +33,7 @@ public class ReviewModerationServlet extends HttpServlet {
                     .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                     .build();
 
+    // Cấu hình đọc JSON để lý do kiểm duyệt phải là chuỗi, không tự đổi từ số hay boolean.
     public ReviewModerationServlet() {
         // Jackson's String deserializer otherwise converts 1/true into reason text.
         mapper.coercionConfigFor(LogicalType.Textual)
@@ -41,7 +42,7 @@ public class ReviewModerationServlet extends HttpServlet {
                 .setCoercion(CoercionInputShape.Boolean, CoercionAction.Fail);
     }
 
-    // Servlet 6.0 chưa có doPatch nên PATCH được chuyển đến moderateReview.
+    // Kiểm tra đăng nhập, điều phối xem danh sách hoặc PATCH kiểm duyệt và trả lỗi JSON.
     @Override
     protected void service(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -52,9 +53,9 @@ public class ReviewModerationServlet extends HttpServlet {
             }
             String method = request.getMethod();
             String path = request.getPathInfo();
-            if ("GET".equals(method) && (path == null || "/".equals(path))) {
+            if (method.equals("GET") && (path == null || path.equals("/"))) {
                 super.service(request, response);
-            } else if ("PATCH".equals(method)) {
+            } else if (method.equals("PATCH")) {
                 moderateReview(request, response);
             } else {
                 response.setHeader("Allow", "GET, PATCH, OPTIONS");
@@ -80,6 +81,7 @@ public class ReviewModerationServlet extends HttpServlet {
         }
     }
 
+    // Trả danh sách Review cho trang quản trị sau khi service kiểm tra quyền admin.
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
@@ -90,6 +92,7 @@ public class ReviewModerationServlet extends HttpServlet {
         }
     }
 
+    // Đọc mã Review và JSON kiểm duyệt rồi yêu cầu service ẩn hoặc công khai bài.
     private void moderateReview(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         int userId = SessionUtil.userId(request);
@@ -102,6 +105,7 @@ public class ReviewModerationServlet extends HttpServlet {
         }
     }
 
+    // Đọc trạng thái và lý do kiểm duyệt từ JSON; báo lỗi nếu JSON sai cấu trúc.
     private ModerateReviewRequest readRequest(HttpServletRequest request) {
         try {
             ModerateReviewRequest body =
@@ -115,6 +119,7 @@ public class ReviewModerationServlet extends HttpServlet {
         }
     }
 
+    // Lấy mã Review từ đường dẫn /{id}/moderation và kiểm tra ID hợp lệ.
     private static int reviewId(String path) {
         if (path == null || !path.matches("/[^/]+/moderation")) {
             throw new AppException(404, "NOT_FOUND", "Không tìm thấy endpoint.");

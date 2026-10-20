@@ -12,6 +12,7 @@ import java.util.UUID;
 public final class ReviewDao {
     private final EntityManager entityManager;
 
+    // Nhận EntityManager từ service để truy vấn Review trong cùng phiên làm việc.
     public ReviewDao(EntityManager entityManager) {
         this.entityManager = entityManager;
     }
@@ -133,6 +134,7 @@ public final class ReviewDao {
         }
     }
 
+    // Kiểm tra database có tài khoản CUSTOMER đang ACTIVE với mã người dùng đã cho.
     public boolean activeCustomer(int userId) {
         String sql =
                 "SELECT user_id FROM users WHERE user_id=:user "
@@ -142,6 +144,7 @@ public final class ReviewDao {
         return !query.getResultList().isEmpty();
     }
 
+    // Kiểm tra sản phẩm, danh mục và thương hiệu đều ACTIVE trước khi công khai Review.
     public boolean publicProduct(int productId) {
         String sql =
                 "SELECT p.product_id FROM products p "
@@ -154,6 +157,7 @@ public final class ReviewDao {
         return !query.getResultList().isEmpty();
     }
 
+    // Lấy chủ đơn, sản phẩm và trạng thái giao hàng; có thể khóa dòng đơn để tránh tạo Review trùng.
     public OrderLine orderLine(int orderItemId, boolean lock) {
         String sql =
                 "SELECT i.order_item_id,i.product_id,o.user_id,o.status,o.delivered_at "
@@ -171,6 +175,7 @@ public final class ReviewDao {
                 number(row[0]), number(row[1]), number(row[2]), (String) row[3], row[4] != null);
     }
 
+    // Tìm mã Review đã có trên dòng đơn, kể cả bài bị ẩn hoặc xóa mềm.
     public Integer reviewIdForOrderItem(int orderItemId) {
         String sql = "SELECT review_id FROM product_reviews WHERE order_item_id=:item";
         Query query = entityManager.createNativeQuery(sql);
@@ -179,6 +184,7 @@ public final class ReviewDao {
         return rows.isEmpty() ? null : number(rows.getFirst());
     }
 
+    // Lưu đánh giá gắn với dòng đơn hàng và trả mã Review vừa tạo.
     public int insert(int orderItemId, int rating, String content) {
         String sql =
                 "INSERT INTO product_reviews(order_item_id,rating,content) "
@@ -190,6 +196,7 @@ public final class ReviewDao {
         return number(query.getSingleResult());
     }
 
+    // Cập nhật số sao và nội dung của Review đã được service kiểm tra quyền.
     public void update(int reviewId, int rating, String content) {
         String sql =
                 "UPDATE product_reviews SET rating=:rating,content=:content WHERE"
@@ -201,6 +208,7 @@ public final class ReviewDao {
         query.executeUpdate();
     }
 
+    // Cập nhật trạng thái Review để phục vụ xóa mềm hoặc khôi phục.
     public void status(int reviewId, String status) {
         String sql = "UPDATE product_reviews SET status=:status WHERE review_id=:id";
         Query query = entityManager.createNativeQuery(sql);
@@ -209,6 +217,7 @@ public final class ReviewDao {
         query.executeUpdate();
     }
 
+    // Lấy chi tiết Review, có thể lọc chủ sở hữu, chỉ lấy bài công khai hoặc khóa trước khi ghi.
     public ReviewRow find(int reviewId, Integer ownerId, boolean publicOnly, boolean lock) {
         StringBuilder queryText =
                 new StringBuilder(
@@ -237,6 +246,7 @@ public final class ReviewDao {
         return rows.isEmpty() ? null : row((Object[]) rows.getFirst());
     }
 
+    // Tìm Review theo dòng đơn hàng và chủ đơn để người mua xem đánh giá của mình.
     public ReviewRow findOwnedByOrderItem(int userId, int orderItemId) {
         String sql =
                 "SELECT r.review_id FROM product_reviews r "
@@ -250,6 +260,7 @@ public final class ReviewDao {
         return ids.isEmpty() ? null : find(number(ids.getFirst()), userId, false, false);
     }
 
+    // Lấy mã Review công khai theo sản phẩm, bộ lọc, thứ tự sắp xếp và trang yêu cầu.
     public List<Integer> publicIds(
             int productId,
             int page,
@@ -297,6 +308,7 @@ public final class ReviewDao {
         return reviewIds;
     }
 
+    // Đếm Review công khai khớp bộ lọc để tính tổng số trang.
     public long publicCount(int productId, Integer rating, Boolean hasMedia) {
         String sql =
                 "SELECT count(*) FROM product_reviews r JOIN order_items i ON"
@@ -308,6 +320,7 @@ public final class ReviewDao {
         return ((Number) query.getSingleResult()).longValue();
     }
 
+    // Tính điểm trung bình, tổng Review công khai và số lượng, tỷ lệ của từng mức sao.
     public ReviewDto.Summary summary(int productId) {
         String sql =
                 "SELECT COALESCE(avg(r.rating),0),count(*) FROM"
@@ -339,6 +352,7 @@ public final class ReviewDao {
         return new ReviewDto.Summary(productId, average, total, distribution);
     }
 
+    // Lấy media của Review theo thứ tự hiển thị và tạo URL xem qua API backend.
     public List<ReviewDto.Media> media(int reviewId) {
         String sql =
                 "SELECT media_asset_id,media_type,mime_type,size_bytes,duration_second,sort_order"
@@ -371,6 +385,7 @@ public final class ReviewDao {
         return media;
     }
 
+    // Đếm tổng lượt thích hiện có của một Review.
     public long likeCount(int reviewId) {
         String sql = "SELECT count(*) FROM review_likes WHERE review_id=:review";
         Query query = entityManager.createNativeQuery(sql);
@@ -378,6 +393,7 @@ public final class ReviewDao {
         return ((Number) query.getSingleResult()).longValue();
     }
 
+    // Kiểm tra người xem đã thích Review hay chưa; khách chưa đăng nhập trả false.
     public boolean liked(int reviewId, Integer userId) {
         String sql =
                 "SELECT review_id FROM review_likes " + "WHERE review_id=:review AND user_id=:user";
@@ -387,6 +403,7 @@ public final class ReviewDao {
         return userId != null && !query.getResultList().isEmpty();
     }
 
+    // Tạo điều kiện lọc Review công khai theo sản phẩm, số sao và việc có media.
     private static String publicWhere(Integer rating, Boolean hasMedia) {
         String where = "i.product_id=:product AND r.status='PUBLISHED'";
         if (rating != null) {
@@ -400,12 +417,14 @@ public final class ReviewDao {
         return where;
     }
 
+    // Gán giá trị tham số rating vào truy vấn khi có lọc theo số sao.
     private static void bindFilters(Query query, Integer rating) {
         if (rating != null) {
             query.setParameter("rating", rating);
         }
     }
 
+    // Chuyển một dòng kết quả SQL thành ReviewRow để service đọc bằng getter.
     private static ReviewRow row(Object[] row) {
         return new ReviewRow(
                 number(row[0]),
@@ -420,6 +439,7 @@ public final class ReviewDao {
                 (String) row[9]);
     }
 
+    // Chuyển giá trị số từ kết quả truy vấn về kiểu int.
     private static int number(Object value) {
         return ((Number) value).intValue();
     }

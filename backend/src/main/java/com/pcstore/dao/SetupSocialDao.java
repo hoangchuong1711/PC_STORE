@@ -21,11 +21,13 @@ public final class SetupSocialDao {
                 + " l.user_id=:viewer),p.moderation_reason,p.moderated_by,p.moderated_at FROM"
                 + " setup_posts p ";
 
+    // Khởi tạo DAO tương tác và DAO bài đăng với cùng EntityManager.
     public SetupSocialDao(EntityManager entityManager) {
         this.entityManager = entityManager;
         this.posts = new SetupDao(entityManager);
     }
 
+    // Kiểm tra tài khoản đang hoạt động; khi admin=true thì yêu cầu thêm vai trò ADMIN.
     public boolean activeUser(int userId, boolean admin) {
         String sql =
                 "SELECT user_id FROM users WHERE user_id=:id AND status='ACTIVE'"
@@ -35,6 +37,7 @@ public final class SetupSocialDao {
         return !query.getResultList().isEmpty();
     }
 
+    // Lấy bài cùng số like và trạng thái người xem đã like; có thể lọc công khai hoặc khóa bài.
     public Object[] find(int id, Integer viewer, boolean publicOnly, boolean lock) {
         String sql =
                 SELECT
@@ -48,6 +51,7 @@ public final class SetupSocialDao {
         return rows.isEmpty() ? null : (Object[]) rows.getFirst();
     }
 
+    // Lấy danh sách phân trang theo trạng thái; chế độ xếp hạng ưu tiên bài nhiều lượt thích.
     @SuppressWarnings("unchecked")
     public List<Object[]> list(
             Integer viewer, String status, boolean ranking, int offset, int limit) {
@@ -68,6 +72,7 @@ public final class SetupSocialDao {
         return query.getResultList();
     }
 
+    // Thêm like không trùng hoặc xóa like theo cặp mã bài và mã người dùng.
     public void like(int postId, int userId, boolean liked, LocalDateTime now) {
         if (liked) {
             String sql =
@@ -87,6 +92,7 @@ public final class SetupSocialDao {
         }
     }
 
+    // Lưu trạng thái, lý do, admin kiểm duyệt và thời điểm cập nhật bài Setup.
     public void moderate(int id, int adminId, String status, String reason, LocalDateTime now) {
         String sql =
                 "UPDATE setup_posts SET"
@@ -101,16 +107,19 @@ public final class SetupSocialDao {
         query.executeUpdate();
     }
 
+    // Chuyển dòng SQL thành mã bài, tổng like và trạng thái đã like của người xem.
     public SetupSocialDto.Like likeResponse(Object[] row) {
         return new SetupSocialDto.Like(
                 ((Number) row[0]).intValue(), ((Number) row[7]).longValue(), (Boolean) row[8]);
     }
 
+    // Ghép chi tiết bài với số like và trạng thái đã like để hiển thị bảng xếp hạng.
     public SetupSocialDto.Ranked ranked(Object[] row) {
         return new SetupSocialDto.Ranked(
                 post(row), ((Number) row[7]).longValue(), (Boolean) row[8]);
     }
 
+    // Ghép bài và lượt thích với lý do, người duyệt, thời gian duyệt cho trang quản trị.
     public SetupSocialDto.Moderated moderated(Object[] row) {
         return new SetupSocialDto.Moderated(
                 post(row),
@@ -120,6 +129,7 @@ public final class SetupSocialDao {
                 SetupDao.time(row[11]));
     }
 
+    // Ghép dữ liệu bài từ SQL với ảnh và sản phẩm để tạo đối tượng trả về.
     private SetupDto.Response post(Object[] row) {
         int id = ((Number) row[0]).intValue();
         return new SetupDto.Response(

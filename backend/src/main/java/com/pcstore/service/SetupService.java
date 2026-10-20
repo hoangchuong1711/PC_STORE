@@ -21,17 +21,20 @@ public final class SetupService {
     private final SetupDao dao;
     private final MediaAttachmentService media = new MediaAttachmentService();
 
+    // Khởi tạo DAO dùng chung EntityManager để lưu bài, sản phẩm và ảnh trong cùng transaction.
     public SetupService(EntityManager entityManager) {
         this.entityManager = entityManager;
         this.dao = new SetupDao(entityManager);
     }
 
+    // Kiểm tra khách hàng có ít nhất một đơn đã giao để được đăng bài Setup.
     public SetupDto.Eligibility eligibility(int userId) {
         requireActiveCustomer(userId);
         boolean eligible = dao.delivered(userId);
         return new SetupDto.Eligibility(eligible, eligible ? null : "SETUP_PURCHASE_REQUIRED");
     }
 
+    // Tạo bài Setup khi khách đã có đơn giao thành công; lưu bài, sản phẩm và ảnh cùng nhau.
     public SetupDto.Response create(int userId, SetupDto.Request request) {
         // Kiểm tra tiêu đề, nội dung, danh sách ảnh và sản phẩm.
         validate(request);
@@ -65,6 +68,7 @@ public final class SetupService {
         }
     }
 
+    // Sửa bài Setup đang công khai của chính người đăng, thay danh sách ảnh và sản phẩm đi kèm.
     public SetupDto.Response update(int userId, int postId, SetupDto.Request request) {
         // Kiểm tra tiêu đề, nội dung, danh sách ảnh và sản phẩm.
         validate(request);
@@ -73,7 +77,8 @@ public final class SetupService {
         try {
             requireActiveCustomer(userId);
             Object[] post = findOwnedPost(userId, postId, true);
-            if (!"PUBLISHED".equals(post[4])) {
+            String status = (String) post[4];
+            if (!status.equals("PUBLISHED")) {
                 throw new AppException(409, "SETUP_NOT_EDITABLE", "Bài đang bị ẩn.");
             }
             validateProducts(request.getProductIds());
@@ -95,6 +100,7 @@ public final class SetupService {
         }
     }
 
+    // Xóa bài Setup của người đăng và đánh dấu các ảnh đã gỡ để dọn trên Cloudinary sau.
     public void delete(int userId, int postId) {
         EntityTransaction transaction = entityManager.getTransaction();
         transaction.begin();
@@ -112,6 +118,7 @@ public final class SetupService {
         }
     }
 
+    // Lấy chi tiết bài Setup đang công khai; báo lỗi nếu bài không tồn tại hoặc đã ẩn.
     public SetupDto.Response getPublic(int postId) {
         Object[] post = dao.find(postId, null, true, false);
         if (post == null) {
@@ -120,11 +127,13 @@ public final class SetupService {
         return toResponse(post);
     }
 
+    // Lấy bài Setup thuộc khách hàng đang hoạt động, kể cả bài bị ẩn.
     public SetupDto.Response getOwn(int userId, int postId) {
         requireActiveCustomer(userId);
         return toResponse(findOwnedPost(userId, postId, false));
     }
 
+    // Lấy một trang các bài Setup công khai theo thứ tự mới nhất.
     public List<SetupDto.Response> listPublic(int offset, int limit) {
         List<SetupDto.Response> posts = new ArrayList<>();
         for (int postId : dao.ids(null, offset, limit)) {
@@ -133,6 +142,7 @@ public final class SetupService {
         return posts;
     }
 
+    // Lấy một trang bài Setup của chính khách hàng đang đăng nhập.
     public List<SetupDto.Response> listOwn(int userId, int offset, int limit) {
         requireActiveCustomer(userId);
         List<SetupDto.Response> posts = new ArrayList<>();
@@ -142,6 +152,7 @@ public final class SetupService {
         return posts;
     }
 
+    // Ghép thông tin bài, danh sách ảnh và sản phẩm thành dữ liệu trả cho giao diện.
     private SetupDto.Response toResponse(Object[] post) {
         // Thứ tự cột tương ứng SELECT trong SetupDao.find.
         int postId = ((Number) post[0]).intValue();
@@ -165,6 +176,7 @@ public final class SetupService {
                 products);
     }
 
+    // Tìm bài đúng chủ sở hữu, có thể khóa trước khi sửa hoặc xóa; báo lỗi nếu không tìm thấy.
     private Object[] findOwnedPost(int userId, int postId, boolean lock) {
         Object[] post = postId <= 0 ? null : dao.find(postId, userId, false, lock);
         if (post == null) {
@@ -173,16 +185,19 @@ public final class SetupService {
         return post;
     }
 
+    // Tạo lỗi 404 khi không tìm thấy bài Setup theo phạm vi truy cập.
     private static AppException postNotFound() {
         return new AppException(404, "SETUP_NOT_FOUND", "Không tìm thấy bài đăng.");
     }
 
+    // Yêu cầu tài khoản CUSTOMER đang hoạt động để quản lý bài Setup cá nhân.
     private void requireActiveCustomer(int userId) {
         if (!dao.activeCustomer(userId)) {
             throw new AppException(403, "FORBIDDEN", "Chỉ khách hàng được dùng Setup.");
         }
     }
 
+    // Đảm bảo mọi sản phẩm gắn vào bài đều tồn tại và còn được bán công khai.
     private void validateProducts(List<Integer> ids) {
         if (dao.products(ids).size() != ids.size()) {
             throw new AppException(
@@ -190,6 +205,7 @@ public final class SetupService {
         }
     }
 
+    // Kiểm tra tiêu đề, nội dung, 1–8 ảnh và ít nhất một sản phẩm; không chấp nhận mã trùng.
     private static void validate(SetupDto.Request request) {
         if (request == null
                 || request.getTitle() == null
@@ -223,6 +239,7 @@ public final class SetupService {
         }
     }
 
+    // Kiểm tra danh sách ảnh có chứa mã null hay không.
     private static boolean hasNullMedia(List<UUID> ids) {
         for (UUID id : ids) {
             if (id == null) {

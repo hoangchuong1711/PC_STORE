@@ -155,6 +155,9 @@ class ReviewSocialIT {
         var listed = send(guest, "GET", "/api/reviews?productId=1&rating=3&hasMedia=false", null);
         assertEquals(200, listed.statusCode(), listed.body());
         assertEquals(id, body(listed).path("items").get(0).path("reviewId").asInt());
+        var trailingSlash = send(guest, "GET", "/api/reviews/?productId=1&rating=3&hasMedia=false", null);
+        assertEquals(200, trailingSlash.statusCode(), trailingSlash.body());
+        assertEquals(body(listed), body(trailingSlash));
         assertEquals(4.0, body(send(guest, "GET", "/api/reviews/summary?productId=1", null)).path("averageRating").asDouble());
         var deleted = send(customer, "DELETE", own, null);
         assertEquals(204, deleted.statusCode(), deleted.body());

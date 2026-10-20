@@ -21,6 +21,7 @@ import java.util.Map;
 public class MediaVideoUploadServlet extends HttpServlet {
     private static final int MAX_BODY = 20_000_000;
 
+    // Kiểm tra đăng nhập, Origin và module REVIEW trước khi nhận video để xử lý và upload.
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
@@ -37,7 +38,8 @@ public class MediaVideoUploadServlet extends HttpServlet {
             if (!MediaImageUploadServlet.allowedOrigin(request, origin)) {
                 throw new AppException(403, "ORIGIN_NOT_ALLOWED", "Origin không được phép.");
             }
-            if (!"REVIEW".equals(request.getHeader("X-Media-Module"))) {
+            String module = request.getHeader("X-Media-Module");
+            if (module == null || !module.equals("REVIEW")) {
                 throw new AppException(400, "INVALID_MEDIA_MODULE", "Video chỉ dành cho Review.");
             }
             String mime = request.getContentType();
@@ -72,8 +74,9 @@ public class MediaVideoUploadServlet extends HttpServlet {
         }
     }
 
+    // Chỉ nhận body MP4 hoặc MOV, giới hạn dữ liệu đọc tối đa 20 MB.
     private byte[] readUpload(HttpServletRequest request, String mime) throws IOException {
-        if (!"video/mp4".equals(mime) && !"video/quicktime".equals(mime)) {
+        if (mime == null || (!mime.equals("video/mp4") && !mime.equals("video/quicktime"))) {
             throw new AppException(415, "UNSUPPORTED_MEDIA_TYPE", "Chỉ hỗ trợ MP4 hoặc MOV.");
         }
         if (request.getContentLengthLong() > MAX_BODY) {
