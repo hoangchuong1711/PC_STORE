@@ -147,7 +147,7 @@ Mỗi hàng là một cột vật lý. NN = NOT NULL; NULL = tùy chọn; PK = k
 | `fullName` | `full_name` | `VARCHAR(255)` | NN |
 | `email` | `email` | `VARCHAR(254)` | NN |
 | `passwordHash` | `password_hash` | `VARCHAR(255)` | NN |
-| `authVersion` | `auth_version` | `BIGINT` | NN; DEFAULT 0; tăng khi đặt lại mật khẩu qua OTP |
+| `authVersion` | `auth_version` | `BIGINT` | NN; DEFAULT 0; tăng khi đặt lại hoặc đổi mật khẩu |
 | `phone` | `phone` | `VARCHAR(32)` | NULL |
 | `role` | `role` | `VARCHAR(32)` | NN; CHECK enum UserRole |
 | `status` | `status` | `VARCHAR(32)` | NN; CHECK enum UserStatus |
@@ -159,7 +159,7 @@ Email được trim và chuyển chữ thường trước khi lưu; CHECK email 
 Các bảng phục hồi mật khẩu bổ sung bởi V10 (chi tiết luồng tại [auth-email-recovery.md](auth-email-recovery.md)):
 
 - `password_reset_challenges`: `user_id INTEGER` PK/FK users ON DELETE CASCADE; `otp_hash VARCHAR(255)` nullable; `otp_expires_at TIMESTAMPTZ` NN; `attempts INTEGER` NN DEFAULT 0 CHECK 0..5; `token_hash VARCHAR(64)` nullable; `token_expires_at TIMESTAMPTZ` nullable; `auth_version BIGINT` NN. Mỗi User tối đa một challenge. OTP lưu PBKDF2 có salt, token ngẫu nhiên lưu SHA-256. Gửi lại thay challenge; xác minh xóa OTP; đặt lại thành công xóa challenge và tăng users.auth_version trong cùng transaction, khóa User để tránh dùng lặp đồng thời.
-- `auth_rate_limits`: `bucket_key VARCHAR(64)` PK (SHA-256 của scope và email/IP); `expires_at TIMESTAMPTZ` NN có index; `request_count INTEGER` NN CHECK >0. DAO dùng JPA native UPSERT nguyên tử để giới hạn qua nhiều replica; bucket cũ hơn một ngày sau hạn được dọn khi có yêu cầu mới.
+- `auth_rate_limits`: `bucket_key VARCHAR(64)` PK (SHA-256 của scope và email); `expires_at TIMESTAMPTZ` NN có index; `request_count INTEGER` NN CHECK >0. DAO dùng JPA native UPSERT nguyên tử cho cooldown gửi OTP 1 phút/email; bucket cũ hơn một ngày sau hạn được dọn khi có yêu cầu mới.
 
 #### Address → `addresses`
 

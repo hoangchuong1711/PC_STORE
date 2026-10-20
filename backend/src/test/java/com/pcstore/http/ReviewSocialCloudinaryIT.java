@@ -6,7 +6,6 @@ import com.pcstore.controller.AuthServlet;
 import com.pcstore.controller.MediaContentServlet;
 import com.pcstore.controller.ReviewModerationServlet;
 import com.pcstore.entity.MediaAsset;
-import com.pcstore.filter.AdminAuthorizationFilter;
 import com.pcstore.filter.AuthenticationFilter;
 import com.pcstore.filter.CorsFilter;
 import com.pcstore.service.CloudinaryImageStorage;
@@ -135,7 +134,7 @@ class ReviewSocialCloudinaryIT {
         tomcat.getConnector().setProperty("address", "127.0.0.1");
         var context = tomcat.addContext("", temp.toString());
         context.setParentClassLoader(getClass().getClassLoader());
-        for (Filter filter : List.of(new CorsFilter(), new AuthenticationFilter(), new AdminAuthorizationFilter())) {
+        for (Filter filter : List.of(new CorsFilter(), new AuthenticationFilter())) {
             String name = filter.getClass().getSimpleName();
             var definition = new FilterDef();
             definition.setFilterName(name);

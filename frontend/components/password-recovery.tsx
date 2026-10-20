@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
-import { AuthApiError, createAuthApi } from "../lib/auth-api";
+import { AuthApiError, authApi } from "../lib/auth-api";
 
 const inputClass = "w-full px-3.5 py-2.5 border border-[#cbd5e1] rounded-lg text-xs outline-none focus:border-[#006ce1] focus:ring-1 focus:ring-[#006ce1] bg-white text-ink transition-colors";
 const buttonClass = "w-full py-3 px-4 bg-[#006ce1] hover:bg-[#0051a8] text-white font-semibold rounded-lg text-xs md:text-sm transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed";
@@ -26,7 +26,7 @@ export function PasswordRecoveryForm() {
   }, [cooldown]);
 
   async function sendCode() {
-    const result = await createAuthApi().forgotPassword(email.trim());
+    const result = await authApi.forgotPassword(email.trim());
     setEmail(email.trim()); setToken(""); setStep("otp"); setCooldown(60); setMessage(result.message);
   }
 
@@ -45,13 +45,13 @@ export function PasswordRecoveryForm() {
     try {
       if (step === "email") await sendCode();
       else if (step === "otp") {
-        const result = await createAuthApi().verifyResetOtp(email, String(form.get("otp") ?? ""));
+        const result = await authApi.verifyResetOtp(email, String(form.get("otp") ?? ""));
         setToken(result.resetToken); setStep("password"); setMessage("Mã OTP hợp lệ. Vui lòng đặt mật khẩu mới trong 5 phút.");
       } else if (step === "password") {
         const password = String(form.get("password") ?? "");
         if (password.length < 8 || password.length > 128) throw new Error("Mật khẩu phải dài từ 8 đến 128 ký tự.");
         if (password !== String(form.get("confirmPassword") ?? "")) throw new Error("Mật khẩu xác nhận không khớp.");
-        const result = await createAuthApi().resetPassword(email, token, password);
+        const result = await authApi.resetPassword(email, token, password);
         setToken(""); setStep("done"); setMessage(result.message);
       }
     } catch (cause) { report(cause); }

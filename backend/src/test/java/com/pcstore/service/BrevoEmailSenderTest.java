@@ -25,7 +25,7 @@ class BrevoEmailSenderTest {
             exchange.getResponseBody().write(response); exchange.close();
         });
         server.start();
-        mail = new BrevoEmailSender(true, "test-only-key", "sender@example.test", "PC Store",
+        mail = new BrevoEmailSender("test-only-key", "sender@example.test", "PC Store",
                 URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/v3/smtp/email"));
     }
     @AfterEach void stop() { server.stop(0); }
@@ -53,11 +53,11 @@ class BrevoEmailSenderTest {
         assertFalse(failure.getMessage().contains("test-only-key"));
     }
 
-    @Test void disabledSenderDoesNotSendWelcomeAndRejectsOtp() {
-        var disabled = new BrevoEmailSender(false, "key", "a@example.test", "PC", URI.create("http://127.0.0.1:1"));
-        assertFalse(disabled.enabled());
-        disabled.welcome("a@example.test", "A");
-        assertThrows(IllegalStateException.class, () -> disabled.otp("a@example.test", "123456"));
+    @Test void missingConfigurationFailsExplicitly() {
+        var unconfigured = new BrevoEmailSender(null, "a@example.test", "PC", URI.create("http://127.0.0.1:1"));
+        assertFalse(unconfigured.isConfigured());
+        assertThrows(IllegalStateException.class, () -> unconfigured.welcome("a@example.test", "A"));
+        assertThrows(IllegalStateException.class, () -> unconfigured.otp("a@example.test", "123456"));
         assertTrue(bodies.isEmpty());
     }
 }

@@ -21,6 +21,11 @@ public class AuthenticationFilter implements Filter {
             JsonUtil.write((HttpServletResponse) response, 401, Map.of("code", "UNAUTHORIZED", "message", "Bạn cần đăng nhập."));
             return;
         }
+        if (path.startsWith("/api/admin/")
+                && !"ADMIN".equals(req.getSession(false).getAttribute(SessionUtil.USER_ROLE))) {
+            JsonUtil.write((HttpServletResponse) response, 403, Map.of("code", "FORBIDDEN", "message", "Bạn không có quyền truy cập."));
+            return;
+        }
         boolean isSelfProfileRoute = path.equals("/api/customer/profile") || path.equals("/api/customer/change-password");
         if ((path.startsWith("/api/customer/") || orderRoute) && !isSelfProfileRoute
                 && !"CUSTOMER".equals(req.getSession(false).getAttribute(SessionUtil.USER_ROLE))) {

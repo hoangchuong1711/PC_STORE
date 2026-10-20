@@ -35,12 +35,20 @@ public final class SessionUtil {
     // Lấy ID người dùng từ phiên làm việc
     public static Integer userId(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
-        Object value = session == null ? null : session.getAttribute(USER_ID);
-        return value instanceof Integer id ? id : null;
+        if (session == null) {
+            return null;
+        }
+        Object value = session.getAttribute(USER_ID);
+        if (value instanceof Integer) {
+            return (Integer) value;
+        }
+        return null;
     }
 
     public static void logout(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
-        if (session != null) session.invalidate();
+        if (session != null) {
+            session.invalidate();
+        }
     }
 }

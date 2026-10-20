@@ -59,7 +59,7 @@ Nếu `npm run dev` đang chiếm cổng 3000, dừng nó trước khi chạy Co
 
 `.env` trên máy không tự đồng bộ lên Railway. File `frontend/.env.local` không được đưa vào Docker image; Compose truyền `BACKEND_ORIGIN=http://backend:8080` vào lúc build frontend. Hai biến trong hai môi trường không cần đổi qua lại. Không đặt `BACKEND_ORIGIN` toàn cục trong terminal nếu muốn `npm run dev` lấy giá trị từ `.env.local`.
 
-Email chào mừng và OTP dùng Brevo HTTPS API: `MAIL_ENABLED`, `BREVO_API_KEY`, `MAIL_FROM_EMAIL`, `MAIL_FROM_NAME`. Cấu hình này nằm ở backend. Xem [hướng dẫn email tài khoản](docs/auth-email-recovery.md). Các dịch vụ thật như Brevo/Cloudinary có thể được gọi từ backend local nếu bật và cung cấp key thật.
+Email chào mừng và OTP dùng Brevo HTTPS API: `BREVO_API_KEY`, `MAIL_FROM_EMAIL`, `MAIL_FROM_NAME`. Cấu hình này nằm ở backend; có key và địa chỉ gửi hợp lệ thì backend tự gửi mail, không cần cờ bật/tắt. Xem [hướng dẫn email tài khoản](docs/auth-email-recovery.md). Các dịch vụ thật như Brevo/Cloudinary có thể được gọi từ backend local nếu cung cấp key thật.
 
 Mặc định seed tắt. Để nạp dữ liệu demo local, đặt cả `DEMO_SEED_ENABLED=true` và `DEMO_ACCOUNTS_ENABLED=true` trong `.env`, đồng thời đặt `DEMO_ADMIN_PASSWORD` và `DEMO_CUSTOMER_PASSWORD` cho tài khoản mẫu, rồi chạy lại Compose. Backend nạp catalog, thông số Builder, 6 tài khoản demo, 6 đơn hàng, 9 dòng hàng, 6 thanh toán và 5 đánh giá từ `backend/src/main/resources/db/seed/`. Seed giao dịch chạy lại không tạo bản ghi trùng. Chỉ bật hai cờ này với database local dành riêng cho demo; đừng bật khi backend trỏ tới Neon dùng chung. Tắt cờ không xóa dữ liệu đã nạp.
 

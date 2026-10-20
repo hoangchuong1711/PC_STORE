@@ -13,7 +13,12 @@ public final class PasswordUtil {
     private static final int SALT_BYTES = 16;
     private static final int HASH_BITS = 256;
     private static final SecureRandom RANDOM = new SecureRandom();
-    private PasswordUtil() { }
+    private PasswordUtil() {
+    }
+
+    public static boolean isValidLength(String password) {
+        return password != null && password.length() >= 8 && password.length() <= 128;
+    }
 
     public static String hash(String password) {
         byte[] salt = new byte[SALT_BYTES];
@@ -23,22 +28,35 @@ public final class PasswordUtil {
     }
 
     public static boolean verify(String password, String encoded) {
-        if (password == null || encoded == null) return false;
+        if (password == null || encoded == null) {
+            return false;
+        }
         try {
             String[] parts = encoded.split(":", -1);
-            if (parts.length != 3) return false;
+            if (parts.length != 3) {
+                return false;
+            }
             int iterations = Integer.parseInt(parts[0]);
-            if (iterations < 100_000 || iterations > 2_000_000) return false;
+            if (iterations < 100_000 || iterations > 2_000_000) {
+                return false;
+            }
             byte[] salt = Base64.getDecoder().decode(parts[1]);
             byte[] expected = Base64.getDecoder().decode(parts[2]);
             return MessageDigest.isEqual(expected, derive(password.toCharArray(), salt, iterations));
-        } catch (IllegalArgumentException e) { return false; }
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     private static byte[] derive(char[] password, byte[] salt, int iterations) {
         PBEKeySpec spec = new PBEKeySpec(password, salt, iterations, HASH_BITS);
-        try { return SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).getEncoded(); }
-        catch (GeneralSecurityException e) { throw new IllegalStateException("Password hashing unavailable", e); }
-        finally { spec.clearPassword(); java.util.Arrays.fill(password, '\0'); }
+        try {
+            return SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).getEncoded();
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException("Password hashing unavailable", e);
+        } finally {
+            spec.clearPassword();
+            java.util.Arrays.fill(password, '\0');
+        }
     }
 }

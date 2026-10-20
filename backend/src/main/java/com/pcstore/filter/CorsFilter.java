@@ -3,7 +3,6 @@ package com.pcstore.filter;
 import jakarta.servlet.*;
 import jakarta.servlet.annotation.WebFilter;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpServletResponseWrapper;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Set;
@@ -39,7 +38,7 @@ public class CorsFilter implements Filter {
             res.addHeader("Vary", "Origin");
         }
         if ("OPTIONS".equalsIgnoreCase(req.getMethod())) { res.setStatus(204); return; }
-        chain.doFilter(request, new SessionCookieResponse(res));
+        chain.doFilter(request, response);
     }
 
     // Browser POST/PATCH requests include Origin even when Swagger UI shares this server.
@@ -52,18 +51,4 @@ public class CorsFilter implements Filter {
         return scheme + "://" + request.getServerName() + (defaultPort ? "" : ":" + port);
     }
 
-    private static final class SessionCookieResponse extends HttpServletResponseWrapper {
-        private static final boolean SECURE = Boolean.parseBoolean(System.getenv().getOrDefault("SESSION_COOKIE_SECURE", "false"));
-        private SessionCookieResponse(HttpServletResponse response) { super(response); }
-        @Override public void addHeader(String name, String value) { super.addHeader(name, cookie(name, value)); }
-        @Override public void setHeader(String name, String value) { super.setHeader(name, cookie(name, value)); }
-        private String cookie(String name, String value) {
-            if (!"Set-Cookie".equalsIgnoreCase(name) || value == null || !value.startsWith("JSESSIONID=")) return value;
-            String adjusted = value.replaceAll(";\\s*Path=/pc-store-backend(?:/)?(?=;|$)", "; Path=/");
-            if (!adjusted.toLowerCase(java.util.Locale.ROOT).contains("; httponly")) adjusted += "; HttpOnly";
-            if (!adjusted.toLowerCase(java.util.Locale.ROOT).contains("; samesite=")) adjusted += "; SameSite=Lax";
-            if (SECURE && !adjusted.toLowerCase(java.util.Locale.ROOT).contains("; secure")) adjusted += "; Secure";
-            return adjusted;
-        }
-    }
 }

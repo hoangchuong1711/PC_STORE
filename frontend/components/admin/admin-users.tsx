@@ -224,7 +224,6 @@ export function AdminUsers() {
           >
             <option value="ALL">Tất cả vai trò</option>
             <option value="CUSTOMER">Khách hàng</option>
-            <option value="STAFF">Nhân viên kỹ thuật</option>
             <option value="ADMIN">Quản trị viên</option>
           </select>
 

@@ -18,14 +18,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
-class AdminAuthorizationFilterTest {
+class AuthenticationFilterTest {
     @Test
     void rejectsCustomerBeforeAdminServletRuns() throws Exception {
         AtomicBoolean chainCalled = new AtomicBoolean(false);
         AtomicInteger status = new AtomicInteger();
         StringWriter body = new StringWriter();
 
-        new AdminAuthorizationFilter().doFilter(
+        new AuthenticationFilter().doFilter(
                 requestWithRole("CUSTOMER"),
                 response(status, body),
                 (request, response) -> chainCalled.set(true));
@@ -39,7 +39,7 @@ class AdminAuthorizationFilterTest {
     void allowsAdminToReachServlet() throws Exception {
         AtomicBoolean chainCalled = new AtomicBoolean(false);
 
-        new AdminAuthorizationFilter().doFilter(
+        new AuthenticationFilter().doFilter(
                 requestWithRole("ADMIN"),
                 response(new AtomicInteger(), new StringWriter()),
                 (request, response) -> chainCalled.set(true));
@@ -60,8 +60,12 @@ class AdminAuthorizationFilterTest {
         return (HttpServletRequest) Proxy.newProxyInstance(
                 getClass().getClassLoader(),
                 new Class<?>[]{HttpServletRequest.class},
-                (proxy, method, args) -> "getSession".equals(method.getName())
-                        ? session : defaultValue(method.getReturnType()));
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "getSession" -> session;
+                    case "getRequestURI" -> "/api/admin/users";
+                    case "getContextPath" -> "";
+                    default -> defaultValue(method.getReturnType());
+                });
     }
 
     private HttpServletResponse response(AtomicInteger status, StringWriter body) {

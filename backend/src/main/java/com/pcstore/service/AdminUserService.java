@@ -1,25 +1,23 @@
 package com.pcstore.service;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 import com.pcstore.dao.UserDAO;
-import com.pcstore.dao.impl.UserDAOImpl;
 import com.pcstore.dto.AdminUserDto;
 import com.pcstore.dto.UpdateUserStatusRequest;
 import com.pcstore.entity.User;
+import com.pcstore.entity.enums.UserRole;
 import com.pcstore.entity.enums.UserStatus;
 import com.pcstore.exception.ResourceNotFoundException;
 import com.pcstore.exception.ValidationException;
-import com.pcstore.config.PersistenceManager;
-
-import jakarta.persistence.EntityManager;
 
 public class AdminUserService {
     private final UserDAO userDAO;
 
     public AdminUserService() {
-        this(new UserDAOImpl());
+        this(new UserDAO());
     }
 
     public AdminUserService(UserDAO userDAO) {
@@ -27,10 +25,20 @@ public class AdminUserService {
     }
 
     public List<AdminUserDto> listUsers(String role, String status, String query, int offset, int limit) {
-        try (EntityManager em = PersistenceManager.get().createEntityManager()) {
-            List<User> users = userDAO.listUsers(em, role, status, query, offset, limit);
-            return users.stream().map(u -> toDto(em, u)).collect(Collectors.toList());
+        UserRole selectedRole = null;
+        UserStatus selectedStatus = null;
+        try {
+            if (role != null && !role.isBlank() && !"ALL".equalsIgnoreCase(role.trim())) {
+                selectedRole = UserRole.valueOf(role.trim().toUpperCase(Locale.ROOT));
+            }
+            if (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status.trim())) {
+                selectedStatus = UserStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
+            }
+        } catch (IllegalArgumentException error) {
+            throw new ValidationException("Bộ lọc vai trò hoặc trạng thái không hợp lệ.");
         }
+        List<User> users = userDAO.listUsers(selectedRole, selectedStatus, query, offset, limit);
+        return users.stream().map(this::toDto).collect(Collectors.toList());
     }
 
     public AdminUserDto updateUserStatus(int adminUserId, int targetUserId, UpdateUserStatusRequest req) {
@@ -51,25 +59,13 @@ public class AdminUserService {
             throw new ValidationException("Trạng thái người dùng không hợp lệ. Chỉ chấp nhận ACTIVE, INACTIVE hoặc BANNED.");
         }
 
-        try (EntityManager em = PersistenceManager.get().createEntityManager()) {
-            em.getTransaction().begin();
-            try {
-                User user = userDAO.findById(em, targetUserId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Người dùng không tồn tại."));
-                user.setStatus(targetStatus);
-                em.getTransaction().commit();
-                return toDto(em, user);
-            } catch (RuntimeException e) {
-                if (em.getTransaction().isActive()) {
-                    em.getTransaction().rollback();
-                }
-                throw e;
-            }
-        }
+        User user = userDAO.updateStatus(targetUserId, targetStatus)
+                .orElseThrow(() -> new ResourceNotFoundException("Người dùng không tồn tại."));
+        return toDto(user);
     }
 
-    private AdminUserDto toDto(EntityManager em, User user) {
-        Object[] stats = userDAO.getUserOrderStats(em, user.getUserId());
+    private AdminUserDto toDto(User user) {
+        Object[] stats = userDAO.getUserOrderStats(user.getUserId());
         long orderCount = stats != null && stats[0] != null ? ((Number) stats[0]).longValue() : 0L;
         long totalSpent = stats != null && stats[1] != null ? ((Number) stats[1]).longValue() : 0L;
         return new AdminUserDto(

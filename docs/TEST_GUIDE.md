@@ -204,22 +204,22 @@ mvn -B "-Dtest=ProductSearchQueryTest" test
 | `parsesDefaultsAndFilters` | Parse giá trị mặc định và bộ lọc catalog. | `mvn -B "-Dtest=ProductSearchQueryTest#parsesDefaultsAndFilters" test` |
 | `rejectsInvalidRangeAndPagination` | Từ chối khoảng giá và phân trang sai. | `mvn -B "-Dtest=ProductSearchQueryTest#rejectsInvalidRangeAndPagination" test` |
 
-### AdminAuthorizationFilterTest — 2 ca thực thi
+### AuthenticationFilterTest — 2 ca thực thi
 
-File: [AdminAuthorizationFilterTest.java](../backend/src/test/java/com/pcstore/filter/AdminAuthorizationFilterTest.java).
+File: [AuthenticationFilterTest.java](../backend/src/test/java/com/pcstore/filter/AuthenticationFilterTest.java).
 
 Loại: unit/contract, không cần PostgreSQL.
 
 Chạy cả lớp:
 
 ```powershell
-mvn -B "-Dtest=AdminAuthorizationFilterTest" test
+mvn -B "-Dtest=AuthenticationFilterTest" test
 ```
 
 | Phương thức | Nội dung | Lệnh chạy riêng |
 | --- | --- | --- |
-| `rejectsCustomerBeforeAdminServletRuns` | Customer bị chặn 403 trước servlet Admin. | `mvn -B "-Dtest=AdminAuthorizationFilterTest#rejectsCustomerBeforeAdminServletRuns" test` |
-| `allowsAdminToReachServlet` | Admin được đi tiếp qua filter. | `mvn -B "-Dtest=AdminAuthorizationFilterTest#allowsAdminToReachServlet" test` |
+| `rejectsCustomerBeforeAdminServletRuns` | Customer bị chặn 403 trước servlet Admin. | `mvn -B "-Dtest=AuthenticationFilterTest#rejectsCustomerBeforeAdminServletRuns" test` |
+| `allowsAdminToReachServlet` | Admin được đi tiếp qua filter. | `mvn -B "-Dtest=AuthenticationFilterTest#allowsAdminToReachServlet" test` |
 
 ### CorsFilterTest — 7 ca thực thi
 
