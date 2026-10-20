@@ -6,8 +6,8 @@ import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pcstore.config.PersistenceManager;
 import com.pcstore.dto.ProductSearchQuery;
+import com.pcstore.exception.ResourceNotFoundException;
 import com.pcstore.service.ProductCatalogService;
-import com.pcstore.service.ResourceNotFoundException;
 
 import jakarta.persistence.EntityManager;
 import jakarta.servlet.annotation.WebServlet;
@@ -47,7 +47,8 @@ public class ProductServlet extends HttpServlet {
             var q = ProductSearchQuery.parse(req.getParameter("q"),
                     req.getParameter("categoryId"), req.getParameter("brandId"),
                     req.getParameter("minPrice"), req.getParameter("maxPrice"),
-                    req.getParameter("page"), req.getParameter("size"));
+                    req.getParameter("page"), req.getParameter("size"),
+                    req.getParameter("sort"));
 
             res.setStatus(200);
             

@@ -1,11 +1,20 @@
 package com.pcstore.entity;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.pcstore.entity.enums.UserRole;
 import com.pcstore.entity.enums.UserStatus;
 
-import jakarta.persistence.*;
-import java.util.ArrayList;
-import java.util.List;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "users")
@@ -24,6 +33,9 @@ public class User {
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
+    @Column(name = "auth_version", nullable = false)
+    private long authVersion;
+
     @Column(name = "phone", length = 32)
     private String phone;
 
@@ -36,7 +48,7 @@ public class User {
     private UserStatus status = UserStatus.ACTIVE;
 
     @OneToMany(mappedBy = "user")
-    private List<Address> addresses = new ArrayList<>();
+    private final List<Address> addresses = new ArrayList<>();
 
     public User() {
     }
@@ -48,6 +60,8 @@ public class User {
     public void setEmail(String email) { this.email = email; }
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+    public long getAuthVersion() { return authVersion; }
+    public void setAuthVersion(long value) { authVersion = value; }
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
     public UserRole getRole() { return role; }

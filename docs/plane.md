@@ -1,4 +1,7 @@
 # KẾ HOẠCH TRIỂN KHAI DỰ ÁN WEBSITE PC STORE
+
+> Đây là bản kế hoạch T01–T38 tại thời điểm lập kế hoạch, giữ để tra cứu phạm vi và phụ thuộc của từng task. Trạng thái Work Item hiện tại theo dõi trên Plane; [mục lục tài liệu](README.md) tóm tắt thứ tự CORE → FEATURE → ADVANCED. Các mô tả triển khai trong file này không tự xác nhận tính năng đã hoàn thành.
+
 **Thời gian 30/09/2026 đến hết 13/10/2026**
 
 Nhóm 5 thành viên | 14 ngày | 4–5 giờ mỗi người mỗi ngày
@@ -222,6 +225,17 @@ Ba task độc lập: T20 nối mua hàng, T21 sở hữu hạ tầng media, T22
 **Điều kiện hoàn thành:** Mua hàng từ catalog đến DELIVERED hoạt động; lỗi chặn được đóng hoặc ghi rõ.
 
 **Cần trước:** T12–T19
+
+#### T20-B Cổng thanh toán trực tuyến VNPay và đối soát
+
+**Owner / phạm vi mã:** BE payment & FE checkout/admin
+
+**Việc cần làm:** Tích hợp cổng thanh toán trực tuyến VNPay Sandbox; quy định thời hạn thanh toán 15 phút; lưu trữ `payment_attempts`; chuyển trạng thái `EXPIRED_PENDING_RECONCILIATION`; xử lý IPN và QueryDR đối soát; bảo vệ giữ chỗ tồn kho; cập nhật giao diện khách hàng và Admin.
+
+**Điều kiện hoàn thành:** Mọi trạng thái xác định được quyền thanh toán, quyền giao hàng và giữ/nhả kho; IPN và QueryDR ghi nhận tiền chính xác; không làm ảnh hưởng luồng COD; hoàn thành kiểm thử nghiệm thu.
+
+**Cần trước:** T20
+
 
 #### T21 Dịch vụ media dùng chung
 

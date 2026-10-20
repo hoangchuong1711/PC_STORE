@@ -7,6 +7,7 @@
         <provider>org.hibernate.jpa.HibernatePersistenceProvider</provider>
         <class>com.pcstore.entity.Brand</class>
         <class>com.pcstore.entity.User</class>
+        <class>com.pcstore.entity.PasswordResetChallenge</class>
         <class>com.pcstore.entity.Address</class>
         <class>com.pcstore.entity.Category</class>
         <class>com.pcstore.entity.Product</class>
@@ -14,9 +15,15 @@
         <class>com.pcstore.entity.Inventory</class>
         <class>com.pcstore.entity.Cart</class>
         <class>com.pcstore.entity.CartItem</class>
+        <class>com.pcstore.entity.PcBuild</class>
+        <class>com.pcstore.entity.PcBuildItem</class>
         <class>com.pcstore.entity.Order</class>
         <class>com.pcstore.entity.OrderItem</class>
         <class>com.pcstore.entity.Payment</class>
+        <class>com.pcstore.entity.PaymentAttempt</class>
+        <class>com.pcstore.entity.MediaAsset</class>
+        <class>com.pcstore.entity.ProductReview</class>
+        <class>com.pcstore.entity.ReviewLike</class>
         <exclude-unlisted-classes>true</exclude-unlisted-classes>
     </persistence-unit>
 </persistence>

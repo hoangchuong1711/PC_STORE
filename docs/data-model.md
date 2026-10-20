@@ -4,9 +4,9 @@
 
 Tài liệu mô tả mô hình dữ liệu mục tiêu của PC Store, dựa trên `Bản sao của PC-Store-Class-Diagram-One-Page.drawio.xml` và các phương án hiệu chỉnh đã được người dùng yêu cầu áp dụng ngày 01/10/2026. Các quyết định dưới đây thay thế những điểm thiếu/mâu thuẫn của bản mô tả trước; đây không còn là bản chép nguyên sơ đồ. Danh sách thay đổi để đồng bộ lại class diagram nằm ở mục 7.
 
-Phạm vi gồm tài khoản, địa chỉ, catalog, tồn kho, giỏ hàng, đơn hàng, thanh toán, thông số linh kiện, PC Builder, Recommendation, Community, Promotion, Warranty và Review. Thứ tự triển khai vẫn là CORE → FEATURE → ADVANCED theo [scope.md](scope.md); mô tả đầy đủ không có nghĩa triển khai tất cả cùng lúc. Backend giữ Java Servlet → Service → DAO → JPA/Hibernate → PostgreSQL theo [hướng dẫn backend](../backend/BACKEND_GUIDE.md).
+Phạm vi mô hình gồm tài khoản, địa chỉ, catalog, tồn kho, giỏ hàng, đơn hàng, thanh toán, thông số linh kiện, PC Builder, Recommendation, Community, Promotion, Warranty và Review. Thứ tự triển khai CORE → FEATURE → ADVANCED được tóm tắt trong [mục lục tài liệu](README.md); mô tả đầy đủ ở đây không có nghĩa tất cả đã được triển khai. Backend giữ Java Servlet → Service → DAO → JPA/Hibernate → PostgreSQL.
 
-**Trạng thái T03 (01/10/2026):** đã triển khai 12 bảng CORE ở mục 8 bằng Flyway V1 + V2 và entity JPA tương ứng; Hibernate dùng `validate`. `CoreDatabaseIT` kiểm tra PostgreSQL 17 thật, nâng cấp V1 có dữ liệu, ràng buộc và lưu/đọc JPA. Các phần FEATURE/ADVANCED vẫn là thiết kế, chưa triển khai. Xem [hướng dẫn kiểm thử](../backend/BACKEND_GUIDE.md#7-schema-migration-và-kiểm-thử-cần-có). File draw.io chưa được chỉnh sửa.
+**Trạng thái:** T03 (01/10/2026) triển khai 12 bảng CORE bằng Flyway V1 + V2 và entity JPA; Hibernate dùng `validate`. T10 (04/10/2026) thêm V3 với 21 bảng cho 8 Spec Builder, PC Builder, Review/Media/Like và Setup. T21 thêm V5–V8 cho `media_assets`, video ngắn và dọn/retry; backend đã có API upload/đọc có kiểm tra quyền cùng service gắn/tháo media cho T26/T29 gọi khi tạo bài. `CoreDatabaseIT` kiểm tra CORE/JPA; `FeatureMigrationIT` kiểm tra V3. Xem [hướng dẫn media T21](../backend/T21_MEDIA.md). File draw.io chưa được chỉnh sửa.
 
 ## 2. Quy ước và quyết định chung
 
@@ -47,10 +47,11 @@ erDiagram
     orders ||--|{ order_items : contains
     products ||--o{ order_items : purchased
     orders ||--o| payments : payment
+    payments ||--o{ payment_attempts : attempts
 ```
 
 - Một User có 0..* Address; **mỗi Address thuộc đúng một User**. Hai User có thể lưu cùng địa chỉ thực tế bằng hai bản ghi độc lập. Mỗi User có tối đa một địa chỉ mặc định; không bắt buộc luôn có mặc định.
-- Một Order có 0..1 Payment ở mức lưu trữ. Checkout thành công tạo đúng một Payment cùng transaction với đơn/dòng đơn. Không có PaymentAttempt trong phạm vi hiện tại.
+- Mỗi Order có đúng một bản ghi Payment tổng hợp theo dõi tình trạng thanh toán của toàn đơn. Mỗi lần khách hàng mở cổng thanh toán trực tuyến (VNPay) được ghi nhận thành một bản ghi trong `payment_attempts`.
 - Product có 0..1 Inventory; trước khi cho phép bán, Service phải có Inventory. Product thiếu Inventory được xem là không khả dụng, không mặc định tồn vô hạn.
 
 ### 3.2. Thông số và tương thích
@@ -101,6 +102,7 @@ Không có FK Request → Result trực tiếp. Truy vết qua Request → Attem
 ```mermaid
 erDiagram
     users ||--o{ setup_posts : authors
+    users o|--o{ setup_posts : moderates
     setup_posts ||--|{ setup_images : images
     setup_posts ||--o{ setup_post_products : tags
     products ||--o{ setup_post_products : tagged
@@ -124,6 +126,8 @@ erDiagram
     order_items ||--o| product_reviews : review
     users o|--o{ product_reviews : moderates
     product_reviews ||--o{ review_media : media
+    product_reviews ||--o{ review_likes : receives
+    users ||--o{ review_likes : likes
 ```
 
 ReviewMedia giới hạn **0..6** bản ghi/review; Mermaid chỉ thể hiện phía nhiều, giới hạn 6 được bảo đảm bằng nghiệp vụ. Quan hệ User–Review trong ERD là **người kiểm duyệt tùy chọn**, không phải tác giả. Tác giả được xác định từ OrderItem → Order → User.
@@ -143,11 +147,19 @@ Mỗi hàng là một cột vật lý. NN = NOT NULL; NULL = tùy chọn; PK = k
 | `fullName` | `full_name` | `VARCHAR(255)` | NN |
 | `email` | `email` | `VARCHAR(254)` | NN |
 | `passwordHash` | `password_hash` | `VARCHAR(255)` | NN |
+| `authVersion` | `auth_version` | `BIGINT` | NN; DEFAULT 0; tăng khi đặt lại mật khẩu qua OTP |
 | `phone` | `phone` | `VARCHAR(32)` | NULL |
 | `role` | `role` | `VARCHAR(32)` | NN; CHECK enum UserRole |
 | `status` | `status` | `VARCHAR(32)` | NN; CHECK enum UserStatus |
 
 Email được trim và chuyển chữ thường trước khi lưu; CHECK email = lower(btrim(email)), UNIQUE(email). Vai trò mặc định CUSTOMER; trạng thái mặc định ACTIVE. Không trả passwordHash qua API.
+
+#### Phục hồi mật khẩu và giới hạn yêu cầu
+
+Các bảng phục hồi mật khẩu bổ sung bởi V10 (chi tiết luồng tại [auth-email-recovery.md](auth-email-recovery.md)):
+
+- `password_reset_challenges`: `user_id INTEGER` PK/FK users ON DELETE CASCADE; `otp_hash VARCHAR(255)` nullable; `otp_expires_at TIMESTAMPTZ` NN; `attempts INTEGER` NN DEFAULT 0 CHECK 0..5; `token_hash VARCHAR(64)` nullable; `token_expires_at TIMESTAMPTZ` nullable; `auth_version BIGINT` NN. Mỗi User tối đa một challenge. OTP lưu PBKDF2 có salt, token ngẫu nhiên lưu SHA-256. Gửi lại thay challenge; xác minh xóa OTP; đặt lại thành công xóa challenge và tăng users.auth_version trong cùng transaction, khóa User để tránh dùng lặp đồng thời.
+- `auth_rate_limits`: `bucket_key VARCHAR(64)` PK (SHA-256 của scope và email/IP); `expires_at TIMESTAMPTZ` NN có index; `request_count INTEGER` NN CHECK >0. DAO dùng JPA native UPSERT nguyên tử để giới hạn qua nhiều replica; bucket cũ hơn một ngày sau hạn được dọn khi có yêu cầu mới.
 
 #### Address → `addresses`
 
@@ -421,8 +433,11 @@ UNIQUE(cart_id, product_id); CHECK quantity > 0. Giá hiện tại được tín
 | `shippingPhone` | `shipping_phone` | `VARCHAR(32)` | NN |
 | `shippingAddressText` | `shipping_address_text` | `TEXT` | NN |
 | `deliveredAt` | `delivered_at` | `TIMESTAMP WITHOUT TIME ZONE` | NULL |
+| `checkoutIdempotencyKey` | `checkout_idempotency_key` | `VARCHAR(128)` | NULL; unique theo User khi có giá trị |
+| `checkoutRequestHash` | `checkout_request_hash` | `VARCHAR(64)` | NULL; SHA-256 chữ thường |
+| `paymentExpiresAt` | `payment_expires_at` | `TIMESTAMP WITHOUT TIME ZONE` | NULL; tính = order_date + 15 phút cho đơn VNPay |
 
-DEFAULT status = PENDING; total_amount >= 0. CHECK (status = DELIVERED AND delivered_at IS NOT NULL) OR (status <> DELIVERED AND delivered_at IS NULL). Đơn sau checkout có ít nhất một dòng và đúng một Payment; Service bảo đảm trong transaction.
+DEFAULT status = PENDING; total_amount >= 0. CHECK status IN ('PENDING', 'CONFIRMED', 'SHIPPING', 'DELIVERED', 'CANCELLED', 'EXPIRED_PENDING_RECONCILIATION'). CHECK (status = DELIVERED AND delivered_at IS NOT NULL) OR (status <> DELIVERED AND delivered_at IS NULL). Hai cột idempotency cùng NULL cho dữ liệu lịch sử hoặc cùng có giá trị cho đơn tạo qua API; partial UNIQUE `(user_id, checkout_idempotency_key)` ngăn một user tạo hai đơn bằng cùng khóa. Đơn sau checkout có ít nhất một dòng và đúng một Payment; Service bảo đảm trong transaction. Đơn thanh toán trực tuyến lưu `payment_expires_at` là thời hạn chót (15 phút).
 
 #### OrderItem → `order_items`
 
@@ -444,13 +459,37 @@ UNIQUE(order_id, product_id); CHECK quantity > 0 AND base_unit_price >= 0 AND un
 | --- | --- | --- | --- |
 | `paymentId` | `payment_id` | `INTEGER` | PK, NN; GENERATED ALWAYS AS IDENTITY |
 | `order` | `order_id` | `INTEGER` | NN; FK → orders.order_id; UNIQUE |
-| `method` | `method` | `VARCHAR(32)` | NN; CHECK enum PaymentMethod |
+| `method` | `method` | `VARCHAR(32)` | NN; CHECK enum PaymentMethod: 'COD', 'VNPAY' |
 | `amount` | `amount` | `NUMERIC(19,0)` | NN |
-| `status` | `status` | `VARCHAR(32)` | NN; CHECK enum PaymentStatus |
+| `status` | `status` | `VARCHAR(32)` | NN; CHECK enum PaymentStatus: 'PENDING', 'PAID', 'FAILED' |
 | `transactionId` | `transaction_id` | `VARCHAR(255)` | NULL |
 | `paidAt` | `paid_at` | `TIMESTAMP WITHOUT TIME ZONE` | NULL |
 
-UNIQUE(order_id); DEFAULT status = PENDING; CHECK amount >= 0. CHECK (status = PAID AND paid_at IS NOT NULL) OR (status <> PAID AND paid_at IS NULL). amount = orders.total_amount do Service kiểm tra. transaction_id tùy chọn, không tự áp UNIQUE toàn hệ thống khi chưa tích hợp nhà cung cấp.
+UNIQUE(order_id); DEFAULT status = PENDING; CHECK amount >= 0. CHECK (status = PAID AND paid_at IS NOT NULL) OR (status <> PAID AND paid_at IS NULL). amount = orders.total_amount do Service kiểm tra.
+
+#### PaymentAttempt → `payment_attempts`
+
+| Thuộc tính Java | Cột | Kiểu PostgreSQL | Ràng buộc |
+| --- | --- | --- | --- |
+| `attemptId` | `attempt_id` | `INTEGER` | PK, NN; GENERATED ALWAYS AS IDENTITY |
+| `payment` | `payment_id` | `INTEGER` | NN; FK → payments.payment_id |
+| `order` | `order_id` | `INTEGER` | NN; FK → orders.order_id |
+| `referenceCode` | `reference_code` | `VARCHAR(64)` | NN; UNIQUE; mã tham chiếu vnp_TxnRef |
+| `amount` | `amount` | `NUMERIC(19,0)` | NN; CHECK amount >= 0 |
+| `createdAt` | `created_at` | `TIMESTAMP WITHOUT TIME ZONE` | NN |
+| `expiresAt` | `expires_at` | `TIMESTAMP WITHOUT TIME ZONE` | NN |
+| `status` | `status` | `VARCHAR(32)` | NN; DEFAULT 'INITIATED'; CHECK IN ('INITIATED','PENDING','SUCCESS','FAILED','EXPIRED','UNKNOWN') |
+| `vnpTransactionNo` | `vnp_transaction_no` | `VARCHAR(64)` | NULL |
+| `vnpBankCode` | `vnp_bank_code` | `VARCHAR(32)` | NULL |
+| `verifiedResult` | `verified_result` | `TEXT` | NULL |
+| `lastReconciledAt` | `last_reconciled_at` | `TIMESTAMP WITHOUT TIME ZONE` | NULL |
+| `nextRetryAt` | `next_retry_at` | `TIMESTAMP WITHOUT TIME ZONE` | NULL |
+| `retryCount` | `retry_count` | `INTEGER` | NN; DEFAULT 0; CHECK retry_count >= 0 |
+| `errorMessage` | `error_message` | `TEXT` | NULL |
+| `requiresAdminReview` | `requires_admin_review` | `BOOLEAN` | NN; DEFAULT FALSE |
+
+UNIQUE(reference_code); IX trên (status, next_retry_at) để tác vụ đối soát QueryDR quét các attempt chưa kết luận; IX trên (requires_admin_review) hỗ trợ Admin lọc đơn nghi ngờ.
+
 
 ### 4.4. Builder và Recommendation
 
@@ -464,6 +503,8 @@ UNIQUE(order_id); DEFAULT status = PENDING; CHECK amount >= 0. CHECK (status = P
 | `sourceType` | `source_type` | `VARCHAR(32)` | NN; CHECK enum BuildSourceType |
 
 source_type là MANUAL hoặc RECOMMENDATION. Build không có tổng tiền lưu cố định; tính lại theo giá hiện tại. Build gắn RecommendationResult là snapshot bất biến; khi người dùng muốn chỉnh sửa, tạo bản sao MANUAL.
+
+T24 hiện chỉ tạo build MANUAL. API lọc theo user_id, cho phép lưu build chưa đủ linh kiện; phản hồi tính lại giá từ products.price và chạy T23 để trả PASS/FAIL/UNKNOWN. Chỉ build PASS được thêm vào giỏ sau khi kiểm tra trạng thái bán, tồn khả dụng và lượng giỏ hiện có; thao tác gộp chạy trong một transaction.
 
 #### PcBuildItem → `pc_build_items`
 
@@ -562,6 +603,16 @@ UNIQUE(attempt_id), UNIQUE(build_id); estimated_total >= 0. Chỉ tạo Result c
 
 DEFAULT status = PUBLISHED. created_at/updated_at do Service ghi. Tạo bài phải có ít nhất một ảnh và tác giả đã có đơn DELIVERED; thực hiện cùng transaction. HIDDEN dùng khi ẩn bài.
 
+T10 bổ sung metadata kiểm duyệt để đáp ứng T30 (đã được chốt ngày 04/10/2026):
+
+| Thuộc tính Java | Cột | Kiểu PostgreSQL | Ràng buộc |
+| --- | --- | --- | --- |
+| `moderationReason` | `moderation_reason` | `TEXT` | NULL; nếu có phải trim, không rỗng |
+| `moderatedBy` | `moderated_by` | `INTEGER` | NULL; FK → users.user_id |
+| `moderatedAt` | `moderated_at` | `TIMESTAMP WITHOUT TIME ZONE` | NULL |
+
+moderated_by và moderated_at cùng NULL hoặc cùng có giá trị. Status HIDDEN bắt buộc cả ba trường kiểm duyệt. Sau khi khôi phục PUBLISHED có thể giữ metadata lần kiểm duyệt gần nhất; đây không phải bảng lịch sử kiểm duyệt. `user_id` vẫn là tác giả; `moderated_by` là người kiểm duyệt. Service kiểm tra quyền ADMIN.
+
 #### SetupImage → `setup_images`
 
 | Thuộc tính Java | Cột | Kiểu PostgreSQL | Ràng buộc |
@@ -581,7 +632,7 @@ UNIQUE(post_id, sort_order); CHECK sort_order >= 0. Không cho xóa ảnh cuối
 | `product` | `product_id` | `INTEGER` | PK, NN; FK → products.product_id; PK ghép |
 
 PK ghép: `(post_id, product_id)`.
-PK ghép(post_id, product_id). Một bài có 0..* sản phẩm; một sản phẩm xuất hiện ở 0..* bài.
+PK ghép(post_id, product_id). T29 yêu cầu bài đang tồn tại có ít nhất một Product thuộc catalog; Service kiểm tra khi tạo/sửa. Một sản phẩm xuất hiện ở 0..* bài. FK không tự đảm bảo số liên kết tối thiểu.
 
 #### SetupLike → `setup_likes`
 
@@ -593,6 +644,8 @@ PK ghép(post_id, product_id). Một bài có 0..* sản phẩm; một sản ph�
 
 PK ghép: `(post_id, user_id)`.
 PK ghép(post_id, user_id): một người chỉ like một bài một lần. Unlike xóa bản ghi; likeCount tính COUNT, không lưu thêm cột.
+
+T30 triển khai [API social](T30_SETUP_SOCIAL.md): User ACTIVE chỉ like/unlike bài PUBLISHED, không cần đơn DELIVERED và không cấm tác giả/Admin like. Ranking dùng tổng like giảm dần, rồi created_at/post_id giảm dần, chỉ lấy PUBLISHED. Like và kiểm duyệt khóa cùng Post; ẩn/khôi phục giữ like và yêu cầu lý do, cập nhật metadata kiểm duyệt gần nhất.
 
 ### 4.6. Khuyến mãi
 
@@ -706,6 +759,20 @@ UNIQUE(order_item_id); rating BETWEEN 1 AND 5; content không trống; DEFAULT s
 
 UNIQUE(review_id, sort_order), UNIQUE(storage_key); sort_order >= 0; size_bytes > 0. IMAGE có duration_second NULL; VIDEO có duration_second > 0. Tối đa 6 file/review: khóa dòng Review trước khi đếm và thêm media. Không ghi URL công khai cố định thay cho storage_key.
 
+#### MediaAsset → `media_assets` (T21, Flyway V5–V8)
+
+Mỗi file upload tạm có `media_id` UUID, `user_id` (chủ upload), `module` (`SETUP`/`REVIEW`), `status` (`UPLOADING`/`TEMP`/`ATTACHED`/`DELETE_PENDING`/`DELETED`), `public_id` Cloudinary duy nhất, `cloudinary_asset_id` tùy chọn, MIME, dung lượng, chiều rộng/cao, `created_at`, `expires_at`, `attached_at`, `cleanup_attempts` và `next_cleanup_at` (hai trường cuối từ V6). V7 thêm `duration_second` cho video Review tối đa 10 giây; V8 thêm `resource_type` (`image`/`video`) từ lúc giữ chỗ để dọn file lỗi đúng Cloudinary endpoint. Chỉ `TEMP`/`ATTACHED` có đủ metadata; `ATTACHED` có `attached_at`. `DELETED` là tombstone giữ thống kê rate limit. `public_id` luôn ở namespace tạm riêng của module, không phải URL xem công khai. `setup_images.media_asset_id` và `review_media.media_asset_id` là FK tùy chọn, duy nhất để giữ dữ liệu V3 cũ hợp lệ; dịch vụ tạo bài sau này bắt buộc gắn media mới bằng FK này. Service T21 kiểm tra chủ, module, thời hạn và số lượng trong transaction; FK không tự xác nhận các quy tắc đó.
+
+#### ReviewLike → `review_likes` (bổ sung T10)
+
+| Thuộc tính Java | Cột | Kiểu PostgreSQL | Ràng buộc |
+| --- | --- | --- | --- |
+| `review` | `review_id` | `INTEGER` | PK, NN; FK → product_reviews.review_id |
+| `user` | `user_id` | `INTEGER` | PK, NN; FK → users.user_id |
+| `createdAt` | `created_at` | `TIMESTAMP WITHOUT TIME ZONE` | NN; Service cung cấp |
+
+PK ghép `(review_id, user_id)` bảo đảm một like/user/review. Unlike xóa bản ghi; số like tính COUNT. FK review dùng ON DELETE CASCADE, FK user dùng RESTRICT; thêm index user_id cho chiều ngược. T27 kiểm tra đăng nhập, review PUBLISHED và cấm tự like bằng tác giả suy ra từ OrderItem → Order → User. Schema này được chốt cùng T10 ngày 04/10/2026.
+
 ## 5. Enum sử dụng trong mô hình đã sửa
 
 | Enum | Giá trị |
@@ -715,7 +782,7 @@ UNIQUE(review_id, sort_order), UNIQUE(storage_key); sort_order >= 0; size_bytes 
 | `ActiveStatus` | `ACTIVE`, `INACTIVE` |
 | `ProductStatus` | `ACTIVE`, `INACTIVE`, `DRAFT`, `OUT_OF_STOCK`, `DISCONTINUED`, `HIDDEN` |
 | `OrderStatus` | `PENDING`, `CONFIRMED`, `SHIPPING`, `DELIVERED`, `CANCELLED` |
-| `PaymentMethod` | `COD`, `BANK_TRANSFER` |
+| `PaymentMethod` | `COD`, `VNPAY` |
 | `PaymentStatus` | `PENDING`, `PAID`, `FAILED` |
 | `BuildSourceType` | `MANUAL`, `RECOMMENDATION` |
 | `ComponentType` | `CPU`, `MOTHERBOARD`, `RAM`, `GPU`, `STORAGE`, `PSU`, `CASE`, `COOLER` |
@@ -742,7 +809,7 @@ ActiveStatus cũng được dùng cho ProductWarrantyInfo. UsagePurpose được
 3. Tính mỗi giá đơn vị theo dịch vụ giá chung. Rule hợp lệ khi Promotion có hiệu lực và đúng scope. Tính giá cuối của mọi rule phù hợp, chọn giá thấp nhất; nếu bằng nhau chọn rule_id nhỏ nhất. Không cộng dồn. Nếu không rule nào tạo mức giảm sau làm tròn, để applied_promotion_rule_id NULL và unit_price = base_unit_price.
 4. Công thức: PERCENT → max(0, basePrice × (1 − discountValue/100)); FIXED_AMOUNT → max(0, basePrice − discountValue). Làm tròn HALF_UP về nguyên đồng; không vượt quá giá gốc. Ví dụ giá 1.000.000, giảm 10% → 900.000; giảm cố định 1.200.000 → 0.
 5. `Order.totalAmount = SUM(quantity × unitPrice)`; phạm vi này chưa thêm phí vận chuyển, thuế hoặc mã giảm toàn đơn. Payment.amount bằng totalAmount. Tổng và tích phải nằm trong giới hạn NUMERIC(19,0), nếu vượt thì từ chối.
-6. Tạo Order PENDING, các OrderItem, Payment PENDING, snapshot bảo hành nếu có, giữ chỗ tồn kho và xóa các dòng giỏ đã mua trong một transaction. Lỗi ở bất kỳ bước nào thì rollback toàn bộ. Khóa Cart khi checkout để hai yêu cầu đồng thời không tạo hai đơn từ cùng một giỏ.
+6. Tạo Order PENDING, các OrderItem, Payment PENDING, snapshot bảo hành nếu có, giữ chỗ tồn kho và xóa các dòng giỏ đã mua trong một transaction. Client có thể gửi `cartItemIds` để mua một phần giỏ; backend phải kiểm tra toàn bộ ID vẫn thuộc giỏ của user và chỉ xử lý/xóa các dòng đó. Bỏ qua `cartItemIds` nghĩa là mua toàn bộ giỏ để tương thích client cũ. Lỗi ở bất kỳ bước nào thì rollback toàn bộ. Khóa Cart khi checkout để hai yêu cầu đồng thời không tạo hai đơn từ cùng một tập dòng giỏ.
 
 Cart/Builder hiển thị giá hiện tại; checkout luôn tính lại. Đơn đã tạo giữ nguyên giá và địa chỉ. Payment là một bản ghi theo dõi thanh toán tổng hợp: cùng một đơn có thể cập nhật PENDING → FAILED → PENDING hoặc PENDING/FAILED → PAID sau khi xác minh, không thêm Payment thứ hai. PAID không tự quay về PENDING/FAILED. paymentId, orderId và amount không thay đổi. Chưa có trả hàng/hoàn tiền tự động; đơn đã PAID không đi qua luồng hủy thông thường.
 
@@ -762,7 +829,7 @@ Service khóa Order và kiểm tra trạng thái trước khi chuyển; gọi l�
 
 Giữ chỗ **không tự hết hạn** ở phiên bản đầu; Admin hủy đơn chưa thanh toán khi cần. Đây là lựa chọn hoàn thiện mô hình hiện tại, tránh đặt thời hạn không có dữ liệu lưu. Khi bổ sung hết hạn tự động, phải thêm thời điểm hết hạn và tác vụ giải phóng có kiểm soát; không âm thầm hủy theo thời gian hiện tại. Nhập/điều chỉnh tồn không được làm quantityOnHand thấp hơn reservedQuantity.
 
-Customer chỉ hủy đơn của mình còn PENDING và chưa PAID; Admin có thể hủy PENDING/CONFIRMED chưa PAID. Không chuyển lùi, không hủy SHIPPING/DELIVERED trong luồng hiện tại. BANK_TRANSFER phải PAID trước SHIPPING; COD được giao khi Payment PENDING, khi xác nhận thu tiền và giao thành công thì cập nhật Payment PAID cùng transaction DELIVERED. Không hỗ trợ giao thất bại/hoàn kho/hoàn tiền trong mô hình trạng thái hiện có.
+Customer chỉ hủy đơn của mình còn PENDING và chưa PAID; Admin có thể hủy PENDING/CONFIRMED chưa PAID. Không chuyển lùi, không hủy SHIPPING/DELIVERED trong luồng hiện tại. VNPAY phải PAID trước SHIPPING; COD được giao khi Payment PENDING, khi xác nhận thu tiền và giao thành công thì cập nhật Payment PAID cùng transaction DELIVERED. Không hỗ trợ giao thất bại/hoàn kho/hoàn tiền trong mô hình trạng thái hiện có.
 
 ### 6.3. Recommendation và linh kiện đã sở hữu
 
@@ -798,8 +865,10 @@ Mốc bắt đầu là deliveredAt. Cộng tháng lịch bằng quy tắc LocalD
 - User chỉ tạo/sửa review thuộc OrderItem của chính mình và đơn đã DELIVERED. Một dòng mua quantity > 1 vẫn chỉ có một Review. rating từ 1..5; content không trống.
 - Chủ review có thể xóa mềm PUBLISHED → DELETED và khôi phục DELETED → PUBLISHED trên cùng bản ghi. Chủ review không được khôi phục HIDDEN. Admin ẩn/khôi phục bằng HIDDEN ↔ PUBLISHED và cập nhật moderatedBy/moderatedAt/moderationReason; không tự chuyển DELETED của người dùng sang công khai. Bản HIDDEN không được chủ sửa để vượt kiểm duyệt.
 - ReviewMedia gắn với Review; tối đa 6, cả IMAGE và VIDEO cùng tính vào giới hạn. Service khóa Review trước mọi thao tác thêm media; validate MIME thực, kích thước và thời lượng. Giới hạn dung lượng/thời lượng upload là cấu hình ứng dụng, không phải bội số database. Review HIDDEN/DELETED không hiển thị media công khai.
-- SetupPost có ít nhất một SetupImage ngay khi tạo. Các lần sửa/xóa ảnh phải khóa Post và bảo đảm không còn 0 ảnh; ảnh được sắp theo sort_order. Người đăng cần từng có đơn DELIVERED; sản phẩm gắn vào bài không bắt buộc trùng sản phẩm từng mua vì có thể đã sở hữu từ nơi khác.
+- SetupPost có ít nhất một SetupImage và một SetupPostProduct ngay khi tạo. Các lần sửa/xóa ảnh phải khóa Post và bảo đảm không còn 0 ảnh; ảnh được sắp theo sort_order. Người đăng cần từng có đơn DELIVERED; sản phẩm gắn vào bài không bắt buộc trùng sản phẩm từng mua vì có thể đã sở hữu từ nơi khác. Khi tạo/sửa, Product phải ACTIVE và Category/Brand của nó cũng ACTIVE; không yêu cầu còn hàng.
 - SetupPostProduct chỉ lưu liên kết; SetupLike chỉ lưu một like/User/Post. User phải đăng nhập để like; quyền xem bài HIDDEN được kiểm tra ở Service.
+- ReviewLike chỉ lưu một like/User/Review; không tự like review của mình theo T27. Việc đối chiếu user đăng nhập với chủ OrderItem/Build/Setup, đơn DELIVERED, giới hạn media, ảnh bắt buộc, trạng thái và quyền ADMIN là trách nhiệm Service trong transaction. T10 kiểm thử đường FK xác định chủ sở hữu, không thay thế kiểm thử phân quyền API của T24/T26–T30.
+- T27 đã có [hợp đồng like/unlike và kiểm duyệt](T27_REVIEW_SOCIAL.md): khóa dòng Review trước khi thao tác; like đếm COUNT, unlike xóa dòng. Admin chỉ đổi PUBLISHED ↔ HIDDEN; khôi phục xóa moderationReason và ghi người/thời gian mới, gọi lặp cùng trạng thái giữ metadata. T26 dùng cùng trạng thái/khóa và chỉ tính danh sách công khai/rating từ PUBLISHED.
 
 ### 6.6. Index và chính sách xóa
 
@@ -818,13 +887,15 @@ Các unique index có điều kiện bắt buộc: addresses(user_id) WHERE is_d
 | RecommendationRequest → Purpose, RequestOwnedProduct | request_id ở hai bảng này |
 | SetupPost → SetupImage, SetupPostProduct, SetupLike | post_id ở ba bảng này |
 | PromotionRule → hai bảng mục tiêu | rule_id ở hai bảng nối |
-| ProductReview → ReviewMedia | review_media.review_id |
+| ProductReview → ReviewMedia, ReviewLike | review_id ở hai bảng này |
 
 User/Product có lịch sử giao dịch được vô hiệu hóa bằng status, không xóa cứng. Orders, OrderItems, Payments, OrderItemWarranty, Review và chuỗi Request–Attempt–Result được giữ để truy vết; không xóa cứng qua API nghiệp vụ. Rule đã được OrderItem tham chiếu không sửa/xóa; muốn đổi mức giảm/đối tượng phải tạo rule hoặc Promotion mới. Thay đổi trạng thái Promotion chỉ ảnh hưởng giao dịch tương lai.
 
 Cascade trên ReviewMedia chỉ mô tả hành vi nếu có thao tác dọn dữ liệu được quản trị cho phép; soft delete Review không kích hoạt cascade. Xóa hàng media không tự xóa file storage: phải có tác vụ dọn file sau commit và khả năng retry.
 
 ### 6.7. Spec và giới hạn kiểm tra tương thích
+
+- Form Admin chọn trường spec theo `Category.componentType` cho tám nhóm Builder. `POST /api/admin/products` và `PATCH /api/admin/products/{id}` có thể nhận object `spec`; nếu gửi thì phải đủ thuộc tính của đúng loại. Service kiểm tra trường bắt buộc, kiểu số, mã Socket/FormFactor, rồi lưu cùng Product/Inventory trong một transaction. `GET /api/admin/products/{id}` trả lại spec đã lưu; `spec: null` nghĩa là sản phẩm chưa có dòng spec. PATCH bỏ qua `spec` giữ nguyên spec cũ; đổi loại danh mục của sản phẩm đã có spec phải gửi bộ spec mới hợp lệ. Không dùng dữ liệu nhập dở để đánh dấu PASS.
 
 - CPU/MOTHERBOARD/RAM/GPU/STORAGE/PSU/CASE/COOLER ánh xạ đúng loại Spec theo Category.componentType. MonitorSpec/GearSpec chỉ dùng cho Category có componentType NULL và đúng nhóm sản phẩm do catalog quản lý; Service không cho một Product có nhiều loại Spec. Catalog ngoài PC không được đưa vào Recommendation.
 - Số lõi, luồng, xung nhịp, dung lượng, tốc độ RAM, moduleCount, công suất định mức, kích thước vật lý và thông số màn hình phải > 0. threads >= cores; boostClockGhz >= baseClockGhz; moduleCount >= 1; ramSlots/maxRamGb > 0. Các đại lượng tiêu thụ điện, tốc độ đọc/ghi và giới hạn radiator có thể = 0 khi mang nghĩa không tiêu thụ/không hỗ trợ; không dùng 0 để giả vờ biết dữ liệu còn thiếu.
@@ -833,13 +904,14 @@ Cascade trên ReviewMedia chỉ mô tả hành vi nếu có thao tác dọn dữ
 - Các chuỗi chuẩn kỹ thuật như ramType, interfaceType, storageType, coolerType và formFactorCode được chuẩn hóa theo danh mục giá trị ứng dụng; so sánh mã chuẩn, không so sánh tên hiển thị tự do.
 - Kiểm tra tối thiểu: Socket CPU–mainboard; RAM type/khe/tổng dung lượng; FormFactor mainboard thuộc CaseSupportedFormFactor; Socket CPU thuộc CoolerSupportedSocket; chiều dài GPU và chiều cao tản/radiator trong giới hạn case. Một build đầy đủ cần CPU, mainboard, RAM, storage, PSU, case và giải pháp tản nhiệt; với dữ liệu hiện có, yêu cầu GPU rời khi đánh dấu cấu hình hoàn chỉnh vì chưa lưu khả năng đồ họa tích hợp.
 - Công suất PSU phải ít nhất đạt recommendedPsuW của GPU; đây chỉ là kiểm tra tối thiểu. Schema chưa có đủ điện năng toàn hệ thống, đầu cấp nguồn, BIOS/chipset support, khe/cổng lưu trữ hoặc vị trí lắp radiator để chứng minh tương thích đầy đủ. Backend phải trả “chưa kiểm tra được” cho những tiêu chí thiếu dữ liệu; không coi việc qua các so sánh cơ bản là bảo đảm phần cứng hoạt động. Recommendation chỉ ACCEPTED khi đạt bộ tiêu chí nghiệp vụ bắt buộc đã có dữ liệu; không tuyên bố các tiêu chí ngoài phạm vi đã được kiểm chứng.
+- T23 trả trạng thái và lý do theo từng rule; trạng thái chung ưu tiên FAIL, rồi UNKNOWN, rồi PASS. Build thiếu nhóm hoặc sản phẩm được chọn thiếu dòng Spec không thể PASS. Với tản khí, kiểm tra chiều cao theo giới hạn case; tản dùng radiator trả UNKNOWN ở phép kiểm tra lắp case cho tới khi có dữ liệu vị trí lắp phù hợp. Xem [contract T23](T23_COMPATIBILITY.md).
 
 ## 7. Những điểm đã sửa so với class diagram đầu vào
 
 | Điểm | Thiết kế sau sửa | Lý do |
 | --- | --- | --- |
 | Address–User | User 1 – 0..* Address; thêm user và isDefault, unique index mặc định | Mỗi địa chỉ có chủ sở hữu rõ ràng và hiện thực được setDefault(). |
-| Order–Payment | Order 1 – 0..1 Payment, order_id UNIQUE NOT NULL | Loại bỏ nhãn bội số đảo chiều; phù hợp COD/BANK_TRANSFER. |
+| Order–Payment | Order 1 – 0..1 Payment, order_id UNIQUE NOT NULL | Loại bỏ nhãn bội số đảo chiều; phù hợp COD/VNPAY. |
 | Recommendation | Thêm RecommendationAttempt, RequestPurpose; Request–Attempt–Result thay đường trực tiếp Request–Result | Hoàn thiện tham chiếu bị thiếu và dùng được AttemptStatus/UsagePurpose. |
 | PromotionRule | Thêm ruleId, promotion, discountValue và hai bảng nối Product/Category | Có khóa, mức giảm và tập đối tượng rõ ràng để tính giá. |
 | Rule–OrderItem | OrderItem có 0..1 Rule; chốt giá gốc/giá cuối, không cộng dồn | Mua không khuyến mãi vẫn hợp lệ; bảo toàn giá lịch sử. |
@@ -856,7 +928,7 @@ Khi cập nhật draw.io, bổ sung các lớp/bảng nối và thuộc tính m�
 
 1. **CORE:** User, Address, Category, Brand, Product, ProductImage, Inventory, Cart, CartItem, Order, OrderItem, Payment. Khi chưa có Promotion, unitPrice = baseUnitPrice và chưa tạo FK tới bảng rule; thêm cột/FK nullable ở migration Promotion. Tương tự snapshot Warranty triển khai cùng tính năng bảo hành, không tuyên bố đơn CORE cũ đã có snapshot.
 2. **FEATURE:** Spec/Compatibility, PC Builder, Review và Community. Một ảnh setup cơ bản thuộc FEATURE; media nâng cao triển khai sau.
-3. **ADVANCED:** Recommendation/Attempt/Result, Promotion, Warranty và ReviewMedia nâng cao theo scope. Schema mục tiêu ở mục 4 mô tả trạng thái sau khi đủ các phần, migration phải theo đúng thứ tự phụ thuộc.
+3. **ADVANCED:** Recommendation/Attempt/Result, Promotion, Warranty và xử lý Media nâng cao theo scope. Schema `review_media` đã nằm trong T10 theo Work Item được giao; upload/xử lý file thuộc T21. Schema mục tiêu ở mục 4 mô tả trạng thái sau khi đủ các phần, migration phải theo đúng thứ tự phụ thuộc.
 
 Tạo migration riêng và entity JPA theo từng bước; Hibernate chỉ validate, không tự sửa schema. Collection dùng mappedBy/join table đúng FK; Spec và OrderItemWarranty dùng shared PK; không trả entity chứa passwordHash hoặc quan hệ vòng ra API. Tài liệu không thay thế SQL migration và không xác nhận migration đã chạy.
 

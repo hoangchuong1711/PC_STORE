@@ -1,0 +1,3122 @@
+openapi: "3.0.3"
+info:
+  title: "PC Store API"
+  version: "1.0.0"
+  description: "Danh sách API đã triển khai. Chọn endpoint → Try it out → Execute. Đăng nhập bằng POST /api/auth/login trước khi gọi /me hoặc Admin.
+    Cookie được trình duyệt quản lý; nút Authorize không đặt được cookie HttpOnly. Request POST/PATCH thay đổi dữ liệu thật, nên dùng môi trường test. 
+    Backend có thể trả lỗi CORS 403 (ORIGIN_NOT_ALLOWED) nếu origin không được phép."
+servers:
+  -
+    url: ".."
+    description: "Backend cùng origin/context với tài liệu"
+tags:
+  - name: Review social
+    description: T27 — CUSTOMER like/unlike; ADMIN ẩn/khôi phục review đã có
+  -
+    name: "Auth"
+    description: "Đăng ký, đăng nhập, session"
+  -
+    name: "Catalog"
+    description: "Danh mục sản phẩm public"
+  -
+    name: "Admin products"
+    description: "Chỉ ADMIN. DELETE trả 405; dùng PATCH status HIDDEN để ẩn."
+  -
+    name: "Media"
+    description: "Upload ảnh tạm cho Review và Setup"
+  -
+    name: "Setup"
+    description: "Bài đăng Setup Community (T29), like/ranking/kiểm duyệt (T30)"
+paths:
+  /api/auth/forgot-password:
+    post:
+      tags: [Auth]
+      operationId: forgotPassword
+      summary: Gửi OTP quên mật khẩu qua email
+      description: "OTP 6 số hết hạn sau 5 phút. Response chung cho email không tồn tại/tài khoản không ACTIVE và khi provider từ chối gửi. Tối đa 1 lần/phút/email, 5 lượt/giờ/email, 20 yêu cầu/giờ/IP. Không yêu cầu session."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              additionalProperties: false
+              properties:
+                email: {type: string, format: email, maxLength: 254}
+      responses:
+        '200':
+          description: Nếu email hợp lệ và tài khoản hoạt động, mã sẽ được gửi; kiểm tra cả Spam
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuthMessage'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '403':
+          description: ORIGIN_NOT_ALLOWED
+        '429':
+          description: RATE_LIMITED; chờ cooldown hoặc quota giờ
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '503':
+          description: MAIL_UNAVAILABLE; gửi email đang tắt hoặc thiếu cấu hình
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+  /api/auth/verify-reset-otp:
+    post:
+      tags: [Auth]
+      operationId: verifyResetOtp
+      summary: Xác minh OTP và nhận quyền đặt lại mật khẩu
+      description: "Tối đa 5 lần sai/mã; 60 request đúng định dạng/5 phút/IP. Thành công hủy OTP; resetToken ngẫu nhiên dùng một lần, hiệu lực 5 phút. Không yêu cầu session. Response no-store."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, otp]
+              additionalProperties: false
+              properties:
+                email: {type: string, format: email, maxLength: 254}
+                otp: {type: string, pattern: '^[0-9]{6}$', example: '012345'}
+      responses:
+        '200':
+          description: Quyền đặt lại mật khẩu, chỉ giữ trong bộ nhớ frontend
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [resetToken]
+                properties:
+                  resetToken: {type: string, minLength: 43, maxLength: 43}
+        '400':
+          description: INVALID_OTP hoặc dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '403': {description: ORIGIN_NOT_ALLOWED}
+        '429': {description: RATE_LIMITED}
+  /api/auth/reset-password:
+    post:
+      tags: [Auth]
+      operationId: resetPassword
+      summary: Đặt mật khẩu mới sau xác minh OTP
+      description: "Token phải thuộc email yêu cầu, chưa hết hạn/chưa dùng. Thành công hủy challenge và thu hồi các session cũ bằng auth_version; không tự đăng nhập. Gửi email thông báo sau commit. 60 request đúng định dạng/5 phút/IP."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, resetToken, newPassword]
+              additionalProperties: false
+              properties:
+                email: {type: string, format: email, maxLength: 254}
+                resetToken: {type: string, pattern: '^[A-Za-z0-9_-]{43}$'}
+                newPassword: {type: string, format: password, minLength: 8, maxLength: 128}
+      responses:
+        '200':
+          description: Mật khẩu đã đặt lại; đăng nhập bằng mật khẩu mới
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuthMessage'}
+        '400':
+          description: INVALID_RESET_TOKEN hoặc dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '403': {description: ORIGIN_NOT_ALLOWED}
+        '429': {description: RATE_LIMITED}
+  "/api/setups/ranking":
+    get:
+      tags: [Setup]
+      operationId: rankSetups
+      summary: PUBLISHED; tổng like DESC, createdAt DESC, postId DESC
+      parameters:
+        - {$ref: '#/components/parameters/SetupOffset'}
+        - {$ref: '#/components/parameters/SetupLimit'}
+      responses:
+        '200': {description: Ranking, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/SetupRanked'}}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  "/api/setup-likes/{id}":
+    parameters: [{$ref: '#/components/parameters/SetupId'}]
+    get:
+      tags: [Setup]
+      operationId: getSetupLike
+      summary: Số like và trạng thái phiên; Guest liked=false; HIDDEN trả 404
+      responses:
+        '200': {description: Like, content: {application/json: {schema: {$ref: '#/components/schemas/SetupLike'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    put:
+      tags: [Setup]
+      operationId: likeSetup
+      security: [{sessionCookie: []}]
+      summary: Like idempotent; user ACTIVE, kể cả tác giả hoặc Admin
+      responses:
+        '200': {description: Like, content: {application/json: {schema: {$ref: '#/components/schemas/SetupLike'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    delete:
+      tags: [Setup]
+      operationId: unlikeSetup
+      security: [{sessionCookie: []}]
+      summary: Unlike idempotent; user ACTIVE; HIDDEN trả 404
+      responses:
+        '200': {description: Like, content: {application/json: {schema: {$ref: '#/components/schemas/SetupLike'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  "/api/admin/setups":
+    get:
+      tags: [Setup]
+      operationId: listModeratedSetups
+      security: [{sessionCookie: []}]
+      summary: Admin xem mọi bài hoặc lọc theo status; mới nhất trước
+      parameters:
+        - {$ref: '#/components/parameters/SetupOffset'}
+        - {$ref: '#/components/parameters/SetupLimit'}
+        - {name: status, in: query, schema: {type: string, enum: [PUBLISHED, HIDDEN]}}
+      responses:
+        '200': {description: Danh sách, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/SetupModerated'}}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  "/api/admin/setups/{id}":
+    get:
+      tags: [Setup]
+      operationId: getModeratedSetup
+      security: [{sessionCookie: []}]
+      summary: Admin xem bài và metadata kiểm duyệt
+      parameters: [{$ref: '#/components/parameters/SetupId'}]
+      responses:
+        '200': {description: Bài đăng, content: {application/json: {schema: {$ref: '#/components/schemas/SetupModerated'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  "/api/admin/setups/{id}/status":
+    put:
+      tags: [Setup]
+      operationId: moderateSetup
+      security: [{sessionCookie: []}]
+      summary: Ẩn hoặc khôi phục; cần lý do cho cả hai, giữ like và ảnh
+      parameters: [{$ref: '#/components/parameters/SetupId'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SetupModerationRequest'}}}}
+      responses:
+        '200': {description: Bài đã kiểm duyệt, content: {application/json: {schema: {$ref: '#/components/schemas/SetupModerated'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  "/api/setups":
+    get:
+      tags: [Setup]
+      operationId: listPublicSetups
+      summary: Danh sách bài PUBLISHED cho khách
+      parameters:
+        - {$ref: '#/components/parameters/SetupOffset'}
+        - {$ref: '#/components/parameters/SetupLimit'}
+      responses:
+        '200': {description: Danh sách bài, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/SetupResponse'}}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  "/api/setups/{id}":
+    get:
+      tags: [Setup]
+      operationId: getPublicSetup
+      summary: Chi tiết bài PUBLISHED; bài ẩn trả 404
+      parameters: [{ $ref: '#/components/parameters/SetupId' }]
+      responses:
+        '200': {description: Bài đăng, content: {application/json: {schema: {$ref: '#/components/schemas/SetupResponse'}}}}
+        '404': {$ref: '#/components/responses/NotFound'}
+  "/api/customer/setups/eligibility":
+    get:
+      tags: [Setup]
+      operationId: getSetupEligibility
+      security: [{sessionCookie: []}]
+      summary: Kiểm tra tài khoản có đơn DELIVERED
+      responses:
+        '200': {description: Điều kiện đăng, content: {application/json: {schema: {$ref: '#/components/schemas/SetupEligibility'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  "/api/customer/setups":
+    get:
+      tags: [Setup]
+      operationId: listOwnSetups
+      security: [{sessionCookie: []}]
+      summary: Bài của tôi, gồm bài HIDDEN
+      parameters:
+        - {$ref: '#/components/parameters/SetupOffset'}
+        - {$ref: '#/components/parameters/SetupLimit'}
+      responses:
+        '200': {description: Danh sách bài, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/SetupResponse'}}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+    post:
+      tags: [Setup]
+      operationId: createSetup
+      security: [{sessionCookie: []}]
+      summary: Tạo bài; cần đơn DELIVERED, 1-8 ảnh T21 và ít nhất một Product ACTIVE
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SetupRequest'}}}}
+      responses:
+        '201': {description: Bài đã tạo, content: {application/json: {schema: {$ref: '#/components/schemas/SetupResponse'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {description: Ảnh hoặc Product không hợp lệ, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  "/api/customer/setups/{id}":
+    parameters: [{ $ref: '#/components/parameters/SetupId' }]
+    get:
+      tags: [Setup]
+      operationId: getOwnSetup
+      security: [{sessionCookie: []}]
+      summary: Xem bài của tôi, gồm bài HIDDEN
+      responses:
+        '200': {description: Bài đăng, content: {application/json: {schema: {$ref: '#/components/schemas/SetupResponse'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    put:
+      tags: [Setup]
+      operationId: updateOwnSetup
+      security: [{sessionCookie: []}]
+      summary: Thay nội dung, danh sách ảnh và Product của bài PUBLISHED thuộc mình
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SetupRequest'}}}}
+      responses:
+        '200': {description: Bài đã sửa, content: {application/json: {schema: {$ref: '#/components/schemas/SetupResponse'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {description: Ảnh hoặc Product không hợp lệ, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+    delete:
+      tags: [Setup]
+      operationId: deleteOwnSetup
+      security: [{sessionCookie: []}]
+      summary: Xóa bài và đưa media vào hàng đợi dọn
+      responses:
+        '204': {description: Đã xóa}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/customer/reviews/{reviewId}/like:
+    parameters:
+      - $ref: '#/components/parameters/ReviewId'
+    put:
+      tags: [Review social]
+      operationId: likeReview
+      summary: CUSTOMER like review công khai
+      description: >-
+        Không nhận body. Chủ review suy ra từ OrderItem → Order → User và không được tự like.
+        Gọi lặp vẫn chỉ có một like; không đổi created_at. Review HIDDEN/DELETED hoặc không tồn tại đều trả 404.
+        likesCount là COUNT từ review_likes, isLiked là trạng thái của customer đăng nhập sau thao tác.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Đã like hoặc đã like từ trước
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewLikeResponse'}
+              example: {reviewId: 1, likesCount: 1, isLiked: true}
+        '400':
+          description: INVALID_ID hoặc INVALID_JSON (body phải rỗng)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: FORBIDDEN (sai quyền) hoặc SELF_LIKE_NOT_ALLOWED
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '404':
+          description: REVIEW_NOT_FOUND (không tồn tại hoặc không PUBLISHED)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Review social]
+      operationId: unlikeReview
+      summary: CUSTOMER bỏ like review công khai
+      description: >-
+        Không nhận body. Chỉ xóa like của customer đăng nhập; nếu chưa like vẫn trả 200 với isLiked=false.
+        Chủ review có thể bỏ một self-like cũ nhưng không tạo self-like mới.
+        Review HIDDEN/DELETED hoặc không tồn tại đều trả 404, kể cả khi like còn lưu trong database.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Đã bỏ like hoặc không có like từ trước
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewLikeResponse'}
+              example: {reviewId: 1, likesCount: 0, isLiked: false}
+        '400':
+          description: INVALID_ID hoặc INVALID_JSON (body phải rỗng)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: FORBIDDEN (chỉ CUSTOMER)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '404':
+          description: REVIEW_NOT_FOUND (không tồn tại hoặc không PUBLISHED)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/admin/reviews/{reviewId}/moderation:
+    parameters:
+      - $ref: '#/components/parameters/ReviewId'
+    patch:
+      tags: [Review social]
+      operationId: moderateReview
+      summary: ADMIN ẩn hoặc khôi phục review
+      description: >-
+        Chỉ chuyển PUBLISHED ↔ HIDDEN. HIDDEN cần lý do đã bỏ khoảng trắng đầu/cuối, 1–1000 đơn vị UTF-16.
+        Khôi phục gửi PUBLISHED và không gửi lý do (hoặc null); xóa moderationReason, cập nhật moderatedBy/moderatedAt.
+        Gọi lặp cùng trạng thái trả metadata hiện có, không thay lý do/người/thời gian; request vẫn phải hợp lệ.
+        Không bao giờ đổi DELETED; trả 409 REVIEW_DELETED. Like/media không bị xóa khi ẩn bài.
+        Media công khai bị chặn bởi kiểm tra trạng thái hiện tại của T21.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ModerateReviewRequest'}
+            examples:
+              hide:
+                value: {status: HIDDEN, moderationReason: Nội dung không phù hợp}
+              restore:
+                value: {status: PUBLISHED}
+      responses:
+        '200':
+          description: Trạng thái và metadata kiểm duyệt sau thao tác
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReviewModerationResponse'}
+              example:
+                reviewId: 1
+                status: HIDDEN
+                moderationReason: Nội dung không phù hợp
+                moderatedBy: 3
+                moderatedAt: '2026-10-08T15:00:00'
+        '400':
+          description: INVALID_ID, INVALID_JSON, INVALID_REVIEW_STATUS hoặc INVALID_MODERATION_REASON
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: FORBIDDEN (chỉ ADMIN)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '404':
+          description: REVIEW_NOT_FOUND (không tồn tại)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '409':
+          description: REVIEW_DELETED (không kiểm duyệt review do chủ xóa)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ErrorResponse'}
+        '500':
+          $ref: '#/components/responses/InternalError'
+  "/api/auth/register":
+    post:
+      tags:
+        - "Auth"
+      operationId: "register"
+      summary: "Đăng ký tài khoản CUSTOMER"
+      description: "Email được trim/chuyển chữ thường. Đăng ký không tự đăng nhập. Gửi email chào mừng qua Brevo sau commit nếu MAIL_ENABLED=true và đã cấu hình. Lỗi gửi email không hủy tài khoản. Email này không phải bước xác minh kích hoạt."
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: "Đã tạo tài khoản"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AuthResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "409":
+          description: "Email trùng (EMAIL_ALREADY_EXISTS)"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+  "/api/auth/login":
+    post:
+      tags:
+        - "Auth"
+      operationId: "login"
+      summary: "Đăng nhập và tạo session"
+      description: "Dùng tài khoản test của bạn. Trình duyệt tự lưu JSESSIONID HttpOnly; không nhập cookie vào nút Authorize."
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: "Đăng nhập thành công"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AuthResponse"
+          headers:
+            "Set-Cookie":
+              description: "JSESSIONID do Tomcat quản lý; HttpOnly; SameSite=Lax; Path=/"
+              schema:
+                type: "string"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+  "/api/auth/logout":
+    post:
+      tags:
+        - "Auth"
+      operationId: "logout"
+      summary: "Đăng xuất"
+      security:
+        -
+          sessionCookie: []
+      responses:
+        "204":
+          description: "Session đã hủy; không có response body"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+  "/api/auth/me":
+    get:
+      tags:
+        - "Auth"
+      operationId: "currentUser"
+      summary: "Thông tin tài khoản hiện tại"
+      security:
+        -
+          sessionCookie: []
+      responses:
+        "200":
+          description: "Thông tin công khai"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AuthResponse"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+  "/api/products":
+    get:
+      tags:
+        - "Catalog"
+      operationId: "listProducts"
+      summary: "Tìm kiếm và phân trang sản phẩm"
+      description: "Chỉ trả sản phẩm ACTIVE, category/brand ACTIVE và tồn khả dụng > 0. Các bộ lọc kết hợp AND; sắp xếp productId tăng dần. q tìm tên không phân biệt hoa thường."
+      parameters:
+        -
+          name: "q"
+          in: "query"
+          schema:
+            type: "string"
+        -
+          name: "categoryId"
+          in: "query"
+          schema:
+            type: "integer"
+            format: "int32"
+        -
+          name: "brandId"
+          in: "query"
+          schema:
+            type: "integer"
+            format: "int32"
+        -
+          name: "minPrice"
+          in: "query"
+          schema:
+            type: "number"
+            minimum: 0
+        -
+          name: "maxPrice"
+          in: "query"
+          description: "Phải >= minPrice"
+          schema:
+            type: "number"
+            minimum: 0
+        -
+          name: "page"
+          in: "query"
+          schema:
+            type: "integer"
+            format: "int32"
+            minimum: 0
+            default: 0
+        -
+          name: "size"
+          in: "query"
+          schema:
+            type: "integer"
+            format: "int32"
+            minimum: 1
+            maximum: 100
+            default: 20
+        -
+          name: "sort"
+          in: "query"
+          description: "Thứ tự sắp xếp: price-low (giá tăng dần), price-high (giá giảm dần)"
+          schema:
+            type: "string"
+            enum: ["featured", "price-low", "price-high"]
+      responses:
+        "200":
+          description: "Trang sản phẩm; items có thể rỗng"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ProductPageResponse"
+        "400":
+          description: "Query sai (INVALID_QUERY)"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/products/{id}":
+    parameters:
+      -
+        name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: "integer"
+          format: "int32"
+          minimum: 1
+        description: "ID sản phẩm"
+    get:
+      tags:
+        - "Catalog"
+      operationId: "getProduct"
+      summary: "Chi tiết sản phẩm public"
+      description: "Cùng chính sách hiển thị với danh sách; sản phẩm ẩn/hết tồn trả 404."
+      responses:
+        "200":
+          description: "Sản phẩm"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ProductResponse"
+        "400":
+          description: "ID sai (INVALID_ID)"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "404":
+          description: "PRODUCT_NOT_FOUND"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/categories":
+    get:
+      tags:
+        - "Catalog"
+      operationId: "listCategories"
+      summary: "Danh mục ACTIVE"
+      responses:
+        "200":
+          description: "Sắp xếp theo tên rồi ID"
+          content:
+            "application/json":
+              schema:
+                type: "array"
+                items:
+                  "$ref": "#/components/schemas/CategoryResponse"
+  "/api/brands":
+    get:
+      tags:
+        - "Catalog"
+      operationId: "listBrands"
+      summary: "Thương hiệu ACTIVE"
+      responses:
+        "200":
+          description: "Sắp xếp theo tên rồi ID"
+          content:
+            "application/json":
+              schema:
+                type: "array"
+                items:
+                  "$ref": "#/components/schemas/BrandResponse"
+  "/api/admin/products":
+    post:
+      tags:
+        - "Admin products"
+      operationId: "createProduct"
+      summary: "Tạo sản phẩm và tồn kho (ADMIN)"
+      security:
+        -
+          sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/CreateProductRequest"
+      responses:
+        "201":
+          description: "Sản phẩm mới; reservedQuantity = 0"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AdminProductResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/admin/products/{id}":
+    parameters:
+      -
+        name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: "integer"
+          format: "int32"
+          minimum: 1
+        description: "ID sản phẩm"
+    get:
+      tags:
+        - "Admin products"
+      operationId: "getAdminProduct"
+      summary: "Đọc sản phẩm và thông số kỹ thuật (ADMIN)"
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: "Chi tiết sản phẩm gồm spec đã lưu"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AdminProductResponse"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+    patch:
+      tags:
+        - "Admin products"
+      operationId: "updateProduct"
+      summary: "Cập nhật hoặc ẩn sản phẩm (ADMIN)"
+      security:
+        -
+          sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/UpdateProductRequest"
+      responses:
+        "200":
+          description: "Sản phẩm đã cập nhật"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AdminProductResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/admin/products/{id}/inventory":
+    parameters:
+      -
+        name: "id"
+        in: "path"
+        required: true
+        schema:
+          type: "integer"
+          format: "int32"
+          minimum: 1
+        description: "ID sản phẩm"
+    patch:
+      tags:
+        - "Admin products"
+      operationId: "updateInventory"
+      summary: "Cập nhật tồn thực tế (ADMIN)"
+      security:
+        -
+          sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/UpdateInventoryRequest"
+      responses:
+        "200":
+          description: "Tồn kho đã cập nhật"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/AdminProductResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          description: "INVENTORY_CONFLICT: tồn mới nhỏ hơn lượng giữ chỗ"
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/builder/products":
+    get:
+      tags: [Builder]
+      operationId: listBuilderProducts
+      summary: Linh kiện đang bán, còn tồn, kèm spec cho giao diện Builder
+      responses:
+        "200":
+          description: Danh sách tám nhóm linh kiện; spec null nếu sản phẩm chưa có thông số
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/BuilderCatalogProduct'}
+  "/api/builder/compatibility":
+    post:
+      tags: [Builder]
+      operationId: previewBuilderCompatibility
+      summary: Kiểm tra lựa chọn chưa lưu bằng CompatibilityService T23
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/BuilderPreviewRequest'}
+      responses:
+        "200":
+          description: PASS, FAIL hoặc UNKNOWN và kết quả từng rule
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CompatibilityReport'}
+        "400": {$ref: '#/components/responses/BadRequest'}
+        "404": {$ref: '#/components/responses/NotFound'}
+  "/api/customer/addresses":
+    get:
+      tags: [Account]
+      operationId: listAddresses
+      summary: Danh sách địa chỉ của Customer hiện tại
+      security: [{sessionCookie: []}]
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/AddressResponse'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+    post:
+      tags: [Account]
+      operationId: createAddress
+      summary: Thêm địa chỉ mới
+      security: [{sessionCookie: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AddressRequest'}
+      responses:
+        "201":
+          description: Đã tạo địa chỉ
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AddressResponse'}
+        "400": {$ref: '#/components/responses/BadRequest'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+  "/api/customer/addresses/{id}":
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer, minimum: 1}
+    get:
+      tags: [Account]
+      operationId: getAddress
+      summary: Xem chi tiết một địa chỉ
+      security: [{sessionCookie: []}]
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AddressResponse'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "404": {$ref: '#/components/responses/NotFound'}
+    put:
+      tags: [Account]
+      operationId: updateAddress
+      summary: Cập nhật địa chỉ
+      security: [{sessionCookie: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AddressRequest'}
+      responses:
+        "200":
+          description: Đã cập nhật
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AddressResponse'}
+        "400": {$ref: '#/components/responses/BadRequest'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "404": {$ref: '#/components/responses/NotFound'}
+    delete:
+      tags: [Account]
+      operationId: deleteAddress
+      summary: Xóa địa chỉ
+      security: [{sessionCookie: []}]
+      responses:
+        "204":
+          description: Đã xóa địa chỉ
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "404": {$ref: '#/components/responses/NotFound'}
+  "/api/customer/addresses/{id}/default":
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer, minimum: 1}
+    put:
+      tags: [Account]
+      operationId: setDefaultAddress
+      summary: Đặt làm địa chỉ mặc định
+      security: [{sessionCookie: []}]
+      responses:
+        "200":
+          description: Đã đặt mặc định
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AddressResponse'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "404": {$ref: '#/components/responses/NotFound'}
+  "/api/customer/builds":
+    get:
+      tags: [Builder]
+      operationId: listBuilds
+      summary: Danh sách build của Customer hiện tại
+      security: [{sessionCookie: []}]
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/BuildResponse'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "403": {$ref: '#/components/responses/Forbidden'}
+    post:
+      tags: [Builder]
+      operationId: createBuild
+      summary: Lưu build MANUAL, cho phép thiếu linh kiện
+      security: [{sessionCookie: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/BuildRequest'}
+      responses:
+        "201":
+          description: Đã lưu build
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BuildResponse'}
+        "400": {$ref: '#/components/responses/BadRequest'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "403": {$ref: '#/components/responses/Forbidden'}
+        "404": {$ref: '#/components/responses/NotFound'}
+  "/api/customer/builds/{id}":
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer, minimum: 1}
+    get:
+      tags: [Builder]
+      operationId: getBuild
+      summary: Xem build thuộc Customer hiện tại
+      security: [{sessionCookie: []}]
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BuildResponse'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "403": {$ref: '#/components/responses/Forbidden'}
+        "404": {$ref: '#/components/responses/NotFound'}
+    put:
+      tags: [Builder]
+      operationId: updateBuild
+      summary: Thay tên và toàn bộ linh kiện build MANUAL
+      security: [{sessionCookie: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/BuildRequest'}
+      responses:
+        "200":
+          description: Thành công
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BuildResponse'}
+        "400": {$ref: '#/components/responses/BadRequest'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "403": {$ref: '#/components/responses/Forbidden'}
+        "404": {$ref: '#/components/responses/NotFound'}
+        "409": {$ref: '#/components/responses/Conflict'}
+    delete:
+      tags: [Builder]
+      operationId: deleteBuild
+      summary: Xóa build MANUAL thuộc Customer hiện tại
+      security: [{sessionCookie: []}]
+      responses:
+        "204": {description: Đã xóa}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "403": {$ref: '#/components/responses/Forbidden'}
+        "404": {$ref: '#/components/responses/NotFound'}
+        "409": {$ref: '#/components/responses/Conflict'}
+  "/api/customer/builds/{id}/cart":
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: {type: integer, minimum: 1}
+    post:
+      tags: [Builder]
+      operationId: addBuildToCart
+      summary: Thêm toàn bộ build PASS vào giỏ trong một transaction
+      description: Chỉ build MANUAL có kết quả PASS; kiểm tra sản phẩm đang bán, tồn khả dụng và lượng đã có trong giỏ. Giá trả về là giá catalog hiện tại.
+      security: [{sessionCookie: []}]
+      responses:
+        "200":
+          description: Giỏ sau khi gộp linh kiện
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CartResponse'}
+        "400": {$ref: '#/components/responses/BadRequest'}
+        "401": {$ref: '#/components/responses/Unauthorized'}
+        "403": {$ref: '#/components/responses/Forbidden'}
+        "404": {$ref: '#/components/responses/NotFound'}
+        "409": {$ref: '#/components/responses/Conflict'}
+  "/api/customer/cart":
+    "get":
+      "tags":
+        - "Cart"
+      "operationId": "getCart"
+      "summary": "Giỏ của Customer hiện tại"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/CartResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+  "/api/customer/cart/items":
+    "post":
+      "tags":
+        - "Cart"
+      "operationId": "addCartItem"
+      "summary": "Thêm/gộp sản phẩm, không giữ tồn"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/CartResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/AddCartItemRequest"
+  "/api/customer/cart/items/{id}":
+    "parameters":
+      -
+        "name": "id"
+        "in": "path"
+        "required": true
+        "schema":
+          "type": "integer"
+          "minimum": 1
+    "patch":
+      "tags":
+        - "Cart"
+      "operationId": "updateCartItem"
+      "summary": "Thay số lượng; 0 xóa dòng"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/CartResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/UpdateCartItemRequest"
+    "delete":
+      "tags":
+        - "Cart"
+      "operationId": "deleteCartItem"
+      "summary": "Xóa dòng giỏ của Customer"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "204":
+          "description": "Đã xóa"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+  "/api/orders":
+    "post":
+      "tags":
+        - "Orders"
+      "operationId": "checkoutOrder"
+      "summary": "Checkout các dòng giỏ đã chọn; replay cùng key/nội dung trả lại đơn"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Replay đơn đã tạo"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/OrderResponse"
+          "headers":
+            "Idempotent-Replayed":
+              "description": "true khi replay, false khi tạo mới"
+              "schema":
+                "type": "boolean"
+        "201":
+          "description": "Đơn mới"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/OrderResponse"
+          "headers":
+            "Idempotent-Replayed":
+              "description": "true khi replay, false khi tạo mới"
+              "schema":
+                "type": "boolean"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/CheckoutRequest"
+      "description": "Implementation nhận COD hoặc VNPAY. cartItemIds chọn các dòng cần mua; bỏ qua để mua toàn bộ giỏ. Cùng key khác nội dung trả 409 IDEMPOTENCY_KEY_REUSED."
+      "parameters":
+        -
+          "in": "header"
+          "name": "Idempotency-Key"
+          "required": true
+          "schema":
+            "type": "string"
+            "minLength": 8
+            "maxLength": 128
+            "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+    "get":
+      "tags":
+        - "Orders"
+      "operationId": "listOwnedOrders"
+      "summary": "Chỉ đơn của Customer hiện tại"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "type": "array"
+                "items":
+                  "$ref": "#/components/schemas/OrderResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+  "/api/orders/{id}":
+    "parameters":
+      -
+        "name": "id"
+        "in": "path"
+        "required": true
+        "schema":
+          "type": "integer"
+          "minimum": 1
+    "get":
+      "tags":
+        - "Orders"
+      "operationId": "getOwnedOrder"
+      "summary": "Đơn không thuộc Customer trả 404"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/OrderResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+  "/api/orders/{id}/cancel":
+    "parameters":
+      -
+        "name": "id"
+        "in": "path"
+        "required": true
+        "schema":
+          "type": "integer"
+          "minimum": 1
+    "post":
+      "tags":
+        - "Orders"
+      "operationId": "cancelOwnedOrder"
+      "summary": "Customer hủy PENDING chưa PAID; hủy lặp không đổi kho"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/OrderResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+  "/api/orders/{id}/payment/vnpay-url":
+    "parameters":
+      -
+        "name": "id"
+        "in": "path"
+        "required": true
+        "schema":
+          "type": "integer"
+          "minimum": 1
+    "post":
+      "tags":
+        - "Orders"
+      "operationId": "createVNPayPaymentUrl"
+      "summary": "Tạo URL thanh toán VNPay Sandbox cho đơn hàng"
+      "description": "Chỉ chủ sở hữu đơn hàng PENDING có thể tạo URL. Trả về URL thanh toán sang VNPay Sandbox, mã tham chiếu và thời điểm hết hạn (tối đa 15 phút từ lúc checkout)."
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Tạo URL thành công hoặc trả lại attempt đang chờ xử lý"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/VNPayUrlResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+  "/api/payment/vnpay/ipn":
+    "get":
+      "tags":
+        - "Orders"
+      "operationId": "processVNPayIpn"
+      "summary": "Webhook nhận IPN từ VNPay Sandbox"
+      "description": "Gọi bởi hệ thống VNPay server-to-server. Xác thực chữ ký HMAC-SHA512, cập nhật trạng thái đơn và thanh toán."
+      "responses":
+        "200":
+          "description": "Phản hồi kết quả xử lý cho VNPay theo định dạng JSON chuẩn"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/VNPayIpnResponse"
+  "/api/admin/orders":
+    "get":
+      "tags":
+        - "Admin orders"
+      "operationId": "listAdminOrders"
+      "summary": "Admin xem đơn"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "type": "array"
+                "items":
+                  "$ref": "#/components/schemas/OrderResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+  "/api/admin/orders/{id}":
+    "parameters":
+      -
+        "name": "id"
+        "in": "path"
+        "required": true
+        "schema":
+          "type": "integer"
+          "minimum": 1
+    "get":
+      "tags":
+        - "Admin orders"
+      "operationId": "getAdminOrder"
+      "summary": "Admin xem chi tiết đơn"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/OrderResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+  "/api/admin/orders/{id}/status":
+    "parameters":
+      -
+        "name": "id"
+        "in": "path"
+        "required": true
+        "schema":
+          "type": "integer"
+          "minimum": 1
+    "put":
+      "tags":
+        - "Admin orders"
+      "operationId": "updateOrderStatus"
+      "summary": "PENDING → CONFIRMED → SHIPPING → DELIVERED; hủy trước xuất hàng và chưa PAID"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/OrderResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/OrderStatusUpdateRequest"
+  "/api/admin/orders/{id}/reconcile":
+    "parameters":
+      -
+        "name": "id"
+        "in": "path"
+        "required": true
+        "schema":
+          "type": "integer"
+          "minimum": 1
+    "post":
+      "tags":
+        - "Admin orders"
+      "operationId": "reconcileAdminOrder"
+      "summary": "Admin kích hoạt đối soát QueryDR cho đơn hàng"
+      "security":
+        -
+          "sessionCookie": []
+      "responses":
+        "200":
+          "description": "Thành công"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/OrderResponse"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+  "/api/customer/media/images":
+    post:
+      tags:
+        - "Media"
+      operationId: "uploadTemporaryImage"
+      summary: "Upload một ảnh tạm đã xác thực"
+      description: "Gửi một JPEG/PNG làm body trực tiếp, tối đa 8 MB. Ảnh được chuẩn hóa thành JPEG. mediaId trả về chưa gắn vào bài và chưa có URL công khai. Yêu cầu Origin hợp lệ, session CUSTOMER và header X-Media-Module."
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: "X-Media-Module"
+          in: "header"
+          required: true
+          schema:
+            type: "string"
+            enum: ["SETUP", "REVIEW"]
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema:
+              type: "string"
+              format: "binary"
+          image/png:
+            schema:
+              type: "string"
+              format: "binary"
+      responses:
+        "201":
+          description: "Đã upload và lưu trạng thái TEMP"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required: ["mediaId", "module", "status"]
+                properties:
+                  mediaId:
+                    type: "string"
+                    format: "uuid"
+                  module:
+                    type: "string"
+                    enum: ["SETUP", "REVIEW"]
+                  status:
+                    type: "string"
+                    enum: ["TEMP"]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          description: "Ảnh đầu vào vượt 8 MB hoặc đầu ra vượt 1 MB"
+        "415":
+          description: "Chỉ hỗ trợ image/jpeg hoặc image/png"
+        "429":
+          description: "Vượt giới hạn upload"
+        "502":
+          description: "Cloudinary không sẵn sàng"
+  "/api/customer/media/videos":
+    post:
+      tags: ["Media"]
+      operationId: "uploadTemporaryReviewVideo"
+      summary: "Upload một video Review tạm"
+      description: "Body trực tiếp MP4/MOV H.264 và AAC, tối đa 20 MB, 10 giây. Backend chuyển mã thành MP4 tối đa 4 MB. Yêu cầu Origin hợp lệ, session CUSTOMER và X-Media-Module: REVIEW."
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: "X-Media-Module"
+          in: "header"
+          required: true
+          schema:
+            type: "string"
+            enum: ["REVIEW"]
+      requestBody:
+        required: true
+        content:
+          video/mp4:
+            schema:
+              type: "string"
+              format: "binary"
+          video/quicktime:
+            schema:
+              type: "string"
+              format: "binary"
+      responses:
+        "201":
+          description: "Đã upload và lưu trạng thái TEMP"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                required: ["mediaId", "module", "status"]
+                properties:
+                  mediaId:
+                    type: "string"
+                    format: "uuid"
+                  module:
+                    type: "string"
+                    enum: ["REVIEW"]
+                  status:
+                    type: "string"
+                    enum: ["TEMP"]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          description: "Video nguồn hoặc đầu ra vượt giới hạn"
+        "415":
+          description: "Chỉ hỗ trợ video/mp4 hoặc video/quicktime"
+        "422":
+          description: "Video dài hơn 10 giây"
+        "429":
+          description: "Vượt hạn mức upload hoặc xử lý video đang bận"
+        "502":
+          description: "Cloudinary không sẵn sàng"
+  "/api/media/{mediaId}/content":
+    get:
+      tags: ["Media"]
+      operationId: "getAuthorizedMediaContent"
+      summary: "Xem ảnh hoặc video theo quyền hiện tại"
+      description: "File TEMP chỉ chủ sở hữu xem được. File đã gắn vào bài công khai được xem; bài ẩn chỉ chủ xem được. Review đã xóa mềm không xem được. Không lộ URL Cloudinary."
+      parameters:
+        - name: "mediaId"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+        - name: "Range"
+          in: "header"
+          required: false
+          schema:
+            type: "string"
+          description: "Một byte range, ví dụ bytes=0-1023"
+      responses:
+        "200":
+          description: "Nội dung file"
+          content:
+            image/jpeg:
+              schema:
+                type: "string"
+                format: "binary"
+            video/mp4:
+              schema:
+                type: "string"
+                format: "binary"
+        "206":
+          description: "Một phần nội dung file theo Range"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "416":
+          description: "Byte range không hợp lệ"
+        "502":
+          description: "Cloudinary không sẵn sàng"
+  "/api/admin/categories":
+    get:
+      tags: ["Admin taxonomy"]
+      operationId: "listAdminCategory"
+      summary: "ADMIN — list categories"
+      description: "Không xóa cứng. PUT cập nhật toàn bộ form; endpoint /status chỉ đổi trạng thái. Đổi componentType khi danh mục có sản phẩm trả 409."
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: "Thành công; dữ liệu đã commit với thao tác ghi"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminTaxonomyEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      tags: ["Admin taxonomy"]
+      operationId: "createAdminCategory"
+      summary: "ADMIN — create categories"
+      description: "Không xóa cứng. PUT cập nhật toàn bộ form; endpoint /status chỉ đổi trạng thái. Đổi componentType khi danh mục có sản phẩm trả 409."
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCategoryInput"
+      responses:
+        "201":
+          description: "Thành công; dữ liệu đã commit với thao tác ghi"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTaxonomyEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/api/admin/categories/{id}":
+    put:
+      tags: ["Admin taxonomy"]
+      operationId: "updateAdminCategory"
+      summary: "ADMIN — update categories"
+      description: "Không xóa cứng. PUT cập nhật toàn bộ form; endpoint /status chỉ đổi trạng thái. Đổi componentType khi danh mục có sản phẩm trả 409."
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int32, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCategoryInput"
+      responses:
+        "200":
+          description: "Thành công; dữ liệu đã commit với thao tác ghi"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTaxonomyEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/api/admin/categories/{id}/status":
+    put:
+      tags: ["Admin taxonomy"]
+      operationId: "setStatusAdminCategory"
+      summary: "ADMIN — setStatus categories"
+      description: "Không xóa cứng. PUT cập nhật toàn bộ form; endpoint /status chỉ đổi trạng thái. Đổi componentType khi danh mục có sản phẩm trả 409."
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int32, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminTaxonomyStatusInput"
+      responses:
+        "200":
+          description: "Thành công; dữ liệu đã commit với thao tác ghi"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTaxonomyEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/api/admin/brands":
+    get:
+      tags: ["Admin taxonomy"]
+      operationId: "listAdminBrand"
+      summary: "ADMIN — list brands"
+      description: "Không xóa cứng. PUT cập nhật toàn bộ form; endpoint /status chỉ đổi trạng thái. Đổi componentType khi danh mục có sản phẩm trả 409."
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: "Thành công; dữ liệu đã commit với thao tác ghi"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminTaxonomyEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      tags: ["Admin taxonomy"]
+      operationId: "createAdminBrand"
+      summary: "ADMIN — create brands"
+      description: "Không xóa cứng. PUT cập nhật toàn bộ form; endpoint /status chỉ đổi trạng thái. Đổi componentType khi danh mục có sản phẩm trả 409."
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminBrandInput"
+      responses:
+        "201":
+          description: "Thành công; dữ liệu đã commit với thao tác ghi"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTaxonomyEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/api/admin/brands/{id}":
+    put:
+      tags: ["Admin taxonomy"]
+      operationId: "updateAdminBrand"
+      summary: "ADMIN — update brands"
+      description: "Không xóa cứng. PUT cập nhật toàn bộ form; endpoint /status chỉ đổi trạng thái. Đổi componentType khi danh mục có sản phẩm trả 409."
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int32, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminBrandInput"
+      responses:
+        "200":
+          description: "Thành công; dữ liệu đã commit với thao tác ghi"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTaxonomyEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/api/admin/brands/{id}/status":
+    put:
+      tags: ["Admin taxonomy"]
+      operationId: "setStatusAdminBrand"
+      summary: "ADMIN — setStatus brands"
+      description: "Không xóa cứng. PUT cập nhật toàn bộ form; endpoint /status chỉ đổi trạng thái. Đổi componentType khi danh mục có sản phẩm trả 409."
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int32, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminTaxonomyStatusInput"
+      responses:
+        "200":
+          description: "Thành công; dữ liệu đã commit với thao tác ghi"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTaxonomyEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/api/reviews":
+    get:
+      tags: [Review]
+      operationId: listProductReviews
+      summary: Danh sách Review PUBLISHED của một sản phẩm
+      description: "Phân trang từ 0; summary luôn tính trên toàn bộ bài PUBLISHED của sản phẩm. newest dùng reviewId giảm dần vì schema T10 không có timestamp Review."
+      parameters:
+        - {name: productId, in: query, required: true, schema: {type: integer, minimum: 1}}
+        - {name: page, in: query, schema: {type: integer, minimum: 0, default: 0}}
+        - {name: size, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+        - {name: rating, in: query, schema: {type: integer, minimum: 1, maximum: 5}}
+        - {name: hasMedia, in: query, schema: {type: boolean}}
+        - {name: sort, in: query, schema: {type: string, enum: [newest, oldest, rating_desc, rating_asc, helpful], default: newest}}
+      responses:
+        '200': {description: Trang Review và thống kê, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewPageResponse'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  "/api/reviews/summary":
+    get:
+      tags: [Review]
+      operationId: getProductReviewSummary
+      summary: Điểm trung bình và phân bố sao chỉ từ bài PUBLISHED
+      parameters:
+        - {name: productId, in: query, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        '200': {description: Thống kê Review, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewSummary'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  "/api/customer/reviews":
+    post:
+      tags: [Review]
+      operationId: createReview
+      security: [{sessionCookie: []}]
+      summary: Tạo một Review cho dòng đơn DELIVERED thuộc khách hiện tại
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewCreateRequest'}}}}
+      responses:
+        '201': {description: Review đã tạo, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewResponse'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {description: Media tạm không hợp lệ; xem code/message, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  "/api/customer/reviews/order-items/{orderItemId}":
+    get:
+      tags: [Review]
+      operationId: getOwnReviewByOrderItem
+      security: [{sessionCookie: []}]
+      summary: Lấy Review của khách theo dòng đơn để điền form tạo/sửa
+      parameters:
+        - {name: orderItemId, in: path, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        '200': {description: Review của dòng đơn, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewResponse'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  "/api/customer/reviews/{id}":
+    get:
+      tags: [Review]
+      operationId: getOwnReview
+      security: [{sessionCookie: []}]
+      summary: Lấy Review thuộc khách hiện tại, gồm HIDDEN/DELETED
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        '200': {description: Review, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewResponse'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    patch:
+      tags: [Review]
+      operationId: updateOwnReview
+      security: [{sessionCookie: []}]
+      summary: Sửa rating/content/media của Review PUBLISHED thuộc khách
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewUpdateRequest'}}}}
+      responses:
+        '200': {description: Review đã sửa, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewResponse'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {description: Media tạm không hợp lệ; xem code/message, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+    delete:
+      tags: [Review]
+      operationId: deleteOwnReview
+      security: [{sessionCookie: []}]
+      summary: Xóa mềm PUBLISHED thành DELETED; gọi lặp an toàn
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        '204': {description: Đã xóa mềm hoặc đã ở trạng thái DELETED}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  "/api/customer/reviews/{id}/restore":
+    post:
+      tags: [Review]
+      operationId: restoreOwnReview
+      security: [{sessionCookie: []}]
+      summary: Khôi phục DELETED thành PUBLISHED; không khôi phục bài HIDDEN
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        '200': {description: Review đã khôi phục, content: {application/json: {schema: {$ref: '#/components/schemas/ReviewResponse'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  "/api/customer/profile":
+    patch:
+      tags: [Customer]
+      operationId: updateCustomerProfile
+      security: [{sessionCookie: []}]
+      summary: Cập nhật thông tin tài khoản cá nhân
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fullName]
+              properties:
+                fullName: {type: string}
+                phone: {type: string}
+      responses:
+        '200':
+          description: Cập nhật thông tin thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  "/api/customer/change-password":
+    post:
+      tags: [Customer]
+      operationId: changeCustomerPassword
+      security: [{sessionCookie: []}]
+      summary: Đổi mật khẩu cá nhân
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [oldPassword, newPassword]
+              properties:
+                oldPassword: {type: string}
+                newPassword: {type: string}
+      responses:
+        '200':
+          description: Đổi mật khẩu thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: {type: string}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  "/api/admin/users":
+    get:
+      tags: [Admin users]
+      operationId: listAdminUsers
+      security: [{sessionCookie: []}]
+      summary: ADMIN — Danh sách người dùng
+      parameters:
+        - {name: role, in: query, schema: {type: string}}
+        - {name: status, in: query, schema: {type: string}}
+        - {name: query, in: query, schema: {type: string}}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+      responses:
+        '200':
+          description: Danh sách người dùng
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminUserDto'
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  "/api/admin/users/{id}/status":
+    put:
+      tags: [Admin users]
+      operationId: updateAdminUserStatus
+      security: [{sessionCookie: []}]
+      summary: ADMIN — Khóa hoặc mở khóa tài khoản người dùng
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: {type: string, enum: [ACTIVE, INACTIVE, BANNED]}
+                reason: {type: string}
+      responses:
+        '200':
+          description: Cập nhật trạng thái thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserDto'
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+components:
+  securitySchemes:
+    sessionCookie:
+      type: "apiKey"
+      in: "cookie"
+      name: "JSESSIONID"
+      description: "Gọi login để trình duyệt nhận cookie; không dán cookie vào Authorize."
+  parameters:
+    ReviewId:
+      name: reviewId
+      in: path
+      required: true
+      description: ID product_reviews, số nguyên dương trong phạm vi INTEGER
+      schema: {type: integer, format: int32, minimum: 1, maximum: 2147483647}
+    SetupId: {name: id, in: path, required: true, schema: {type: integer, minimum: 1}}
+    SetupOffset: {name: offset, in: query, schema: {type: integer, minimum: 0, maximum: 1000000, default: 0}}
+    SetupLimit: {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+  responses:
+    Conflict:
+      description: "Xung đột kho, trạng thái, thanh toán hoặc idempotency; xem code/message"
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: "Dữ liệu/JSON không hợp lệ; xem code và message"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: "Chưa đăng nhập, session hết hạn hoặc thông tin đăng nhập sai"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: "Không có quyền ADMIN"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: "Sản phẩm, tồn kho, category hoặc brand không tồn tại"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+    InternalError:
+      description: "Lỗi máy chủ"
+      content:
+        "application/json":
+          schema:
+            "$ref": "#/components/schemas/ErrorResponse"
+  schemas:
+    AuthMessage:
+      type: object
+      required: [message]
+      properties:
+        message: {type: string}
+    SetupLike:
+      type: object
+      required: [postId, likeCount, liked]
+      properties:
+        postId: {type: integer}
+        likeCount: {type: integer, format: int64, minimum: 0}
+        liked: {type: boolean}
+    SetupRanked:
+      type: object
+      required: [post, likeCount, liked]
+      properties:
+        post: {$ref: '#/components/schemas/SetupResponse'}
+        likeCount: {type: integer, format: int64, minimum: 0}
+        liked: {type: boolean}
+    SetupModerationRequest:
+      type: object
+      additionalProperties: false
+      required: [status, reason]
+      properties:
+        status: {type: string, enum: [PUBLISHED, HIDDEN]}
+        reason: {type: string, minLength: 1, description: 'Không chỉ gồm khoảng trắng; server strip trước khi lưu.'}
+    SetupModerated:
+      type: object
+      required: [post, likeCount, moderationReason, moderatedBy, moderatedAt]
+      properties:
+        post: {$ref: '#/components/schemas/SetupResponse'}
+        likeCount: {type: integer, format: int64, minimum: 0}
+        moderationReason: {type: string, nullable: true}
+        moderatedBy: {type: integer, nullable: true}
+        moderatedAt: {type: string, format: date-time, nullable: true}
+    ReviewCreateRequest:
+      type: object
+      required: [orderItemId, productId, rating, content]
+      properties:
+        orderItemId: {type: integer, minimum: 1}
+        productId: {type: integer, minimum: 1, description: Phải đúng SKU của orderItemId}
+        rating: {type: integer, minimum: 1, maximum: 5}
+        content: {type: string, minLength: 1, maxLength: 5000}
+        mediaIds: {type: array, maxItems: 6, uniqueItems: true, default: [], items: {type: string, format: uuid}}
+    ReviewUpdateRequest:
+      type: object
+      minProperties: 1
+      description: "PATCH; trường bỏ qua được giữ nguyên. mediaIds nếu có là toàn bộ danh sách mong muốn theo thứ tự."
+      properties:
+        rating: {type: integer, minimum: 1, maximum: 5}
+        content: {type: string, minLength: 1, maxLength: 5000}
+        mediaIds: {type: array, maxItems: 6, uniqueItems: true, items: {type: string, format: uuid}}
+    ReviewAuthor:
+      type: object
+      required: [userId, fullName]
+      properties:
+        userId: {type: integer}
+        fullName: {type: string}
+    ReviewMedia:
+      type: object
+      required: [mediaType, mimeType, sizeBytes, sortOrder]
+      properties:
+        mediaId: {type: string, format: uuid, nullable: true, description: Chỉ null với dữ liệu V3 cũ}
+        mediaType: {type: string, enum: [IMAGE, VIDEO]}
+        mimeType: {type: string}
+        sizeBytes: {type: integer, format: int64, minimum: 1}
+        durationSecond: {type: integer, nullable: true, minimum: 1}
+        sortOrder: {type: integer, minimum: 0}
+        contentUrl: {type: string, nullable: true, description: Chỉ public khi Review PUBLISHED}
+    ReviewResponse:
+      type: object
+      required: [reviewId, orderItemId, orderId, productId, productName, author, rating, content, status, media, likeCount, likedByCurrentUser, verifiedPurchase]
+      description: "Không có createdAt/updatedAt vì schema T10 không lưu timestamp Review; newest/oldest dùng reviewId."
+      properties:
+        reviewId: {type: integer}
+        orderItemId: {type: integer}
+        orderId: {type: integer}
+        productId: {type: integer}
+        productName: {type: string}
+        author: {$ref: '#/components/schemas/ReviewAuthor'}
+        rating: {type: integer, minimum: 1, maximum: 5}
+        content: {type: string}
+        status: {type: string, enum: [PUBLISHED, HIDDEN, DELETED]}
+        media: {type: array, items: {$ref: '#/components/schemas/ReviewMedia'}}
+        likeCount: {type: integer, format: int64, minimum: 0, description: T27 quản lý dữ liệu like}
+        likedByCurrentUser: {type: boolean, description: false với guest}
+        verifiedPurchase: {type: boolean, enum: [true]}
+    ReviewDistribution:
+      type: object
+      required: [rating, count, percentage]
+      properties:
+        rating: {type: integer, minimum: 1, maximum: 5}
+        count: {type: integer, format: int64, minimum: 0}
+        percentage: {type: number, format: double, minimum: 0, maximum: 100}
+    ReviewSummary:
+      type: object
+      required: [productId, averageRating, totalReviews, distribution]
+      properties:
+        productId: {type: integer}
+        averageRating: {type: number, format: double, minimum: 0, maximum: 5}
+        totalReviews: {type: integer, format: int64, minimum: 0}
+        distribution: {type: array, minItems: 5, maxItems: 5, items: {$ref: '#/components/schemas/ReviewDistribution'}}
+    ReviewPageResponse:
+      type: object
+      required: [items, page, size, totalItems, totalPages, summary]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/ReviewResponse'}}
+        page: {type: integer, minimum: 0}
+        size: {type: integer, minimum: 1, maximum: 50}
+        totalItems: {type: integer, format: int64, minimum: 0}
+        totalPages: {type: integer, minimum: 0}
+        summary: {$ref: '#/components/schemas/ReviewSummary'}
+
+    BuilderCatalogProduct:
+      type: object
+      required: [productId, name, brand, componentType, price, availableQuantity, imageUrl, spec]
+      properties:
+        productId: {type: integer, minimum: 1}
+        name: {type: string}
+        brand: {type: string}
+        componentType: {type: string, enum: [CPU, MOTHERBOARD, RAM, GPU, STORAGE, PSU, CASE, COOLER]}
+        price: {type: number, minimum: 0}
+        availableQuantity: {type: integer, minimum: 1}
+        imageUrl: {type: string, nullable: true}
+        spec:
+          allOf: [{$ref: '#/components/schemas/BuilderProductSpec'}]
+          nullable: true
+
+    BuilderPreviewRequest:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/BuildSelection'}
+
+    SetupRequest:
+      type: object
+      required: [title, description, mediaIds, productIds]
+      properties:
+        title: {type: string, minLength: 1, maxLength: 255}
+        description: {type: string, minLength: 1}
+        mediaIds: {type: array, minItems: 1, maxItems: 8, uniqueItems: true, items: {type: string, format: uuid}}
+        productIds: {type: array, minItems: 1, uniqueItems: true, items: {type: integer, minimum: 1}}
+        
+    SetupResponse:
+      type: object
+      properties:
+        postId: {type: integer}
+        authorId: {type: integer}
+        title: {type: string}
+        description: {type: string}
+        status: {type: string, enum: [PUBLISHED, HIDDEN]}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+        mediaIds: {type: array, items: {type: string, format: uuid}}
+        products: {type: array, items: {$ref: '#/components/schemas/SetupProduct'}}
+    SetupProduct:
+      type: object
+      properties:
+        productId: {type: integer}
+        name: {type: string}
+    SetupEligibility:
+      type: object
+      properties:
+        eligible: {type: boolean}
+        reason: {type: string, nullable: true, enum: [SETUP_PURCHASE_REQUIRED]}
+
+    BuildRequest:
+      type: object
+      additionalProperties: false
+      required: [name, items]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 255}
+        items:
+          type: array
+          description: Danh sách rỗng được lưu như build chưa hoàn chỉnh.
+          items: {$ref: '#/components/schemas/BuildSelection'}
+    BuildSelection:
+      type: object
+      additionalProperties: false
+      required: [productId, quantity]
+      properties:
+        productId: {type: integer, minimum: 1}
+        quantity: {type: integer, minimum: 1}
+    BuildResponse:
+      type: object
+      required: [buildId, name, sourceType, items, totalAmount, compatibility]
+      properties:
+        buildId: {type: integer}
+        name: {type: string}
+        sourceType: {type: string, enum: [MANUAL, RECOMMENDATION]}
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/BuildItemResponse'}
+        totalAmount: {type: number, minimum: 0}
+        compatibility: {$ref: '#/components/schemas/CompatibilityReport'}
+    BuildItemResponse:
+      type: object
+      required: [productId, productName, quantity, unitPrice, lineTotal]
+      properties:
+        productId: {type: integer}
+        productName: {type: string}
+        quantity: {type: integer, minimum: 1}
+        unitPrice: {type: number, minimum: 0}
+        lineTotal: {type: number, minimum: 0}
+    CompatibilityReport:
+      type: object
+      required: [status, rules]
+      properties:
+        status: {type: string, enum: [PASS, FAIL, UNKNOWN]}
+        rules:
+          type: array
+          items: {$ref: '#/components/schemas/CompatibilityRule'}
+    CompatibilityRule:
+      type: object
+      required: [id, status, reason]
+      properties:
+        id: {type: string}
+        status: {type: string, enum: [PASS, FAIL, UNKNOWN]}
+        reason: {type: string}
+    ReviewLikeResponse:
+      type: object
+      additionalProperties: false
+      required: [reviewId, likesCount, isLiked]
+      properties:
+        reviewId: {type: integer, format: int32, minimum: 1}
+        likesCount: {type: integer, format: int64, minimum: 0, description: COUNT từ review_likes}
+        isLiked: {type: boolean, description: Customer đăng nhập còn like sau thao tác}
+    ModerateReviewRequest:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: {type: string, enum: [HIDDEN, PUBLISHED]}
+        moderationReason:
+          type: string
+          nullable: true
+          description: >-
+            HIDDEN bắt buộc lý do không trống sau strip(), tối đa 1000 đơn vị UTF-16 sau strip().
+            PUBLISHED chỉ được bỏ trường này hoặc gửi null.
+    ReviewModerationResponse:
+      type: object
+      additionalProperties: false
+      required: [reviewId, status, moderationReason, moderatedBy, moderatedAt]
+      properties:
+        reviewId: {type: integer, format: int32, minimum: 1}
+        status: {type: string, enum: [PUBLISHED, HIDDEN]}
+        moderationReason: {type: string, nullable: true}
+        moderatedBy: {type: integer, format: int32, nullable: true}
+        moderatedAt:
+          type: string
+          nullable: true
+          description: LocalDateTime ISO-8601 không có offset, diễn giải Asia/Bangkok (UTC+07), chính xác microsecond
+          example: '2026-10-08T15:00:00.123456'
+    AdminCategoryInput:
+      type: object
+      additionalProperties: false
+      required: [name, status]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: string, nullable: true }
+        componentType:
+          type: string
+          nullable: true
+          enum: [CPU, MOTHERBOARD, RAM, GPU, STORAGE, PSU, CASE, COOLER, null]
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+    AdminBrandInput:
+      type: object
+      additionalProperties: false
+      required: [name, status]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: string, nullable: true }
+        logoUrl: { type: string, nullable: true, maxLength: 2048, description: "HTTP(S) URL, không chứa userinfo" }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+    AdminTaxonomyStatusInput:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+    AdminTaxonomyEntry:
+      type: object
+      required: [id, name, description, status, componentType, logoUrl, productCount]
+      properties:
+        id: { type: integer, format: int32, minimum: 1 }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        componentType: { type: string, nullable: true }
+        logoUrl: { type: string, nullable: true }
+        productCount: { type: integer, format: int64, minimum: 0, description: "Đếm mọi sản phẩm liên kết, kể cả sản phẩm ẩn" }
+    AddCartItemRequest:
+      "type": "object"
+      "required":
+        - "productId"
+        - "quantity"
+      "properties":
+        "productId":
+          "type": "integer"
+          "minimum": 1
+        "quantity":
+          "type": "integer"
+          "minimum": 1
+      "additionalProperties": false
+    UpdateCartItemRequest:
+      "type": "object"
+      "required":
+        - "quantity"
+      "properties":
+        "quantity":
+          "type": "integer"
+          "minimum": 0
+      "additionalProperties": false
+    CartResponse:
+      "type": "object"
+      "required":
+        - "cartId"
+        - "items"
+        - "totalAmount"
+      "properties":
+        "cartId":
+          "type": "integer"
+          "nullable": true
+        "items":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/CartItemResponse"
+        "totalAmount":
+          "type": "number"
+          "minimum": 0
+    CartItemResponse:
+      "type": "object"
+      "required":
+        - "cartItemId"
+        - "productId"
+        - "name"
+        - "quantity"
+        - "unitPrice"
+        - "lineTotal"
+        - "availableQuantity"
+        - "available"
+      "properties":
+        "cartItemId":
+          "type": "integer"
+        "productId":
+          "type": "integer"
+        "name":
+          "type": "string"
+        "quantity":
+          "type": "integer"
+        "unitPrice":
+          "type": "number"
+          "minimum": 0
+        "lineTotal":
+          "type": "number"
+          "minimum": 0
+        "availableQuantity":
+          "type": "integer"
+        "available":
+          "type": "boolean"
+    CheckoutRequest:
+      "type": "object"
+      "required":
+        - "shippingName"
+        - "shippingPhone"
+        - "shippingAddressText"
+        - "paymentMethod"
+      "properties":
+        "shippingName":
+          "type": "string"
+          "maxLength": 255
+        "shippingPhone":
+          "type": "string"
+          "maxLength": 32
+        "shippingAddressText":
+          "type": "string"
+        "paymentMethod":
+          "type": "string"
+          "enum":
+            - "COD"
+            - "VNPAY"
+        "cartItemIds":
+          "type": "array"
+          "description": "Các dòng giỏ hàng cần thanh toán. Bỏ qua trường này để checkout toàn bộ giỏ (tương thích client cũ)."
+          "minItems": 1
+          "uniqueItems": true
+          "items":
+            "type": "integer"
+            "minimum": 1
+      "additionalProperties": false
+    OrderStatusUpdateRequest:
+      "type": "object"
+      "required":
+        - "status"
+      "properties":
+        "status":
+          "type": "string"
+          "enum":
+            - "PENDING"
+            - "CONFIRMED"
+            - "SHIPPING"
+            - "DELIVERED"
+            - "CANCELLED"
+            - "EXPIRED_PENDING_RECONCILIATION"
+    OrderResponse:
+      "type": "object"
+      "required":
+        - "orderId"
+        - "orderDate"
+        - "status"
+        - "totalAmount"
+        - "shippingName"
+        - "shippingPhone"
+        - "shippingAddressText"
+        - "deliveredAt"
+        - "items"
+        - "payment"
+      "properties":
+        "orderId":
+          "type": "integer"
+        "orderDate":
+          "type": "string"
+          "nullable": true
+          "description": "LocalDateTime ISO-8601 không có timezone"
+        "status":
+          "type": "string"
+        "totalAmount":
+          "type": "number"
+          "minimum": 0
+        "shippingName":
+          "type": "string"
+        "shippingPhone":
+          "type": "string"
+        "shippingAddressText":
+          "type": "string"
+        "deliveredAt":
+          "type": "string"
+          "nullable": true
+          "description": "LocalDateTime ISO-8601 không có timezone"
+        "paymentExpiresAt":
+          "type": "string"
+          "nullable": true
+          "description": "Thời điểm hết hạn thanh toán (order_date + 15 phút) cho đơn VNPay"
+        "items":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/OrderItemResponse"
+        "payment":
+          "$ref": "#/components/schemas/OrderPaymentResponse"
+    OrderItemResponse:
+      "type": "object"
+      "required":
+        - "orderItemId"
+        - "productId"
+        - "productName"
+        - "quantity"
+        - "baseUnitPrice"
+        - "unitPrice"
+        - "lineTotal"
+      "properties":
+        "orderItemId":
+          "type": "integer"
+        "productId":
+          "type": "integer"
+        "productName":
+          "type": "string"
+        "quantity":
+          "type": "integer"
+        "baseUnitPrice":
+          "type": "number"
+          "minimum": 0
+        "unitPrice":
+          "type": "number"
+          "minimum": 0
+        "lineTotal":
+          "type": "number"
+          "minimum": 0
+    OrderPaymentResponse:
+      "type": "object"
+      "required":
+        - "paymentId"
+        - "method"
+        - "status"
+        - "amount"
+        - "paidAt"
+      "properties":
+        "paymentId":
+          "type": "integer"
+        "method":
+          "type": "string"
+          "enum":
+            - "COD"
+            - "VNPAY"
+        "status":
+          "type": "string"
+          "enum":
+            - "PENDING"
+            - "PAID"
+            - "FAILED"
+        "amount":
+          "type": "number"
+          "minimum": 0
+        "paidAt":
+          "type": "string"
+          "nullable": true
+          "description": "LocalDateTime ISO-8601 không có timezone"
+    VNPayUrlResponse:
+      "type": "object"
+      "required":
+        - "orderId"
+        - "paymentMethod"
+        - "referenceCode"
+        - "paymentUrl"
+        - "expiresAt"
+      "properties":
+        "orderId":
+          "type": "integer"
+        "paymentMethod":
+          "type": "string"
+          "enum":
+            - "VNPAY"
+        "referenceCode":
+          "type": "string"
+          "description": "Mã tham chiếu vnp_TxnRef duy nhất"
+        "paymentUrl":
+          "type": "string"
+          "description": "URL chuyển hướng sang VNPay Sandbox"
+        "expiresAt":
+          "type": "string"
+          "description": "Thời điểm hết hạn ISO-8601"
+    VNPayIpnResponse:
+      "type": "object"
+      "required":
+        - "RspCode"
+        - "Message"
+      "properties":
+        "RspCode":
+          "type": "string"
+          "description": "Mã phản hồi chuẩn VNPay: 00, 01, 02, 04, 97"
+        "Message":
+          "type": "string"
+          "description": "Thông điệp phản hồi chuẩn VNPay"
+    ErrorResponse:
+      type: "object"
+      required:
+        - "code"
+        - "message"
+      properties:
+        code:
+          type: "string"
+        message:
+          type: "string"
+    RegisterRequest:
+      type: "object"
+      required:
+        - "fullName"
+        - "email"
+        - "password"
+      properties:
+        fullName:
+          type: "string"
+          minLength: 1
+          maxLength: 255
+        email:
+          type: "string"
+          format: "email"
+          maxLength: 254
+        password:
+          type: "string"
+          format: "password"
+          minLength: 8
+          maxLength: 128
+          writeOnly: true
+        phone:
+          type: "string"
+          maxLength: 32
+          nullable: true
+    LoginRequest:
+      type: "object"
+      required:
+        - "email"
+        - "password"
+      properties:
+        email:
+          type: "string"
+        password:
+          type: "string"
+          format: "password"
+          writeOnly: true
+    AuthResponse:
+      type: "object"
+      required:
+        - "userId"
+        - "fullName"
+        - "email"
+        - "role"
+      properties:
+        userId:
+          type: "integer"
+          format: "int32"
+        fullName:
+          type: "string"
+        email:
+          type: "string"
+        phone:
+          type: "string"
+          nullable: true
+        role:
+          type: "string"
+          enum:
+            - "CUSTOMER"
+            - "ADMIN"
+    ProductStatus:
+      type: "string"
+      enum:
+        - "ACTIVE"
+        - "INACTIVE"
+        - "DRAFT"
+        - "OUT_OF_STOCK"
+        - "DISCONTINUED"
+        - "HIDDEN"
+    Money:
+      type: "number"
+      minimum: 0
+      multipleOf: 1
+      description: "VND nguyên đồng; backend dùng BigDecimal/NUMERIC(19,0)."
+      example: 1500000
+    CategoryResponse:
+      type: "object"
+      properties:
+        categoryId:
+          type: "integer"
+          format: "int32"
+        name:
+          type: "string"
+        description:
+          type: "string"
+          nullable: true
+        componentType:
+          type: "string"
+          nullable: true
+    BrandResponse:
+      type: "object"
+      properties:
+        brandId:
+          type: "integer"
+          format: "int32"
+        name:
+          type: "string"
+        description:
+          type: "string"
+          nullable: true
+        logoUrl:
+          type: "string"
+          nullable: true
+    ProductCategory:
+      type: "object"
+      properties:
+        categoryId:
+          type: "integer"
+          format: "int32"
+        name:
+          type: "string"
+        componentType:
+          type: "string"
+          nullable: true
+    ProductBrand:
+      type: "object"
+      properties:
+        brandId:
+          type: "integer"
+          format: "int32"
+        name:
+          type: "string"
+        logoUrl:
+          type: "string"
+          nullable: true
+    ProductResponse:
+      type: "object"
+      properties:
+        productId:
+          type: "integer"
+          format: "int32"
+        name:
+          type: "string"
+        description:
+          type: "string"
+          nullable: true
+        price:
+          "$ref": "#/components/schemas/Money"
+        status:
+          "$ref": "#/components/schemas/ProductStatus"
+        category:
+          "$ref": "#/components/schemas/ProductCategory"
+        brand:
+          "$ref": "#/components/schemas/ProductBrand"
+        imageUrls:
+          type: "array"
+          items:
+            type: "string"
+        availableQuantity:
+          type: "integer"
+          format: "int32"
+        inStock:
+          type: "boolean"
+    ProductPageResponse:
+      type: "object"
+      required:
+        - "items"
+        - "page"
+        - "size"
+        - "totalItems"
+        - "totalPages"
+      properties:
+        items:
+          type: "array"
+          items:
+            "$ref": "#/components/schemas/ProductResponse"
+        page:
+          type: "integer"
+          format: "int32"
+        size:
+          type: "integer"
+          format: "int32"
+        totalItems:
+          type: "integer"
+          format: "int64"
+        totalPages:
+          type: "integer"
+          format: "int32"
+    CreateProductRequest:
+      type: "object"
+      required:
+        - "name"
+        - "price"
+        - "categoryId"
+        - "brandId"
+        - "quantityOnHand"
+      properties:
+        name:
+          type: "string"
+          minLength: 1
+          maxLength: 255
+        description:
+          type: "string"
+          nullable: true
+        price:
+          "$ref": "#/components/schemas/Money"
+        categoryId:
+          type: "integer"
+          format: "int32"
+          minimum: 1
+        brandId:
+          type: "integer"
+          format: "int32"
+          minimum: 1
+        status:
+          allOf:
+            -
+              "$ref": "#/components/schemas/ProductStatus"
+          default: "DRAFT"
+        quantityOnHand:
+          type: "integer"
+          format: "int32"
+          minimum: 0
+        spec:
+          "$ref": "#/components/schemas/BuilderProductSpec"
+    UpdateProductRequest:
+      type: "object"
+      properties:
+        name:
+          type: "string"
+          minLength: 1
+          maxLength: 255
+          nullable: true
+        description:
+          type: "string"
+          nullable: true
+        price:
+          allOf:
+            -
+              "$ref": "#/components/schemas/Money"
+          nullable: true
+        categoryId:
+          type: "integer"
+          format: "int32"
+          minimum: 1
+          nullable: true
+        brandId:
+          type: "integer"
+          format: "int32"
+          minimum: 1
+          nullable: true
+        status:
+          allOf:
+            -
+              "$ref": "#/components/schemas/ProductStatus"
+          nullable: true
+        spec:
+          "$ref": "#/components/schemas/BuilderProductSpec"
+      description: "Phải có ít nhất một trường khác null. Trường null/bỏ qua không thay đổi. description rỗng xóa mô tả. status HIDDEN ẩn sản phẩm, không xóa cứng."
+      minProperties: 1
+    UpdateInventoryRequest:
+      type: "object"
+      required:
+        - "quantityOnHand"
+      properties:
+        quantityOnHand:
+          type: "integer"
+          format: "int32"
+          minimum: 0
+          description: "Tồn thực tế mới; phải >= reservedQuantity. Không tự đổi status sản phẩm."
+    AdminProductResponse:
+      type: "object"
+      properties:
+        productId:
+          type: "integer"
+          format: "int32"
+        name:
+          type: "string"
+        description:
+          type: "string"
+          nullable: true
+        price:
+          "$ref": "#/components/schemas/Money"
+        status:
+          "$ref": "#/components/schemas/ProductStatus"
+        categoryId:
+          type: "integer"
+          format: "int32"
+        categoryName:
+          type: "string"
+        brandId:
+          type: "integer"
+          format: "int32"
+        brandName:
+          type: "string"
+        quantityOnHand:
+          type: "integer"
+          format: "int32"
+        reservedQuantity:
+          type: "integer"
+          format: "int32"
+        availableQuantity:
+          type: "integer"
+          format: "int32"
+        spec:
+          allOf:
+            - "$ref": "#/components/schemas/BuilderProductSpec"
+          nullable: true
+    BuilderProductSpec:
+      type: "object"
+      description: "Bộ spec đầy đủ theo categories.component_type. CPU: socketCode, cores, threads, baseClockGhz, boostClockGhz, tdpWatts. MOTHERBOARD: socketCode, chipset, ramType, pcieVersion, formFactorCode, ramSlots, maxRamGb. RAM: ramType, capacityGb, speedMhz, moduleCount. GPU: vramGb, memoryType, interfaceType, lengthMm, powerConsumptionW, recommendedPsuW. STORAGE: storageType, interfaceType, capacityGb, readSpeedMBps, writeSpeedMBps. PSU: wattage, efficiencyRating, modularType. CASE: maxGpuLengthMm, maxCoolerHeightMm, maxRadiatorSizeMm, supportedFormFactors[]. COOLER: coolerType, maxTdpW, heightMm hoặc radiatorSizeMm, supportedSockets[]. Chi tiết ràng buộc tại docs/data-model.md mục 4.2 và 6.7. Nếu sản phẩm chưa có spec, response là null; không suy diễn PASS."
+      additionalProperties: true
+    AddressRequest:
+      type: object
+      properties:
+        recipientName:
+          type: string
+        phone:
+          type: string
+        label:
+          type: string
+        address:
+          type: string
+        addressDetail:
+          type: string
+        isDefault:
+          type: boolean
+    AddressResponse:
+      type: object
+      required: [addressId, addressDetail, isDefault]
+      properties:
+        addressId:
+          type: integer
+          format: int32
+        addressDetail:
+          type: string
+        recipientName:
+          type: string
+        phone:
+          type: string
+        label:
+          type: string
+        address:
+          type: string
+        isDefault:
+          type: boolean
+    AdminUserDto:
+      type: object
+      properties:
+        userId:
+          type: integer
+          format: int32
+        fullName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+        orderCount:
+          type: integer
+          format: int64
+        totalSpent:
+          type: integer
+          format: int64

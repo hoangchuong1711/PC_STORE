@@ -9,6 +9,7 @@ import com.pcstore.dto.ProductResponse;
 import com.pcstore.dto.ProductSearchQuery;
 import com.pcstore.entity.Product;
 import com.pcstore.entity.ProductImage;
+import com.pcstore.exception.ResourceNotFoundException;
 
 import jakarta.persistence.EntityManager;
 
@@ -29,7 +30,7 @@ public class ProductCatalogService {
     //hàm find: tìm kiếm sản phẩm theo id, trả về sản phẩm có trạng thái ACTIVE và có số lượng tồn kho > 0
     public ProductResponse find(Integer id) {
         Product product = products.findPublic(id);
-        if (product == null) throw new ResourceNotFoundException();
+        if (product == null) throw new ResourceNotFoundException("Không tìm thấy sản phẩm");
         int available = products.availableQuantities(List.of(id)).getOrDefault(id, 0);
         return toResponse(product, available);
     }

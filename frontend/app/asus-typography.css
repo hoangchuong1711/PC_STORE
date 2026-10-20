@@ -1,0 +1,170 @@
+/* ==========================================================================
+   ASUS OFFICIAL TYPOGRAPHY SYSTEM (Extracted directly from asus.com/vn)
+   - TT Norms Pro (Regular, Medium, Bold): Corporate, UI, Navigation, Headings
+   - ROGFonts-Regular: Gaming, ROG Hardware, Battlestations, Spec Badges
+   - Trade Gothic & FFDIN: Technical Specs, Badges, Discount percentages
+   ========================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400;1,700&display=swap');
+
+@font-face {
+  font-family: "FFDINCondensedBold";
+  font-style: normal;
+  font-stretch: condensed;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/FFDIN/FFDINCondensedBold_normal_condensed.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/FFDIN/FFDINCondensedBold_normal_condensed.woff") format('woff');
+}
+@font-face {
+  font-family: "KairosSansCondensedBold";
+  font-style: normal;
+  font-stretch: condensed;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/KairosSans/KairosSansCondensedBold_normal_condensed.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/KairosSans/KairosSansCondensedBold_normal_condensed.woff") format('woff');
+}
+@font-face {
+  font-family: "CenturyGothicPro";
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: normal;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/CenturyGothic/CenturyGothicPro_normal_normal_400.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/CenturyGothic/CenturyGothicPro_normal_normal_400.woff") format('woff');
+}
+@font-face {
+  font-family: "TradeGothicLTPro";
+  font-style: italic;
+  font-weight: 400;
+  font-stretch: condensed;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TradeGothic/TradeGothicLTPro_italic_condensed_400.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TradeGothic/TradeGothicLTPro_italic_condensed_400.woff") format('woff');
+}
+@font-face {
+  font-family: "TTNormsProRegular";
+  font-style: normal;
+  font-stretch: normal;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TTNormsPro/TTNormsProRegular_normal_normal.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TTNormsPro/TTNormsProRegular_normal_normal.woff") format('woff');
+}
+@font-face {
+  font-family: "CenturyGothicRegular";
+  font-style: normal;
+  font-stretch: normal;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/CenturyGothic/CenturyGothicRegular_normal_normal.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/CenturyGothic/CenturyGothicRegular_normal_normal.woff") format('woff');
+}
+@font-face {
+  font-family: "TTNormsProNormal";
+  font-style: normal;
+  font-stretch: normal;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TTNormsPro/TTNormsProNormal_normal_normal.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TTNormsPro/TTNormsProNormal_normal_normal.woff") format('woff');
+}
+@font-face {
+  font-family: "TradeGothicLTPro";
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: condensed;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TradeGothic/TradeGothicLTPro_normal_condensed_400.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TradeGothic/TradeGothicLTPro_normal_condensed_400.woff") format('woff');
+}
+@font-face {
+  font-family: "TTNormsProLight";
+  font-style: normal;
+  font-stretch: normal;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TTNormsPro/TTNormsProLight_normal_normal.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TTNormsPro/TTNormsProLight_normal_normal.woff") format('woff');
+}
+@font-face {
+  font-family: "TTNormsPro";
+  font-style: italic;
+  font-weight: 500;
+  font-stretch: normal;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TTNormsPro/TTNormsPro_italic_normal_500.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TTNormsPro/TTNormsPro_italic_normal_500.woff") format('woff');
+}
+@font-face {
+  font-family: "TTNormsProMedium";
+  font-style: normal;
+  font-stretch: normal;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TTNormsPro/TTNormsProMedium_normal_normal.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TTNormsPro/TTNormsProMedium_normal_normal.woff") format('woff');
+}
+@font-face {
+  font-family: "TTNormsPro";
+  font-style: italic;
+  font-weight: 400;
+  font-stretch: normal;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TTNormsPro/TTNormsPro_italic_normal_400.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TTNormsPro/TTNormsPro_italic_normal_400.woff") format('woff');
+}
+@font-face {
+  font-family: "TTNormsPro";
+  font-style: italic;
+  font-weight: 700;
+  font-stretch: normal;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TTNormsPro/TTNormsPro_italic_normal_700.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TTNormsPro/TTNormsPro_italic_normal_700.woff") format('woff');
+}
+@font-face {
+  font-family: "TradeGothicLTPro";
+  font-style: italic;
+  font-weight: 700;
+  font-stretch: normal;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TradeGothic/TradeGothicLTPro_italic_normal_700.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TradeGothic/TradeGothicLTPro_italic_normal_700.woff") format('woff');
+}
+@font-face {
+  font-family: "TTNormsProBold";
+  font-style: normal;
+  font-stretch: normal;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TTNormsPro/TTNormsProBold_normal_normal.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TTNormsPro/TTNormsProBold_normal_normal.woff") format('woff');
+}
+@font-face {
+  font-family: "TradeGothicLTPro";
+  font-style: normal;
+  font-weight: 700;
+  font-stretch: condensed;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TradeGothic/TradeGothicLTPro_normal_condensed_700.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TradeGothic/TradeGothicLTPro_normal_condensed_700.woff") format('woff');
+}
+@font-face {
+  font-family: "TradeGothicLTPro";
+  font-style: italic;
+  font-weight: 700;
+  font-stretch: condensed;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TradeGothic/TradeGothicLTPro_italic_condensed_700.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TradeGothic/TradeGothicLTPro_italic_condensed_700.woff") format('woff');
+}
+@font-face {
+  font-family: "TradeGothicBold";
+  font-style: normal;
+  font-stretch: normal;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TradeGothic/TradeGothicBold_normal_normal.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TradeGothic/TradeGothicBold_normal_normal.woff") format('woff');
+}
+@font-face {
+  font-family: "TTNormsStdCondensedNormal";
+  font-style: normal;
+  font-stretch: condensed;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TTNormsStdCondensed/TTNormsStdCondensedNormal_normal_condensed.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/TTNormsStdCondensed/TTNormsStdCondensedNormal_normal_condensed.woff") format('woff');
+}
+@font-face {
+  font-family: "KairosSansCondensedMedium";
+  font-style: normal;
+  font-stretch: condensed;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/KairosSans/KairosSansCondensedMedium_normal_condensed.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/KairosSans/KairosSansCondensedMedium_normal_condensed.woff") format('woff');
+}
+@font-face {
+  font-family: "CenturyGothicPro";
+  font-style: normal;
+  font-weight: 700;
+  font-stretch: normal;
+  font-display: swap;
+  src: url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/CenturyGothic/CenturyGothicPro_normal_normal_700.woff2") format('woff2'), url("https://cdn.fonts.net/kit/9d6c4993-7af8-42eb-aef7-5ba3591e71b6/CenturyGothic/CenturyGothicPro_normal_normal_700.woff") format('woff');
+}
+
+
+
+@font-face{font-family:ROGFonts-Regular;src:url(data:font/otf;base64,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)}
+

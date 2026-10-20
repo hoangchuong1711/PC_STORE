@@ -1,0 +1,11 @@
+# T23 — CompatibilityService
+
+`CompatibilityService` là lớp backend để T24 đánh giá một build. Gọi `new CompatibilityService(entityManager).evaluate(selections)`, trong đó mỗi `CompatibilityDto.Selection` gồm `productId` và `quantity` của sản phẩm/kit được chọn. Service đọc loại linh kiện theo Category và thông số từ các bảng spec T10 qua `CompatibilityDao` (JPA). Không dùng giá hoặc tồn kho để kết luận tương thích; T24 kiểm tra chúng ở luồng giỏ hàng.
+
+Kết quả `CompatibilityDto.Report` chứa trạng thái chung và danh sách `RuleResult(id, status, reason)`. Mỗi lần đánh giá trả cùng bộ rule. Trạng thái chung ưu tiên `FAIL` nếu có rule FAIL, kế đến `UNKNOWN` nếu có rule UNKNOWN, còn lại `PASS`. Build thiếu một trong 8 nhóm hoặc một sản phẩm được chọn thiếu cả dòng spec sẽ có `build_completeness=UNKNOWN`; vì vậy toàn build không được PASS. Đầu vào sai product ID, quantity không dương, sản phẩm trùng, hoặc hơn một đơn vị ở nhóm CPU/main/GPU/PSU/case/cooler bị từ chối. Nhiều kit RAM và ổ lưu trữ được phép; số khe và dung lượng RAM cộng theo số kit.
+
+Các mã rule so sánh dùng cùng [`T22 Builder`](T22_BUILDER.md): `cpu_main_socket`, `cpu_cooler_socket`, `ram_type`, `ram_slots`, `ram_capacity`, `main_case_form_factor`, `gpu_case_length`, `cooler_case_height`, `psu_gpu_wattage`. Rule `build_completeness` bổ sung trạng thái dữ liệu đầu vào. Thiếu dữ liệu cần so sánh trả UNKNOWN. Với nhiều kit RAM, một phần đã biết vượt giới hạn vẫn là FAIL dù kit khác thiếu spec.
+
+`cooler_case_height` chỉ so chiều cao tản khí (`coolerType=AIR`). Tản dùng radiator trả UNKNOWN cho phép kiểm tra lắp case vì mô hình chưa có dữ liệu vị trí lắp và tương tác với các linh kiện khác. PSU chỉ so công suất định mức với mức khuyến nghị của GPU. PASS xác nhận các phép kiểm tra cơ bản này, không chứng minh tương thích BIOS, đầu cấp nguồn, cổng lưu trữ hay mức tiêu thụ điện toàn hệ thống.
+
+Chạy unit test `mvn -B "-Dtest=CompatibilityRulesTest,CompatibilityServiceValidationTest" test` trong `backend/`. Integration test `CompatibilityServiceIT` cần PostgreSQL 17 test riêng và các biến `TEST_DB_URL`, `TEST_DB_USER`, `TEST_DB_PASSWORD` theo [`testing.md`](testing.md); chạy `mvn -B -Pdb-test "-Dit.test=CompatibilityServiceIT" verify`. Test tự tạo schema, nạp T09/T22, kiểm tra build hợp lệ và spec thiếu, rồi xóa schema.

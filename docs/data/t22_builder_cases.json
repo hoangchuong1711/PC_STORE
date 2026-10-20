@@ -1,0 +1,62 @@
+{
+  "sourceCatalog": "docs/data/t09_catalog.json",
+  "note": "Builds use sourced T09 products. Case overrides are synthetic values for isolated compatibility tests; never write them into product specs.",
+  "builds": [
+    {
+      "id": "am4-ddr4-valid",
+      "selection": {
+        "CPU": {"catalogCode": "CPU01", "quantity": 1},
+        "MOTHERBOARD": {"catalogCode": "MB01", "quantity": 1},
+        "RAM": {"catalogCode": "RAM01", "quantity": 1},
+        "GPU": {"catalogCode": "GPU01", "quantity": 1},
+        "STORAGE": {"catalogCode": "SSD01", "quantity": 1},
+        "PSU": {"catalogCode": "PSU01", "quantity": 1},
+        "CASE": {"catalogCode": "CASE01", "quantity": 1},
+        "COOLER": {"catalogCode": "COOL01", "quantity": 1}
+      },
+      "expected": {
+        "cpu_main_socket": "PASS", "cpu_cooler_socket": "PASS", "ram_type": "PASS",
+        "ram_slots": "PASS", "ram_capacity": "PASS", "main_case_form_factor": "PASS",
+        "gpu_case_length": "PASS", "cooler_case_height": "PASS", "psu_gpu_wattage": "PASS"
+      }
+    },
+    {
+      "id": "am5-ddr5-valid",
+      "selection": {
+        "CPU": {"catalogCode": "CPU03", "quantity": 1},
+        "MOTHERBOARD": {"catalogCode": "MB03", "quantity": 1},
+        "RAM": {"catalogCode": "RAM03", "quantity": 1},
+        "GPU": {"catalogCode": "GPU02", "quantity": 1},
+        "STORAGE": {"catalogCode": "SSD03", "quantity": 1},
+        "PSU": {"catalogCode": "PSU03", "quantity": 1},
+        "CASE": {"catalogCode": "CASE03", "quantity": 1},
+        "COOLER": {"catalogCode": "COOL03", "quantity": 1}
+      },
+      "expected": {
+        "cpu_main_socket": "PASS", "cpu_cooler_socket": "PASS", "ram_type": "PASS",
+        "ram_slots": "PASS", "ram_capacity": "PASS", "main_case_form_factor": "PASS",
+        "gpu_case_length": "PASS", "cooler_case_height": "PASS", "psu_gpu_wattage": "PASS"
+      }
+    }
+  ],
+  "cases": [
+    {"id":"cpu-main-fail","baseBuild":"am4-ddr4-valid","rule":"cpu_main_socket","expected":"FAIL","replace":{"CPU":{"catalogCode":"CPU03","quantity":1}},"reason":"CPU AM5 không khớp main AM4."},
+    {"id":"cpu-main-unknown","baseBuild":"am4-ddr4-valid","rule":"cpu_main_socket","expected":"UNKNOWN","overrides":{"CPU.spec.socketCode":null},"reason":"Thiếu socket CPU."},
+    {"id":"cpu-cooler-fail","baseBuild":"am4-ddr4-valid","rule":"cpu_cooler_socket","expected":"FAIL","overrides":{"COOLER.support.supportedSocketCodes":["AM5"]},"reason":"Tản thử nghiệm không hỗ trợ AM4."},
+    {"id":"cpu-cooler-unknown","baseBuild":"am4-ddr4-valid","rule":"cpu_cooler_socket","expected":"UNKNOWN","overrides":{"COOLER.support.supportedSocketCodes":null},"reason":"Thiếu danh sách socket của tản."},
+    {"id":"ram-type-fail","baseBuild":"am4-ddr4-valid","rule":"ram_type","expected":"FAIL","replace":{"RAM":{"catalogCode":"RAM03","quantity":1}},"reason":"RAM DDR5 không khớp main DDR4."},
+    {"id":"ram-type-unknown","baseBuild":"am4-ddr4-valid","rule":"ram_type","expected":"UNKNOWN","overrides":{"RAM.spec.ramType":null},"reason":"Thiếu loại RAM."},
+    {"id":"ram-slots-fail","baseBuild":"am4-ddr4-valid","rule":"ram_slots","expected":"FAIL","replace":{"RAM":{"catalogCode":"RAM02","quantity":3}},"reason":"Ba kit 2 thanh dùng 6 khe, main chỉ có 4 khe."},
+    {"id":"ram-slots-unknown","baseBuild":"am4-ddr4-valid","rule":"ram_slots","expected":"UNKNOWN","overrides":{"MOTHERBOARD.spec.ramSlots":null},"reason":"Thiếu số khe RAM của main."},
+    {"id":"ram-capacity-fail","baseBuild":"am4-ddr4-valid","rule":"ram_capacity","expected":"FAIL","overrides":{"MOTHERBOARD.spec.maxRamGb":8},"reason":"Kit 16GB vượt giới hạn 8GB của main giả lập."},
+    {"id":"ram-capacity-unknown","baseBuild":"am4-ddr4-valid","rule":"ram_capacity","expected":"UNKNOWN","overrides":{"MOTHERBOARD.spec.maxRamGb":null},"reason":"Thiếu dung lượng RAM tối đa của main."},
+    {"id":"form-factor-fail","baseBuild":"am4-ddr4-valid","rule":"main_case_form_factor","expected":"FAIL","overrides":{"CASE.support.supportedFormFactorCodes":["MINI_ITX"]},"reason":"Case giả lập chỉ nhận Mini ITX; main là Micro ATX."},
+    {"id":"form-factor-unknown","baseBuild":"am4-ddr4-valid","rule":"main_case_form_factor","expected":"UNKNOWN","overrides":{"CASE.support.supportedFormFactorCodes":null},"reason":"Thiếu danh sách kích thước main case hỗ trợ."},
+    {"id":"gpu-length-fail","baseBuild":"am4-ddr4-valid","rule":"gpu_case_length","expected":"FAIL","overrides":{"GPU.spec.lengthMm":400},"reason":"GPU giả lập dài 400mm, case giới hạn 360mm."},
+    {"id":"gpu-length-unknown","baseBuild":"am4-ddr4-valid","rule":"gpu_case_length","expected":"UNKNOWN","overrides":{"GPU.spec.lengthMm":null},"reason":"Thiếu chiều dài GPU."},
+    {"id":"cooler-height-fail","baseBuild":"am4-ddr4-valid","rule":"cooler_case_height","expected":"FAIL","overrides":{"COOLER.spec.heightMm":180},"reason":"Tản khí giả lập cao 180mm, case giới hạn 170mm."},
+    {"id":"cooler-height-unknown","baseBuild":"am4-ddr4-valid","rule":"cooler_case_height","expected":"UNKNOWN","overrides":{"COOLER.spec.heightMm":null},"reason":"Thiếu chiều cao tản khí."},
+    {"id":"psu-wattage-fail","baseBuild":"am4-ddr4-valid","rule":"psu_gpu_wattage","expected":"FAIL","overrides":{"GPU.spec.recommendedPsuW":750},"reason":"GPU giả lập khuyến nghị 750W, PSU là 650W."},
+    {"id":"psu-wattage-unknown","baseBuild":"am4-ddr4-valid","rule":"psu_gpu_wattage","expected":"UNKNOWN","overrides":{"GPU.spec.recommendedPsuW":null},"reason":"Thiếu công suất PSU khuyến nghị của GPU."}
+  ]
+}

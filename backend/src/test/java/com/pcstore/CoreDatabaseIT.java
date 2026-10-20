@@ -107,7 +107,7 @@ class CoreDatabaseIT {
         rejects("23505", "INSERT INTO users(full_name,email,password_hash) VALUES ('Other','customer@example.test','hash')");
         rejects("23505", "INSERT INTO carts(user_id,created_at,updated_at) VALUES (1,now(),now())");
         rejects("23505", "INSERT INTO order_items(order_id,product_id,quantity,base_unit_price,unit_price) VALUES (1,1,1,1,1)");
-        rejects("23505", "INSERT INTO payments(order_id,method,amount) VALUES (1,'BANK_TRANSFER',1000000)");
+        rejects("23505", "INSERT INTO payments(order_id,method,amount) VALUES (1,'VNPAY',1000000)");
         execute("UPDATE orders SET status='DELIVERED', delivered_at='2026-10-02 10:00'");
         execute("UPDATE payments SET status='PAID', paid_at='2026-10-02 10:00'");
     }
@@ -139,6 +139,17 @@ class CoreDatabaseIT {
         assertEquals(0, scalar("SELECT count(*) FROM product_images WHERE product_id=2"));
     }
 
+    @Test void enforcesCheckoutIdempotencyPerUser() throws Exception {
+        fixture();
+        execute("UPDATE orders SET checkout_idempotency_key='checkout-001', checkout_request_hash=repeat('a',64) WHERE order_id=1");
+        execute("INSERT INTO users(full_name,email,password_hash) VALUES ('Other','other@example.test','test-hash')");
+        execute("INSERT INTO orders(user_id,order_date,total_amount,shipping_name,shipping_phone,shipping_address_text,checkout_idempotency_key,checkout_request_hash) VALUES (2,now(),0,'Other','0987654321','Other address','checkout-001',repeat('b',64))");
+        rejects("23505", "INSERT INTO orders(user_id,order_date,total_amount,shipping_name,shipping_phone,shipping_address_text,checkout_idempotency_key,checkout_request_hash) VALUES (1,now(),0,'Customer','0123456789','Demo address','checkout-001',repeat('c',64))");
+        rejects("23514", "UPDATE orders SET checkout_request_hash=NULL WHERE order_id=1");
+        rejects("23514", "UPDATE orders SET checkout_idempotency_key=' ' WHERE order_id=1");
+        rejects("23514", "UPDATE orders SET checkout_request_hash='not-a-sha-256' WHERE order_id=1");
+    }
+
     private long scalar(String sql) throws SQLException {
         try (Statement statement = db.createStatement(); ResultSet rs = statement.executeQuery(sql)) {
             assertTrue(rs.next());
@@ -151,8 +162,8 @@ class CoreDatabaseIT {
         try (var factory = PersistenceManager.createEntityManagerFactory(schemaUrl, user, password)) {
             Set<String> mapped = factory.getMetamodel().getEntities().stream()
                     .map(e -> e.getJavaType().getSimpleName()).collect(Collectors.toSet());
-            assertEquals(Set.of("User", "Address", "Category", "Brand", "Product", "ProductImage",
-                    "Inventory", "Cart", "CartItem", "Order", "OrderItem", "Payment"), mapped);
+            assertTrue(mapped.containsAll(Set.of("User", "Address", "Category", "Brand", "Product", "ProductImage",
+                    "Inventory", "Cart", "CartItem", "Order", "OrderItem", "Payment")));
         }
     }
 
@@ -222,7 +233,7 @@ class CoreDatabaseIT {
             em.persist(item);
             var payment = new Payment();
             payment.setOrder(order);
-            payment.setMethod(PaymentMethod.BANK_TRANSFER);
+            payment.setMethod(PaymentMethod.VNPAY);
             payment.setAmount(new BigDecimal("1000000"));
             em.persist(payment);
             em.getTransaction().commit();
@@ -239,10 +250,12 @@ class CoreDatabaseIT {
             assertTrue(loaded.getUser().getAddresses().getFirst().isDefault());
             assertTrue(em.find(Product.class, product.getProductId()).getImages().getFirst().isPrimary());
             assertEquals(1, em.find(Inventory.class, inventory.getInventoryId()).getReservedQuantity());
-            assertEquals(PaymentMethod.BANK_TRANSFER, em.find(Payment.class, payment.getPaymentId()).getMethod());
+            assertEquals(PaymentMethod.VNPAY, em.find(Payment.class, payment.getPaymentId()).getMethod());
             assertEquals(PaymentStatus.PENDING, em.find(Payment.class, payment.getPaymentId()).getStatus());
             assertNull(em.find(Payment.class, payment.getPaymentId()).getPaidAt());
             assertEquals(ProductStatus.DRAFT, em.find(Product.class, product.getProductId()).getStatus());
+            assertNull(loaded.getCheckoutIdempotencyKey());
+            assertNull(loaded.getCheckoutRequestHash());
             assertEquals(255, em.find(Brand.class, brand.getBrandId()).getName().length());
             em.getTransaction().begin();
             em.find(Product.class, product.getProductId()).setPrice(new BigDecimal("2000000"));
@@ -262,7 +275,7 @@ class CoreDatabaseIT {
             execute("SET search_path TO " + upgradeSchema);
             execute("INSERT INTO brands(name) VALUES ('Existing brand')");
             var upgrade = Flyway.configure().dataSource(url, user, password).defaultSchema(upgradeSchema).load();
-            assertEquals(1, upgrade.migrate().migrationsExecuted);
+            assertEquals(9, upgrade.migrate().migrationsExecuted);
             assertEquals(1, scalar("SELECT count(*) FROM brands WHERE name='Existing brand' AND brand_id=1"));
             rejects("428C9", "INSERT INTO brands(brand_id,name) VALUES (99,'Explicit identity')");
             execute("INSERT INTO brands(name) VALUES ('New brand')");

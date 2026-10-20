@@ -39,6 +39,7 @@ frontend/out/
 
 # Java / Maven
 backend/target/
+__pycache__/
 
 # IDE / OS
 .idea/
