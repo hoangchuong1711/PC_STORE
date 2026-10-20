@@ -17,6 +17,7 @@ public final class MediaCleanupScheduler implements AutoCloseable {
     private boolean started;
     private boolean closed;
 
+    // Nhận công việc chạy nền và khoảng nghỉ giữa hai lần chạy, yêu cầu khoảng nghỉ dương.
     public MediaCleanupScheduler(Runnable task, Duration interval) {
         if (task == null || interval == null || interval.isZero() || interval.isNegative())
             throw new IllegalArgumentException("Cleanup task and positive interval are required");
@@ -24,6 +25,7 @@ public final class MediaCleanupScheduler implements AutoCloseable {
         this.intervalMillis = interval.toMillis();
     }
 
+    // Chạy công việc ngay rồi lặp lại sau mỗi khoảng nghỉ; lỗi một lượt không dừng lịch sau.
     public synchronized void start() {
         if (started || closed) throw new IllegalStateException("Cleanup scheduler already started or closed");
         started = true;
@@ -33,6 +35,7 @@ public final class MediaCleanupScheduler implements AutoCloseable {
         }, 0, intervalMillis, TimeUnit.MILLISECONDS);
     }
 
+    // Dừng bộ lập lịch và yêu cầu ngắt công việc đang chạy khi ứng dụng đóng.
     @Override public synchronized void close() {
         closed = true;
         executor.shutdownNow();

@@ -41,20 +41,20 @@ class SetupServiceIT {
                     sql.execute("UPDATE categories SET status='ACTIVE' WHERE category_id=1");
                     var post = setups.create(1, request);
                     assertEquals(1, setups.listPublic(0, 10).size());
-                    assertEquals("SETUP_NOT_FOUND", assertThrows(AppException.class, () -> setups.update(2, post.postId(), request)).getCode());
+                    assertEquals("SETUP_NOT_FOUND", assertThrows(AppException.class, () -> setups.update(2, post.getPostId(), request)).getCode());
                     UUID replacement = UUID.randomUUID();
                     sql.execute("INSERT INTO media_assets(media_id,user_id,module,status,public_id,cloudinary_asset_id,mime_type,size_bytes,width,height,resource_type,created_at,expires_at) VALUES ('" + replacement + "',1,'SETUP','TEMP','pcstore/temp/setup/" + replacement + "','asset-2','image/jpeg',100,4,4,'image',now(),now()+interval '2 hours')");
-                    var changed = setups.update(1, post.postId(), new com.pcstore.dto.SetupDto.Request("New desk", "New details", List.of(replacement), List.of(1)));
-                    assertEquals(List.of(replacement), changed.mediaIds());
-                    assertEquals("New desk", changed.title());
+                    var changed = setups.update(1, post.getPostId(), new com.pcstore.dto.SetupDto.Request("New desk", "New details", List.of(replacement), List.of(1)));
+                    assertEquals(List.of(replacement), changed.getMediaIds());
+                    assertEquals("New desk", changed.getTitle());
                     try (var rows = sql.executeQuery("SELECT status FROM media_assets WHERE media_id='" + image + "'")) {
                         assertTrue(rows.next());
                         assertEquals("DELETE_PENDING", rows.getString(1));
                     }
-                    sql.execute("UPDATE setup_posts SET status='HIDDEN',moderation_reason='Spam',moderated_by=2,moderated_at=now() WHERE post_id=" + post.postId());
+                    sql.execute("UPDATE setup_posts SET status='HIDDEN',moderation_reason='Spam',moderated_by=2,moderated_at=now() WHERE post_id=" + post.getPostId());
                     assertTrue(setups.listPublic(0, 10).isEmpty());
-                    assertEquals("SETUP_NOT_FOUND", assertThrows(AppException.class, () -> setups.getPublic(post.postId())).getCode());
-                    setups.delete(1, post.postId());
+                    assertEquals("SETUP_NOT_FOUND", assertThrows(AppException.class, () -> setups.getPublic(post.getPostId())).getCode());
+                    setups.delete(1, post.getPostId());
                     try (var rows = sql.executeQuery("SELECT status FROM media_assets WHERE media_id='" + replacement + "'")) {
                         assertTrue(rows.next());
                         assertEquals("DELETE_PENDING", rows.getString(1));

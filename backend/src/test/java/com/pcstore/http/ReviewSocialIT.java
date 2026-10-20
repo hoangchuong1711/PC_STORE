@@ -129,6 +129,48 @@ class ReviewSocialIT {
         }
     }
 
+    @Test void reviewCrudDispatchPreservesJsonAndPublicSummary() throws Exception {
+        // Free the second customer's delivered line so POST can create a review through HTTP.
+        sql("DELETE FROM product_reviews WHERE review_id=2");
+        sql("UPDATE products SET status='ACTIVE' WHERE product_id=1");
+        var customer = login("b@example.test");
+        var guest = client();
+        String collection = "/api/customer/reviews";
+        error(send(customer, "POST", collection,
+                "{\"orderItemId\":2,\"productId\":1,\"rating\":\"5\",\"content\":\"Good\"}"),
+                400, "INVALID_JSON");
+        var created = send(customer, "POST", collection,
+                "{\"orderItemId\":2,\"productId\":1,\"rating\":5,\"content\":\"  Good  \",\"mediaIds\":[]}");
+        assertEquals(201, created.statusCode(), created.body());
+        int id = body(created).path("reviewId").asInt();
+        assertTrue(id > 0);
+        assertEquals("Good", body(created).path("content").asText());
+        String own = collection + "/" + id;
+        assertEquals(id, body(send(customer, "GET", collection + "/order-items/2", null)).path("reviewId").asInt());
+        assertEquals(200, send(customer, "GET", own, null).statusCode());
+        error(send(login("a@example.test"), "PATCH", own, "{\"rating\":1}"), 404, "REVIEW_NOT_FOUND");
+        var updated = send(customer, "PATCH", own, "{\"rating\":3,\"content\":\"Updated\"}");
+        assertEquals(200, updated.statusCode(), updated.body());
+        assertEquals(3, body(updated).path("rating").asInt());
+        var listed = send(guest, "GET", "/api/reviews?productId=1&rating=3&hasMedia=false", null);
+        assertEquals(200, listed.statusCode(), listed.body());
+        assertEquals(id, body(listed).path("items").get(0).path("reviewId").asInt());
+        var trailingSlash = send(guest, "GET", "/api/reviews/?productId=1&rating=3&hasMedia=false", null);
+        assertEquals(200, trailingSlash.statusCode(), trailingSlash.body());
+        assertEquals(body(listed), body(trailingSlash));
+        assertEquals(4.0, body(send(guest, "GET", "/api/reviews/summary?productId=1", null)).path("averageRating").asDouble());
+        var deleted = send(customer, "DELETE", own, null);
+        assertEquals(204, deleted.statusCode(), deleted.body());
+        assertEquals("", deleted.body());
+        assertEquals(1, body(send(guest, "GET", "/api/reviews/summary?productId=1", null)).path("totalReviews").asInt());
+        var restored = send(customer, "POST", own + "/restore", null);
+        assertEquals(200, restored.statusCode(), restored.body());
+        assertEquals("PUBLISHED", body(restored).path("status").asText());
+        error(send(customer, "PUT", own, null), 405, "METHOD_NOT_ALLOWED");
+        error(send(customer, "GET", collection + "/unknown", null), 404, "NOT_FOUND");
+        error(send(guest, "POST", "/api/reviews", null), 405, "METHOD_NOT_ALLOWED");
+    }
+
     @Test void repeatedLikeAndUnlikeKeepOneRowAndReturnCurrentCount() throws Exception {
         var customer = login("b@example.test");
         var first = send(customer, "PUT", LIKE, null);

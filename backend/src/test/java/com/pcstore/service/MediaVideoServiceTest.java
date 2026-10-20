@@ -29,4 +29,11 @@ class MediaVideoServiceTest {
         assertEquals("MEDIA_TOO_LARGE", assertThrows(AppException.class,
                 () -> video.prepare(new byte[20_000_001], "video/mp4")).getCode());
     }
+
+    @Test void refusesMissingMimeTypeBeforeLaunchingFfmpeg() {
+        AppException error = assertThrows(AppException.class,
+                () -> new MediaVideoService().prepare(new byte[]{1, 2, 3}, null));
+        assertEquals(400, error.getStatus());
+        assertEquals("INVALID_MEDIA", error.getCode());
+    }
 }

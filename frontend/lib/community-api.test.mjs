@@ -158,3 +158,24 @@ test("throws CommunityApiError on API failures", async () => {
     }
   );
 });
+
+for (const paged of [false, true]) {
+  test(`setup product picker reads ${paged ? "paged" : "array"} catalog response`, async () => {
+    const products = [{ productId: 101, name: "Test RAM", price: 500000, category: { name: "RAM" } }];
+    const api = createCommunityApi(async (url, options) => {
+      assert.equal(url, "/api/products?size=50");
+      assert.equal(options.method, "GET");
+      assert.equal(options.credentials, "same-origin");
+      assert.equal(options.body, undefined);
+      return jsonResponse(paged ? { items: products } : products);
+    });
+    assert.deepEqual(await api.listSetupProducts(), [
+      { productId: 101, name: "Test RAM", price: 500000, category: "RAM" },
+    ]);
+  });
+}
+
+test("setup product picker passes HTTP errors to the form", async () => {
+  const api = createCommunityApi(async () => jsonResponse({ code: "CATALOG_UNAVAILABLE", message: "Try again" }, 503));
+  await assert.rejects(api.listSetupProducts(), error => error instanceof CommunityApiError && error.status === 503);
+});

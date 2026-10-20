@@ -14,6 +14,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CloudinaryImageStorageTest {
+    @Test void rejectsMissingResourceTypeBeforeCallingCloudinary() {
+        var storage = new CloudinaryImageStorage("demo", "key", "secret");
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> storage.delete("pcstore/temp/review/test", null));
+        assertEquals("Invalid resource type", error.getMessage());
+    }
+
     @Test void uploadsAndDeletesAuthenticatedReviewVideo() throws Exception {
         var requests = new AtomicReference<String>();
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);

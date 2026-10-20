@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Image from "next/image";
 import {
   AlertTriangle,
@@ -32,6 +32,8 @@ const initialFilters: AdminReviewFilters = {
   hasMedia: "ALL",
 };
 
+// /admin/reviews → bảng đánh giá và hai hộp thoại ẩn/khôi phục bên dưới.
+// loadReviews tải bảng; handleConfirmHideReview/handleConfirmRestoreReview gửi kiểm duyệt.
 export function AdminReviews() {
   const [reviews, setReviews] = useState<AdminReview[]>([]);
   const [loadError, setLoadError] = useState("");
@@ -46,6 +48,7 @@ export function AdminReviews() {
   const [restoreSubmitting, setRestoreSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Response danh sách → đổi tên trường cho view → setReviews để dựng lại bảng.
   const loadReviews = useCallback(async () => {
     try {
       setLoading(true);
@@ -96,24 +99,28 @@ export function AdminReviews() {
   };
 
 
-  const showToast = (msg: string) => {
+  // Hiện thông báo kết quả kiểm duyệt trong ba giây.
+  function showToast(msg: string) {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
-  };
+  }
 
-  const handleOpenHideModal = (review: AdminReview) => {
+  // Nút Ẩn mở hộp thoại nhập lý do cho Review đang chọn; chưa gửi API.
+  function handleOpenHideModal(review: AdminReview) {
     setSelectedReview(review);
     setHideReason("");
     setHideError("");
     setIsHideModalOpen(true);
-  };
+  }
 
-  const handleOpenRestoreModal = (review: AdminReview) => {
+  // Nút Hiện mở hộp thoại xác nhận công khai lại Review; chưa gửi API.
+  function handleOpenRestoreModal(review: AdminReview) {
     setSelectedReview(review);
     setIsRestoreModalOpen(true);
-  };
+  }
 
-  const handleConfirmHide = async () => {
+  // Nút Xác nhận ẩn → reviewApi.moderate → ReviewModerationServlet; chỉ đổi giao diện khi API thành công.
+  async function handleConfirmHideReview() {
     if (!hideReason.trim()) {
       setHideError("Vui lòng nhập lý do ẩn đánh giá để lưu vào nhật ký kiểm duyệt.");
       return;
@@ -135,6 +142,7 @@ export function AdminReviews() {
       }
     }
 
+    // API đã thành công; cập nhật hàng trong bảng từ dữ liệu vừa gửi.
     const now = new Date().toISOString();
     const updated = reviews.map((r) =>
       r.id === selectedReview.id
@@ -153,9 +161,10 @@ export function AdminReviews() {
     setIsHideModalOpen(false);
     setHideSubmitting(false);
     showToast(`Đã ẩn đánh giá của "${selectedReview.userName}" thành công.`);
-  };
+  }
 
-  const handleConfirmRestore = async () => {
+  // Nút Xác nhận khôi phục → PATCH trạng thái PUBLISHED; lỗi API thì giữ nguyên dữ liệu đang hiển thị.
+  async function handleConfirmRestoreReview() {
     if (!selectedReview || restoreSubmitting) return;
     setRestoreSubmitting(true);
     const numId = Number(selectedReview.id.replace(/^rev-?/i, ""));
@@ -186,7 +195,7 @@ export function AdminReviews() {
     setIsRestoreModalOpen(false);
     setRestoreSubmitting(false);
     showToast(`Đã khôi phục hiển thị đánh giá của "${selectedReview.userName}".`);
-  };
+  }
 
   return (
     <div className="max-w-[1250px] mx-auto font-sans">
@@ -620,7 +629,7 @@ export function AdminReviews() {
 
       {/* Hide Modal with Reason Dialog */}
       {isHideModalOpen && selectedReview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs" role="dialog" aria-modal="true" aria-labelledby="hide-modal-title">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs" role="dialog" aria-modal="true" id="hide-review-dialog" aria-labelledby="hide-modal-title">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-admin-line flex flex-col gap-4">
             <div className="flex items-start gap-3">
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-admin-red-soft text-admin-red">
@@ -667,7 +676,7 @@ export function AdminReviews() {
               <button
                 type="button"
                 className="inline-flex items-center justify-center min-h-[38px] px-3.5 rounded-lg text-xs font-bold border border-rose-200 bg-admin-red-soft hover:bg-rose-100 text-admin-red transition-colors cursor-pointer"
-                onClick={handleConfirmHide}
+                onClick={handleConfirmHideReview}
                 disabled={hideSubmitting}
               >
                 Xác nhận ẩn
@@ -679,7 +688,7 @@ export function AdminReviews() {
 
       {/* Restore Modal Dialog */}
       {isRestoreModalOpen && selectedReview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs" role="dialog" aria-modal="true" aria-labelledby="restore-modal-title">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs" role="dialog" aria-modal="true" id="restore-review-dialog" aria-labelledby="restore-modal-title">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-admin-line flex flex-col gap-4">
             <div className="flex items-start gap-3">
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-admin-green-soft text-admin-green">
@@ -720,7 +729,7 @@ export function AdminReviews() {
                 type="button"
                 disabled={restoreSubmitting}
                 className="inline-flex items-center justify-center min-h-[38px] px-3.5 rounded-lg text-xs font-bold bg-admin-green hover:bg-[#16a34a] text-white transition-colors cursor-pointer disabled:opacity-50"
-                onClick={handleConfirmRestore}
+                onClick={handleConfirmRestoreReview}
               >
                 {restoreSubmitting ? "Đang xử lý..." : "Xác nhận khôi phục"}
               </button>

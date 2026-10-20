@@ -38,6 +38,8 @@ function formatCompactNumber(value: number) {
   return new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 }).format(value);
 }
 
+// /admin/community → bảng Setup, chi tiết bài và form nhập lý do ẩn.
+// handleHideSetup/handleRestoreSetup → communityApi.adminModerate → SetupSocialServlet.
 export function AdminCommunity() {
   const [items, setItems] = useState<AdminCommunityPost[]>([]);
   const [filters, setFilters] = useState<AdminCommunityFilters>({ query: "", status: "ALL" });
@@ -52,6 +54,7 @@ export function AdminCommunity() {
 
   useEffect(() => {
     let cancelled = false;
+    // Response → đổi sang dữ liệu hiển thị → setItems để dựng bảng.
     async function fetchAdminSetups() {
       try {
         const statusParam = filters.status === "ALL" ? undefined : filters.status;
@@ -87,6 +90,7 @@ export function AdminCommunity() {
     setCurrentPage(1);
   }
 
+  // Mở chi tiết bài đang chọn; chưa gửi request kiểm duyệt.
   function openPost(post: AdminCommunityPost) {
     setSelectedPost({ ...post });
     setActivePhoto(post.coverImage);
@@ -101,7 +105,8 @@ export function AdminCommunity() {
     setShowHideForm(false);
   }
 
-  async function restorePost() {
+  // Nút Khôi phục → gửi PUBLISHED kèm lý do; thành công thì cập nhật bảng và tải lại.
+  async function handleRestoreSetup() {
     if (!selectedPost) return;
     const numericId = parseInt(selectedPost.id, 10);
     setIsModerating(true);
@@ -132,7 +137,8 @@ export function AdminCommunity() {
     }
   }
 
-  async function hidePost(event: FormEvent<HTMLFormElement>) {
+  // Form lý do ẩn → chặn submit HTML → gửi HIDDEN + reason → cập nhật bảng khi thành công.
+  async function handleHideSetup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedPost || !hideReason.trim()) return;
     const numericId = parseInt(selectedPost.id, 10);
@@ -436,7 +442,7 @@ export function AdminCommunity() {
                 <button
                   type="button"
                   className="inline-flex items-center justify-center gap-2 min-h-[38px] px-4 rounded-lg text-xs font-bold border border-admin-line bg-white hover:border-[#bbc3cc] hover:bg-admin-bg text-admin-ink transition-colors cursor-pointer w-full"
-                  onClick={restorePost}
+                  onClick={handleRestoreSetup}
                 >
                   <Eye size={16} />
                   Khôi phục hiển thị
@@ -454,7 +460,7 @@ export function AdminCommunity() {
             </div>
 
             {showHideForm && selectedPost.status === "PUBLISHED" && (
-              <form className="p-3.5 rounded-xl bg-admin-bg border border-admin-line flex flex-col gap-3 my-3 text-xs" onSubmit={hidePost}>
+              <form id="hide-setup-form" className="p-3.5 rounded-xl bg-admin-bg border border-admin-line flex flex-col gap-3 my-3 text-xs" onSubmit={handleHideSetup}>
                 <label className="flex flex-col gap-1.5 font-semibold text-admin-ink">
                   <span>Lý do ẩn bài</span>
                   <textarea

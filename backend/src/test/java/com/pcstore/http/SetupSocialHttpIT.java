@@ -119,6 +119,43 @@ class SetupSocialHttpIT {
         }
     }
 
+    @Test void setupCrudDispatchPreservesEligibilityOwnershipAndMediaLifecycle() throws Exception {
+        var customer = login("a@example.test");
+        var guest = client();
+        String collection = "/api/customer/setups";
+        var ineligible = send(customer, "GET", collection + "/eligibility", null, null);
+        assertEquals(200, ineligible.statusCode(), ineligible.body());
+        assertFalse(body(ineligible).path("eligible").asBoolean());
+        sql("INSERT INTO orders(user_id,order_date,status,total_amount,shipping_name,shipping_phone,shipping_address_text,delivered_at) "
+                + "VALUES (1,now(),'DELIVERED',1000000,'A','0901234567','Test address',now())");
+        String mediaId = "29000000-0000-0000-0000-000000000001";
+        sql("INSERT INTO media_assets(media_id,user_id,module,status,public_id,cloudinary_asset_id,mime_type,size_bytes,width,height,created_at,expires_at) "
+                + "VALUES ('" + mediaId + "',1,'SETUP','TEMP','pcstore/temp/setup/crud-test','crud-asset','image/jpeg',100,4,4,now(),now()+interval '1 day')");
+        assertTrue(body(send(customer, "GET", collection + "/eligibility", null, null)).path("eligible").asBoolean());
+        String content = "{\"title\":\"  My desk  \",\"description\":\"Desk\",\"mediaIds\":[\"" + mediaId + "\"],\"productIds\":[1]}";
+        var created = send(customer, "POST", collection, content, null);
+        assertEquals(201, created.statusCode(), created.body());
+        int id = body(created).path("postId").asInt();
+        assertTrue(id > 0);
+        assertEquals("My desk", body(created).path("title").asText());
+        String own = collection + "/" + id;
+        assertEquals(200, send(customer, "GET", own, null, null).statusCode());
+        assertEquals(200, send(customer, "GET", collection, null, null).statusCode());
+        assertEquals(200, send(guest, "GET", "/api/setups/" + id, null, null).statusCode());
+        error(send(login("b@example.test"), "PUT", own, content, null), 404, "SETUP_NOT_FOUND");
+        var updated = send(customer, "PUT", own, content.replace("My desk", "New desk"), null);
+        assertEquals(200, updated.statusCode(), updated.body());
+        assertEquals("New desk", body(updated).path("title").asText());
+        assertEquals(1, scalar("SELECT count(*) FROM setup_images WHERE post_id=" + id));
+        error(send(customer, "PATCH", own, content, null), 405, "METHOD_NOT_ALLOWED");
+        error(send(customer, "POST", collection + "/eligibility", null, null), 404, "NOT_FOUND");
+        var deleted = send(customer, "DELETE", own, null, null);
+        assertEquals(204, deleted.statusCode(), deleted.body());
+        assertEquals("", deleted.body());
+        assertEquals(1, scalar("SELECT count(*) FROM media_assets WHERE media_id='" + mediaId + "' AND status='DELETE_PENDING'"));
+        error(send(guest, "GET", "/api/setups/" + id, null, null), 404, "SETUP_NOT_FOUND");
+    }
+
     @Test void likesAreIdempotentAndRankingHasStablePagination() throws Exception {
         var guest = client(); var a = login("a@example.test"); var b = login("b@example.test");
         var initial = send(guest,"GET","/api/setups/ranking",null,null);
@@ -202,7 +239,7 @@ class SetupSocialHttpIT {
         for(String method:List.of("PUT","DELETE")) error(send(guest,method,"/api/setup-likes/1",null,null),401,"UNAUTHORIZED");
         error(send(guest,"GET","/api/admin/setups",null,null),401,"UNAUTHORIZED");
         error(send(a,"PUT","/api/admin/setups/1/status","{}",null),403,"FORBIDDEN");
-        for(String json:List.of("null","{}","{\"status\":\"HIDDEN\",\"reason\":\" \"}","{\"status\":\"DELETED\",\"reason\":\"x\"}"))
+        for(String json:List.of("null","{}","{\"reason\":\"Spam\"}","{\"status\":null,\"reason\":\"Spam\"}","{\"status\":\"HIDDEN\",\"reason\":\" \"}","{\"status\":\"DELETED\",\"reason\":\"x\"}"))
             assertEquals(400,send(admin,"PUT","/api/admin/setups/1/status",json,null).statusCode());
         assertEquals(400,send(guest,"GET","/api/setups/ranking?limit=0",null,null).statusCode());
         assertEquals(400,send(admin,"GET","/api/admin/setups?status=WRONG",null,null).statusCode());

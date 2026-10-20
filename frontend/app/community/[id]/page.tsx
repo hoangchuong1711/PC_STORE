@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
-import { CommunityDetail } from "../../../components/community";
+import { CommunityDetail } from "../../../components/community/community-detail";
 import { getOrFetchCommunityPost } from "../../../lib/community";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +21,7 @@ export async function generateMetadata({
   };
 }
 
+// URL /community/[id]: Next.js nhận id, tải bài từ backend ở server rồi truyền xuống view.
 export default async function CommunityPostPage({
   params,
 }: {
@@ -33,5 +34,6 @@ export default async function CommunityPostPage({
     notFound();
   }
 
+  // Sau bước này, các thao tác thích/thêm giỏ chạy trong CommunityDetail ở trình duyệt.
   return <CommunityDetail post={post} />;
 }

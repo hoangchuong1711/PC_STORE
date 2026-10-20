@@ -83,6 +83,8 @@ export function setupDtoToCommunityPost(
   };
 }
 
+// app/community/[id]/page.tsx gọi ở server Next.js, trước khi truyền post xuống CommunityDetail.
+// Gọi thẳng BACKEND_ORIGIN, không qua rewrite /api và không chuyển tiếp cookie trình duyệt.
 export async function getOrFetchCommunityPost(id: string): Promise<CommunityPost | null> {
   const numericId = parseInt(id, 10);
   if (!isNaN(numericId) && numericId > 0) {

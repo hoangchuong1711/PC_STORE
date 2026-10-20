@@ -15,13 +15,33 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MediaVideoUploadServletTest {
     @Test void rejectsOversizedVideoBeforeStartingMediaProcessing() throws Exception {
+        Result response = request("REVIEW", "video/mp4");
+        assertEquals(413, response.status());
+        assertEquals("MEDIA_TOO_LARGE", response.code());
+    }
+
+    @Test void rejectsMissingModuleBeforeStartingMediaProcessing() throws Exception {
+        Result response = request(null, "video/mp4");
+        assertEquals(400, response.status());
+        assertEquals("INVALID_MEDIA_MODULE", response.code());
+    }
+
+    @Test void rejectsMissingContentTypeBeforeStartingMediaProcessing() throws Exception {
+        Result response = request("REVIEW", null);
+        assertEquals(415, response.status());
+        assertEquals("UNSUPPORTED_MEDIA_TYPE", response.code());
+    }
+
+    private record Result(int status, String code) { }
+
+    private Result request(String module, String mimeType) throws Exception {
         var session = (HttpSession) Proxy.newProxyInstance(getClass().getClassLoader(), new Class[]{HttpSession.class},
                 (proxy, method, args) -> "getAttribute".equals(method.getName()) && SessionUtil.USER_ID.equals(args[0]) ? 1 : null);
         var request = (HttpServletRequest) Proxy.newProxyInstance(getClass().getClassLoader(), new Class[]{HttpServletRequest.class},
                 (proxy, method, args) -> switch (method.getName()) {
                     case "getSession" -> session;
-                    case "getHeader" -> "Origin".equals(args[0]) ? "http://localhost:3000" : "REVIEW";
-                    case "getContentType" -> "video/mp4";
+                    case "getHeader" -> "Origin".equals(args[0]) ? "http://localhost:3000" : module;
+                    case "getContentType" -> mimeType;
                     case "getContentLengthLong" -> 20_000_001L;
                     case "getServerPort" -> 8080;
                     case "getServerName" -> "localhost";
@@ -37,7 +57,6 @@ class MediaVideoUploadServletTest {
                     return null;
                 });
         new MediaVideoUploadServlet().doPost(request, response);
-        assertEquals(413, status[0]);
-        assertEquals("MEDIA_TOO_LARGE", new ObjectMapper().readTree(output.toString()).path("code").asText());
+        return new Result(status[0], new ObjectMapper().readTree(output.toString()).path("code").asText());
     }
 }
