@@ -46,7 +46,7 @@ public class BuildService {
     }
 
     public BuildDto.Response create(int userId, BuildDto.Request request) {
-        validate(request);
+        validateRequest(request);
         return transaction(() -> {
             User user = customer(userId, false);
             PcBuild build = new PcBuild();
@@ -60,7 +60,7 @@ public class BuildService {
     }
 
     public BuildDto.Response update(int userId, int buildId, BuildDto.Request request) {
-        validate(request);
+        validateRequest(request);
         return transaction(() -> {
             customer(userId, false);
             PcBuild build = owned(userId, buildId, true);
@@ -116,7 +116,8 @@ public class BuildService {
             throw new AppException(409, "BUILD_READ_ONLY", "Build gợi ý không được sửa qua API thủ công.");
     }
 
-    private static void validate(BuildDto.Request request) {
+    /** Also used by the HTTP adapter before opening an EntityManager. */
+    public static void validateRequest(BuildDto.Request request) {
         if (request == null || request.name() == null || request.name().trim().isEmpty()
                 || request.name().trim().length() > 255 || request.items() == null)
             throw new AppException(400, "INVALID_BUILD", "Tên và danh sách linh kiện không hợp lệ.");

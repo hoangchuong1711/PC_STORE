@@ -30,6 +30,7 @@ class BuilderCatalogServletTest {
         HttpServletRequest req = (HttpServletRequest) Proxy.newProxyInstance(getClass().getClassLoader(),
                 new Class<?>[]{HttpServletRequest.class}, (proxy, invocation, args) -> switch (invocation.getName()) {
                     case "getMethod" -> method;
+                    case "getProtocol" -> "HTTP/1.1";
                     case "getPathInfo" -> path;
                     case "getInputStream" -> stream;
                     default -> null;
@@ -39,6 +40,7 @@ class BuilderCatalogServletTest {
         HttpServletResponse res = (HttpServletResponse) Proxy.newProxyInstance(getClass().getClassLoader(),
                 new Class<?>[]{HttpServletResponse.class}, (proxy, invocation, args) -> {
                     if ("setStatus".equals(invocation.getName())) status[0] = (Integer) args[0];
+                    if ("sendError".equals(invocation.getName())) status[0] = (Integer) args[0];
                     if ("getWriter".equals(invocation.getName())) return new PrintWriter(output);
                     return null;
                 });

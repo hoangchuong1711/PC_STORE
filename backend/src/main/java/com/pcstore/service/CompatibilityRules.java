@@ -20,20 +20,7 @@ public final class CompatibilityRules {
     private CompatibilityRules() {}
 
     public static Report evaluate(List<Part> parts) {
-        if (parts == null) throw new ValidationException("Danh sách linh kiện là bắt buộc");
-        Map<ComponentType, List<Part>> byType = new EnumMap<>(ComponentType.class);
-        for (Part part : parts) {
-            if (part == null || part.type() == null || part.quantity() <= 0) {
-                throw new ValidationException("Loại linh kiện và số lượng phải hợp lệ");
-            }
-            if (!MULTIPLE_ALLOWED.contains(part.type()) && part.quantity() != 1) {
-                throw new ValidationException("Nhóm " + part.type() + " chỉ nhận một sản phẩm");
-            }
-            byType.computeIfAbsent(part.type(), ignored -> new ArrayList<>()).add(part);
-            if (!MULTIPLE_ALLOWED.contains(part.type()) && byType.get(part.type()).size() > 1) {
-                throw new ValidationException("Build có nhiều linh kiện ở nhóm " + part.type());
-            }
-        }
+        Map<ComponentType, List<Part>> byType = groupParts(parts);
 
         Part cpu = one(byType, ComponentType.CPU);
         Part main = one(byType, ComponentType.MOTHERBOARD);
@@ -59,9 +46,29 @@ public final class CompatibilityRules {
         rules.add(coolerHeight(cooler, pcCase));
         rules.add(atLeast("psu_gpu_wattage", integer(psu, "wattage"), integer(gpu, "recommendedPsuW"), "Công suất PSU"));
 
-        Status overall = rules.stream().anyMatch(r -> r.status() == Status.FAIL) ? Status.FAIL
-                : rules.stream().anyMatch(r -> r.status() == Status.UNKNOWN) ? Status.UNKNOWN : Status.PASS;
-        return new Report(overall, List.copyOf(rules));
+        return new Report(overallStatus(rules), List.copyOf(rules));
+    }
+
+    private static Map<ComponentType, List<Part>> groupParts(List<Part> parts) {
+        Map<ComponentType, List<Part>> byType = new EnumMap<>(ComponentType.class);
+        for (Part part : parts) {
+            byType.computeIfAbsent(part.type(), ignored -> new ArrayList<>()).add(part);
+        }
+        for (var entry : byType.entrySet()) {
+            ComponentType type = entry.getKey();
+            List<Part> selected = entry.getValue();
+            if (!MULTIPLE_ALLOWED.contains(type)
+                    && (selected.size() > 1 || selected.getFirst().quantity() != 1)) {
+                throw new ValidationException("Nhóm " + type + " chỉ nhận một sản phẩm");
+            }
+        }
+        return byType;
+    }
+
+    private static Status overallStatus(List<RuleResult> rules) {
+        if (rules.stream().anyMatch(rule -> rule.status() == Status.FAIL)) return Status.FAIL;
+        if (rules.stream().anyMatch(rule -> rule.status() == Status.UNKNOWN)) return Status.UNKNOWN;
+        return Status.PASS;
     }
 
     private static Part one(Map<ComponentType, List<Part>> byType, ComponentType type) {

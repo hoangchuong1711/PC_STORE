@@ -70,14 +70,12 @@ function catalogProduct(item: BuilderCatalogProduct): BuilderProduct | null {
   const number = (key: string) => typeof spec[key] === "number" ? spec[key] as number : undefined;
   return {
     id: String(item.productId), slot, name: item.name, brand: item.brand,
-    price: item.price, stock: item.availableQuantity, accent: "#006ce1",
+    price: item.price,
     image: item.imageUrl ?? undefined,
     specs: {
       socket: string("socketCode"), formFactor: string("formFactorCode"),
       ramType: string("ramType"), capacityGb: number("capacityGb"),
-      tdpWatts: number("tdpWatts") ?? number("powerConsumptionW"),
       wattage: number("wattage"), efficiency: string("efficiencyRating"),
-      maxGpuLengthMm: number("maxGpuLengthMm"),
     },
   };
 }
@@ -85,12 +83,10 @@ function catalogProduct(item: BuilderCatalogProduct): BuilderProduct | null {
 function BuilderProductThumbnail({
   name,
   image,
-  accent,
   size = "md",
 }: {
   name: string;
   image?: string;
-  accent: string;
   size?: "sm" | "md";
 }) {
   const [hasError, setHasError] = useState(false);
@@ -117,7 +113,7 @@ function BuilderProductThumbnail({
   return (
     <div
       className={`${sizeClass} rounded-xl grid place-items-center text-white font-gaming ${textClass} font-bold shrink-0`}
-      style={{ background: accent }}
+      style={{ background: "#006ce1" }}
     >
       {name.slice(0, 1)}
     </div>
@@ -448,7 +444,6 @@ export function PCBuilderPage() {
                       <BuilderProductThumbnail
                         name={item.name}
                         image={item.image}
-                        accent={item.accent}
                         size="md"
                       />
 
@@ -678,7 +673,6 @@ export function PCBuilderPage() {
                       <BuilderProductThumbnail
                         name={prod.name}
                         image={prod.image}
-                        accent={prod.accent}
                         size="sm"
                       />
 

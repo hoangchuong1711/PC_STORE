@@ -19,6 +19,16 @@ public class CompatibilityService {
     public CompatibilityService(EntityManager em) { this.parts = new CompatibilityDao(em); }
 
     public Report evaluate(List<Selection> selections) {
+        validateSelections(selections);
+        List<Part> loaded = new ArrayList<>();
+        for (Selection item : selections) {
+            loaded.add(parts.findPart(item));
+        }
+        return CompatibilityRules.evaluate(loaded);
+    }
+
+    /** Also used by the HTTP adapter before opening an EntityManager. */
+    public static void validateSelections(List<Selection> selections) {
         if (selections == null) throw new ValidationException("Danh sách linh kiện là bắt buộc");
         Set<Integer> selectedIds = new HashSet<>();
         for (Selection item : selections) {
@@ -27,10 +37,5 @@ public class CompatibilityService {
             }
             if (!selectedIds.add(item.productId())) throw new ValidationException("Sản phẩm bị chọn trùng trong build");
         }
-        List<Part> loaded = new ArrayList<>();
-        for (Selection item : selections) {
-            loaded.add(parts.findPart(item));
-        }
-        return CompatibilityRules.evaluate(loaded);
     }
 }
